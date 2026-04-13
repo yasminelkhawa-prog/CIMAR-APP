@@ -102,6 +102,19 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation, readO
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Top bar with back and modify buttons */}
+      {existingEvaluation && (
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> {t('backToList')}
+          </Button>
+          {readOnly && (
+            <Button onClick={onEnableEdit} size="sm" variant="outline">
+              <Pencil className="h-4 w-4 mr-1" /> {t('modify')}
+            </Button>
+          )}
+        </div>
+      )}
       <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-lg flex items-center gap-2">
