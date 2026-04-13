@@ -7,18 +7,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScoreButton } from './ScoreButton';
-import { Candidate, JobRoleConfig, EvaluationForm, CriterionScore } from '@/types/evaluation';
-import { Save, CheckCircle2, XCircle, User, Briefcase, Mail, Building2 } from 'lucide-react';
+import { JobRoleConfig, EvaluationForm, CriterionScore } from '@/types/evaluation';
+import { Save, CheckCircle2, XCircle, User } from 'lucide-react';
 
 interface Props {
-  candidates: Candidate[];
   jobRoles: JobRoleConfig[];
   onSave: (evaluation: EvaluationForm) => void;
   existingEvaluation?: EvaluationForm;
 }
 
-export function EvaluationFormView({ candidates, jobRoles, onSave, existingEvaluation }: Props) {
-  const [selectedCandidateId, setSelectedCandidateId] = useState(existingEvaluation?.candidateId || '');
+export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Props) {
+  const [candidateName, setCandidateName] = useState(existingEvaluation?.candidateName || '');
   const [selectedRoleId, setSelectedRoleId] = useState(existingEvaluation?.jobRoleConfigId || jobRoles[0]?.id || '');
   const [interviewerName, setInterviewerName] = useState(existingEvaluation?.interviewerName || '');
   const [date, setDate] = useState(existingEvaluation?.date || new Date().toISOString().split('T')[0]);
@@ -29,7 +28,6 @@ export function EvaluationFormView({ candidates, jobRoles, onSave, existingEvalu
   const [comments, setComments] = useState(existingEvaluation?.comments || '');
   const [decision, setDecision] = useState<'favorable' | 'unfavorable' | null>(existingEvaluation?.decision || null);
 
-  const selectedCandidate = candidates.find(c => c.id === selectedCandidateId);
   const selectedRole = jobRoles.find(r => r.id === selectedRoleId);
 
   const getScore = (criterionId: string) => scores.find(s => s.criterionId === criterionId)?.score || 0;
@@ -77,10 +75,10 @@ export function EvaluationFormView({ candidates, jobRoles, onSave, existingEvalu
   };
 
   const handleSave = () => {
-    if (!selectedCandidateId || !selectedRoleId) return;
+    if (!candidateName.trim() || !selectedRoleId) return;
     const evaluation: EvaluationForm = {
       id: existingEvaluation?.id || crypto.randomUUID(),
-      candidateId: selectedCandidateId,
+      candidateName: candidateName.trim(),
       jobRoleConfigId: selectedRoleId,
       interviewerName,
       date,
@@ -108,19 +106,8 @@ export function EvaluationFormView({ candidates, jobRoles, onSave, existingEvalu
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label>Select Candidate (from ATS)</Label>
-              <Select value={selectedCandidateId} onValueChange={setSelectedCandidateId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a candidate..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {candidates.map(c => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.firstName} {c.lastName} — {c.jobTitle}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Candidate Name</Label>
+              <Input value={candidateName} onChange={e => setCandidateName(e.target.value)} placeholder="Enter candidate's full name..." />
             </div>
             <div>
               <Label>Job Role Configuration</Label>
@@ -137,42 +124,6 @@ export function EvaluationFormView({ candidates, jobRoles, onSave, existingEvalu
             </div>
           </div>
 
-          {selectedCandidate && (
-            <div className="rounded-lg bg-primary/5 border border-primary/20 p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-[11px] text-muted-foreground">Name</p>
-                  <p className="text-sm font-medium">{selectedCandidate.firstName} {selectedCandidate.lastName}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-[11px] text-muted-foreground">Position</p>
-                  <p className="text-sm font-medium">{selectedCandidate.jobTitle}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-[11px] text-muted-foreground">Department</p>
-                  <p className="text-sm font-medium">{selectedCandidate.department}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-[11px] text-muted-foreground">Email</p>
-                  <p className="text-sm font-medium">{selectedCandidate.email}</p>
-                </div>
-              </div>
-              <div>
-                <Badge variant="outline">{selectedCandidate.status}</Badge>
-                <Badge variant="secondary" className="ml-2">{selectedCandidate.source}</Badge>
-              </div>
-            </div>
-          )}
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
@@ -335,7 +286,7 @@ export function EvaluationFormView({ candidates, jobRoles, onSave, existingEvalu
             </div>
           </div>
           <div className="flex justify-end pt-4">
-            <Button onClick={handleSave} disabled={!selectedCandidateId} size="lg">
+            <Button onClick={handleSave} disabled={!candidateName.trim()} size="lg">
               <Save className="h-4 w-4 mr-2" />
               Save Evaluation
             </Button>
