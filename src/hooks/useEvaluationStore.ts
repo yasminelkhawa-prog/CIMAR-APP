@@ -74,7 +74,7 @@ export function useEvaluationStore() {
 
   const updateJobRole = useCallback(async (id: string, updates: Partial<JobRoleConfig>) => {
     setJobRoles(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
-    const dbUpdates: Record<string, unknown> = {};
+    const dbUpdates: { name?: string; categories?: Json; scale_max?: number } = {};
     if (updates.name) dbUpdates.name = updates.name;
     if (updates.categories) dbUpdates.categories = updates.categories as unknown as Json;
     if (updates.scaleMax) dbUpdates.scale_max = updates.scaleMax;
