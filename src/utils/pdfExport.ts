@@ -229,7 +229,7 @@ export async function generateEvaluationPdf(
   // Footer
   doc.setTextColor(150, 150, 150);
   doc.setFontSize(7);
-  doc.text(`Generated on ${new Date().toLocaleDateString()} — Numa Evaluation System`, pageWidth / 2, 290, { align: 'center' });
+  doc.text(`Generated on ${new Date().toLocaleDateString()} — Ciments du Maroc Evaluation System`, pageWidth / 2, 290, { align: 'center' });
 
   doc.save(`evaluation-${evaluation.candidateName.replace(/\s+/g, '-')}-${evaluation.date}.pdf`);
 }

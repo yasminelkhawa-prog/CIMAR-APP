@@ -11,13 +11,13 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>(() => {
-    const stored = localStorage.getItem('numa-lang');
+    const stored = localStorage.getItem('cimar-lang');
     return (stored === 'fr' || stored === 'en') ? stored : 'en';
   });
 
   const changeLang = (newLang: Lang) => {
     setLang(newLang);
-    localStorage.setItem('numa-lang', newLang);
+    localStorage.setItem('cimar-lang', newLang);
   };
 
   const t = (key: TranslationKey): string => translations[lang][key];

@@ -2,7 +2,7 @@ export type Lang = 'en' | 'fr';
 
 export const translations = {
   en: {
-    appTitle: 'Numa — Interview Evaluation',
+    appTitle: 'Ciments du Maroc — Interview Evaluation',
     appSubtitle: 'Smart interview assessment grid with auto-scoring',
     newEvaluation: 'New Evaluation',
     evaluations: 'Evaluations',
@@ -64,7 +64,7 @@ export const translations = {
     weight: 'Weight',
   },
   fr: {
-    appTitle: 'Numa — Évaluation d\'Entretien',
+    appTitle: 'Ciments du Maroc — Évaluation d\'Entretien',
     appSubtitle: 'Grille d\'évaluation intelligente avec scoring automatique',
     newEvaluation: 'Nouvelle Évaluation',
     evaluations: 'Évaluations',
