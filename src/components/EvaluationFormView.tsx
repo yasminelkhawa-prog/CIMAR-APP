@@ -8,16 +8,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScoreButton } from './ScoreButton';
 import { JobRoleConfig, EvaluationForm, CriterionScore } from '@/types/evaluation';
-import { Save, CheckCircle2, XCircle, User } from 'lucide-react';
+import { Save, CheckCircle2, XCircle, User, Pencil, ArrowLeft } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 interface Props {
   jobRoles: JobRoleConfig[];
   onSave: (evaluation: EvaluationForm) => void;
   existingEvaluation?: EvaluationForm;
+  readOnly?: boolean;
+  onEnableEdit?: () => void;
+  onBack?: () => void;
 }
 
-export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Props) {
+export function EvaluationFormView({ jobRoles, onSave, existingEvaluation, readOnly = false, onEnableEdit, onBack }: Props) {
   const { t } = useLanguage();
   const [candidateName, setCandidateName] = useState(existingEvaluation?.candidateName || '');
   const [candidateSource, setCandidateSource] = useState<'internal' | 'external'>(existingEvaluation?.candidateSource || 'external');
