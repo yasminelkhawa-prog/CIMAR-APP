@@ -103,7 +103,7 @@ export async function generateEvaluationPdf(
   doc.rect(cbX1, y - 3, cbSize, cbSize);
   if (evaluation.candidateSource === 'internal') {
     doc.setFont('helvetica', 'bold');
-    doc.text('✓', cbX1 + 0.5, y - 0.2);
+    doc.text(X_MARK, cbX1 + 0.8, y - 0.5);
   }
   doc.setFont('helvetica', 'normal');
   doc.text(fr ? 'Interne' : 'Internal', cbX1 + 5, y);
@@ -112,7 +112,7 @@ export async function generateEvaluationPdf(
   doc.rect(cbX2, y - 3, cbSize, cbSize);
   if (evaluation.candidateSource === 'external') {
     doc.setFont('helvetica', 'bold');
-    doc.text('✓', cbX2 + 0.5, y - 0.2);
+    doc.text(X_MARK, cbX2 + 0.8, y - 0.5);
   }
   doc.setFont('helvetica', 'normal');
   doc.text(fr ? 'Externe' : 'External', cbX2 + 5, y);
@@ -124,7 +124,7 @@ export async function generateEvaluationPdf(
   doc.rect(motifX, y - 3, cbSize, cbSize);
   if (evaluation.recruitmentReason === 'replacement') {
     doc.setFont('helvetica', 'bold');
-    doc.text('✓', motifX + 0.5, y - 0.2);
+    doc.text(X_MARK, motifX + 0.8, y - 0.5);
   }
   doc.setFont('helvetica', 'normal');
   doc.text(fr ? 'Remplacement' : 'Replacement', motifX + 5, y);
@@ -134,7 +134,7 @@ export async function generateEvaluationPdf(
   doc.rect(motifX, y - 3, cbSize, cbSize);
   if (evaluation.recruitmentReason === 'creation') {
     doc.setFont('helvetica', 'bold');
-    doc.text('✓', motifX + 0.5, y - 0.2);
+    doc.text(X_MARK, motifX + 0.8, y - 0.5);
   }
   doc.setFont('helvetica', 'normal');
   doc.text(fr ? 'Création de poste' : 'New position', motifX + 5, y);
@@ -146,7 +146,7 @@ export async function generateEvaluationPdf(
   doc.rect(typeX1, y - 3, cbSize, cbSize);
   if (evaluation.recruitmentType === 'budgeted') {
     doc.setFont('helvetica', 'bold');
-    doc.text('✓', typeX1 + 0.5, y - 0.2);
+    doc.text(X_MARK, typeX1 + 0.8, y - 0.5);
   }
   doc.setFont('helvetica', 'normal');
   doc.text(fr ? 'Budgété' : 'Budgeted', typeX1 + 5, y);
@@ -155,7 +155,7 @@ export async function generateEvaluationPdf(
   doc.rect(typeX2, y - 3, cbSize, cbSize);
   if (evaluation.recruitmentType === 'non-budgeted') {
     doc.setFont('helvetica', 'bold');
-    doc.text('✓', typeX2 + 0.5, y - 0.2);
+    doc.text(X_MARK, typeX2 + 0.8, y - 0.5);
   }
   doc.setFont('helvetica', 'normal');
   doc.text(fr ? 'Non budgété' : 'Non-budgeted', typeX2 + 5, y);
@@ -164,7 +164,7 @@ export async function generateEvaluationPdf(
   doc.rect(motifX, y - 3, cbSize, cbSize);
   if (evaluation.recruitmentReason === 'other') {
     doc.setFont('helvetica', 'bold');
-    doc.text('✓', motifX + 0.5, y - 0.2);
+    doc.text(X_MARK, motifX + 0.8, y - 0.5);
   }
   doc.setFont('helvetica', 'normal');
   doc.text(fr ? 'Autre' : 'Other', motifX + 5, y);
@@ -389,8 +389,8 @@ export async function generateEvaluationPdf(
     doc.setFillColor(...GREEN);
     doc.rect(leftDecX - 15, y + 3.5, dcbSize, dcbSize, 'F');
     doc.setTextColor(...WHITE);
-    doc.setFontSize(9);
-    doc.text('✓', leftDecX - 14, y + 7.5);
+    doc.setFontSize(8);
+    doc.text(X_MARK, leftDecX - 13.5, y + 7);
   }
   doc.setTextColor(...BLACK);
   doc.setFontSize(10);
@@ -403,8 +403,8 @@ export async function generateEvaluationPdf(
     doc.setFillColor(220, 53, 69);
     doc.rect(rightDecX - 15, y + 3.5, dcbSize, dcbSize, 'F');
     doc.setTextColor(...WHITE);
-    doc.setFontSize(9);
-    doc.text('✓', rightDecX - 14, y + 7.5);
+    doc.setFontSize(8);
+    doc.text(X_MARK, rightDecX - 13.5, y + 7);
   }
   doc.setTextColor(...BLACK);
   doc.setFontSize(10);
