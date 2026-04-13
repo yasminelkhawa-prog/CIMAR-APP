@@ -25,7 +25,7 @@ export function EvaluationsList({ evaluations, candidates, jobRoles, onDelete }:
   return (
     <div className="space-y-3 max-w-4xl mx-auto">
       {evaluations.map(ev => {
-        const candidate = candidates.find(c => c.id === ev.candidateId);
+        const candidateName = ev.candidateName;
         const role = jobRoles.find(r => r.id === ev.jobRoleConfigId);
 
         let totalScore = 0;
@@ -47,7 +47,7 @@ export function EvaluationsList({ evaluations, candidates, jobRoles, onDelete }:
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="font-semibold text-sm">
-                    {candidate ? `${candidate.firstName} ${candidate.lastName}` : 'Unknown Candidate'}
+                    {candidateName || 'Unknown Candidate'}
                   </p>
                   <Badge variant="outline" className="text-[10px]">
                     {role?.name || 'Unknown Role'}
