@@ -1,235 +1,405 @@
 import { EvaluationForm, JobRoleConfig } from '@/types/evaluation';
 
+const GREEN = [39, 124, 75] as const; // #277C4B - CIMAR green
+const LIGHT_GREEN = [220, 237, 225] as const;
+const DARK_GREEN = [30, 95, 58] as const;
+const WHITE = [255, 255, 255] as const;
+const BLACK = [0, 0, 0] as const;
+const GRAY = [100, 100, 100] as const;
+const BORDER_GREEN = [39, 124, 75] as const;
+
 export async function generateEvaluationPdf(
   evaluation: EvaluationForm,
   jobRole: JobRoleConfig | undefined,
-  lang: 'en' | 'fr' = 'en'
+  lang: 'en' | 'fr' = 'fr'
 ) {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = 210;
   const margin = 15;
   const contentWidth = pageWidth - margin * 2;
-  let y = 15;
+  let y = 12;
 
-  const labels = lang === 'fr' ? {
-    title: 'GRILLE D\'ÉVALUATION DE L\'ENTRETIEN',
-    company: 'Ciments du Maroc - Heidelberg Materials',
-    candidate: 'Candidat',
-    source: 'Source',
-    internal: 'Interne',
-    external: 'Externe',
-    position: 'Poste',
-    interviewer: 'Intervieweur',
-    date: 'Date',
-    location: 'Lieu',
-    reason: 'Motif',
-    type: 'Type',
-    replacement: 'Remplacement',
-    creation: 'Création de Poste',
-    other: 'Autre',
-    budgeted: 'Budgétisé',
-    nonBudgeted: 'Non Budgétisé',
-    criteria: 'Critères d\'Évaluation',
-    weight: 'Poids',
-    score: 'Note',
-    total: 'Score Total',
-    comments: 'Commentaires',
-    decision: 'Décision',
-    favorable: 'Favorable',
-    unfavorable: 'Défavorable',
-    pending: 'En attente',
-    scoreLabels: ['', 'Insuffisant', 'Passable', 'Bien', 'Excellent'],
-  } : {
-    title: 'INTERVIEW EVALUATION GRID',
-    company: 'Ciments du Maroc - Heidelberg Materials',
-    candidate: 'Candidate',
-    source: 'Source',
-    internal: 'Internal',
-    external: 'External',
-    position: 'Position',
-    interviewer: 'Interviewer',
-    date: 'Date',
-    location: 'Location',
-    reason: 'Reason',
-    type: 'Type',
-    replacement: 'Replacement',
-    creation: 'New Position',
-    other: 'Other',
-    budgeted: 'Budgeted',
-    nonBudgeted: 'Non-Budgeted',
-    criteria: 'Evaluation Criteria',
-    weight: 'Weight',
-    score: 'Score',
-    total: 'Total Score',
-    comments: 'Comments',
-    decision: 'Decision',
-    favorable: 'Favorable',
-    unfavorable: 'Unfavorable',
-    pending: 'Pending',
-    scoreLabels: ['', 'Insufficient', 'Passable', 'Good', 'Excellent'],
-  };
+  const fr = lang === 'fr';
 
-  // Header
-  doc.setFillColor(0, 100, 60);
-  doc.rect(0, 0, pageWidth, 28, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(16);
+  // ── LOGO area ──
+  // Since we can't easily embed the logo image in jsPDF without base64,
+  // we'll render the company name styled like the logo
+  doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text(labels.title, pageWidth / 2, 12, { align: 'center' });
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(labels.company, pageWidth / 2, 20, { align: 'center' });
-
-  y = 36;
-  doc.setTextColor(0, 0, 0);
-
-  // Candidate info
-  const drawField = (label: string, value: string, x: number, yPos: number, w: number) => {
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    doc.text(label, x, yPos);
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'bold');
-    doc.text(value || '-', x, yPos + 5);
-    doc.setFont('helvetica', 'normal');
-    doc.line(x, yPos + 7, x + w, yPos + 7);
-  };
-
-  const reasonLabel = evaluation.recruitmentReason === 'replacement' ? labels.replacement :
-    evaluation.recruitmentReason === 'creation' ? labels.creation : labels.other;
-  const typeLabel = evaluation.recruitmentType === 'budgeted' ? labels.budgeted : labels.nonBudgeted;
-  const sourceLabel = evaluation.candidateSource === 'internal' ? labels.internal : labels.external;
-
-  drawField(labels.candidate, evaluation.candidateName, margin, y, contentWidth / 3 - 5);
-  drawField(labels.source, sourceLabel, margin + contentWidth / 3, y, contentWidth / 3 - 5);
-  drawField(labels.position, jobRole?.name || '-', margin + (contentWidth / 3) * 2, y, contentWidth / 3);
-  y += 16;
-  drawField(labels.interviewer, evaluation.interviewerName, margin, y, contentWidth / 4 - 5);
-  drawField(labels.date, evaluation.date, margin + contentWidth / 4, y, contentWidth / 4 - 5);
-  drawField(labels.location, evaluation.location, margin + (contentWidth / 4) * 2, y, contentWidth / 4 - 5);
-  drawField(labels.reason, `${reasonLabel} / ${typeLabel}`, margin + (contentWidth / 4) * 3, y, contentWidth / 4);
-  y += 20;
-
-  // Scoring table
-  if (jobRole) {
-    doc.setFillColor(0, 100, 60);
-    doc.rect(margin, y, contentWidth, 8, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text(labels.criteria, margin + 2, y + 5.5);
-    doc.text(labels.weight, margin + contentWidth - 55, y + 5.5);
-    doc.text('1', margin + contentWidth - 35, y + 5.5);
-    doc.text('2', margin + contentWidth - 25, y + 5.5);
-    doc.text('3', margin + contentWidth - 15, y + 5.5);
-    doc.text('4', margin + contentWidth - 5, y + 5.5);
-    y += 8;
-
-    let totalWeighted = 0;
-    let maxWeighted = 0;
-
-    jobRole.categories.forEach(cat => {
-      // Category header
-      doc.setFillColor(220, 235, 228);
-      doc.rect(margin, y, contentWidth, 7, 'F');
-      doc.setTextColor(0, 80, 50);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.text(cat.name.toUpperCase(), margin + 2, y + 5);
-      y += 7;
-
-      cat.criteria.forEach(crit => {
-        const score = evaluation.scores.find(s => s.criterionId === crit.id)?.score || 0;
-        totalWeighted += score * crit.weight;
-        maxWeighted += jobRole.scaleMax * crit.weight;
-
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text(crit.name, margin + 2, y + 5);
-        doc.setTextColor(120, 120, 120);
-        doc.setFontSize(7);
-
-        const descLines = doc.splitTextToSize(crit.description, contentWidth - 70);
-        doc.text(descLines[0] || '', margin + 2, y + 9);
-
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(8);
-        doc.text(`×${crit.weight}`, margin + contentWidth - 55, y + 6);
-
-        // Score circles
-        for (let v = 1; v <= 4; v++) {
-          const cx = margin + contentWidth - 40 + v * 10;
-          if (score === v) {
-            doc.setFillColor(0, 100, 60);
-            doc.circle(cx, y + 5, 3, 'F');
-            doc.setTextColor(255, 255, 255);
-          } else {
-            doc.setDrawColor(180, 180, 180);
-            doc.circle(cx, y + 5, 3, 'S');
-            doc.setTextColor(150, 150, 150);
-          }
-          doc.setFontSize(7);
-          doc.text(String(v), cx - 1, y + 6.5);
-        }
-
-        doc.setDrawColor(230, 230, 230);
-        y += 12;
-        doc.line(margin, y, margin + contentWidth, y);
-
-        if (y > 270) {
-          doc.addPage();
-          y = 15;
-        }
-      });
-    });
-
-    // Total score
-    y += 3;
-    const pct = maxWeighted > 0 ? Math.round((totalWeighted / maxWeighted) * 100) : 0;
-    doc.setFillColor(0, 100, 60);
-    doc.rect(margin, y, contentWidth, 10, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${labels.total}: ${totalWeighted}/${maxWeighted} (${pct}%)`, margin + 5, y + 7);
-    y += 16;
-  }
-
-  // Comments
-  if (y > 250) { doc.addPage(); y = 15; }
-  doc.setTextColor(0, 80, 50);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text(labels.comments, margin, y);
-  y += 5;
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(...DARK_GREEN);
+  doc.text('Ciments du Maroc', margin, y + 5);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  const commentLines = doc.splitTextToSize(evaluation.comments || '-', contentWidth);
-  doc.text(commentLines, margin, y);
-  y += commentLines.length * 4 + 8;
+  doc.setTextColor(...GRAY);
+  doc.text('Heidelberg Materials', margin, y + 11);
+  y += 20;
 
-  // Decision
-  doc.setTextColor(0, 80, 50);
+  // ── TITLE BOX ──
+  const titleBoxH = 14;
+  doc.setDrawColor(...BORDER_GREEN);
+  doc.setLineWidth(0.8);
+  doc.rect(margin, y, contentWidth, titleBoxH);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...BLACK);
+  doc.text(
+    fr ? "GRILLE D'ÉVALUATION DE L'ENTRETIEN" : 'INTERVIEW EVALUATION GRID',
+    pageWidth / 2, y + titleBoxH / 2 + 2, { align: 'center' }
+  );
+  y += titleBoxH + 4;
+
+  // ── INFO SECTION (bordered box) ──
+  const infoStartY = y;
+  const infoH = 52;
+  doc.setDrawColor(...BORDER_GREEN);
+  doc.setLineWidth(0.5);
+  doc.rect(margin, y, contentWidth, infoH);
+
+  const infoX = margin + 5;
+  const midX = margin + contentWidth / 2 + 5;
+  y += 8;
+
+  // Row 1: Date / Lieu
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...BLACK);
+  doc.text(`${fr ? 'Date' : 'Date'} :`, infoX, y);
+  doc.setFont('helvetica', 'bold');
+  doc.text(evaluation.date || '___', infoX + 20, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${fr ? 'Lieu' : 'Location'} :`, midX, y);
+  doc.setFont('helvetica', 'bold');
+  doc.text(evaluation.location || '___', midX + 20, y);
+  y += 9;
+
+  // Row 2: Candidate / Interviewer
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${fr ? 'Nom & prénom du candidat' : 'Candidate name'} :`, infoX, y);
+  doc.setFont('helvetica', 'bold');
+  doc.text(evaluation.candidateName || '___', infoX + 55, y);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${fr ? "Nom de l'intervieweur" : 'Interviewer'} :`, midX, y);
+  doc.setFont('helvetica', 'bold');
+  doc.text(evaluation.interviewerName || '___', midX + 45, y);
+  y += 9;
+
+  // Row 3: Source de CV
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${fr ? 'Source de CV' : 'CV Source'} :`, infoX, y);
+  // Checkbox for Interne
+  const cbSize = 3.5;
+  const cbX1 = infoX + 30;
+  doc.rect(cbX1, y - 3, cbSize, cbSize);
+  if (evaluation.candidateSource === 'internal') {
+    doc.setFont('helvetica', 'bold');
+    doc.text('✓', cbX1 + 0.5, y - 0.2);
+  }
+  doc.setFont('helvetica', 'normal');
+  doc.text(fr ? 'Interne' : 'Internal', cbX1 + 5, y);
+
+  const cbX2 = cbX1 + 30;
+  doc.rect(cbX2, y - 3, cbSize, cbSize);
+  if (evaluation.candidateSource === 'external') {
+    doc.setFont('helvetica', 'bold');
+    doc.text('✓', cbX2 + 0.5, y - 0.2);
+  }
+  doc.setFont('helvetica', 'normal');
+  doc.text(fr ? 'Externe' : 'External', cbX2 + 5, y);
+
+  // Motif de recrutement
+  doc.text(`${fr ? 'Motif de recrutement' : 'Recruitment reason'} :`, midX, y);
+  const motifX = midX + 48;
+  // Remplacement
+  doc.rect(motifX, y - 3, cbSize, cbSize);
+  if (evaluation.recruitmentReason === 'replacement') {
+    doc.setFont('helvetica', 'bold');
+    doc.text('✓', motifX + 0.5, y - 0.2);
+  }
+  doc.setFont('helvetica', 'normal');
+  doc.text(fr ? 'Remplacement' : 'Replacement', motifX + 5, y);
+  y += 7;
+
+  // Création de poste
+  doc.rect(motifX, y - 3, cbSize, cbSize);
+  if (evaluation.recruitmentReason === 'creation') {
+    doc.setFont('helvetica', 'bold');
+    doc.text('✓', motifX + 0.5, y - 0.2);
+  }
+  doc.setFont('helvetica', 'normal');
+  doc.text(fr ? 'Création de poste' : 'New position', motifX + 5, y);
+  y += 7;
+
+  // Row 4: Type de recrutement / Autre
+  doc.text(`${fr ? 'Type de recrutement' : 'Recruitment type'} :`, infoX, y);
+  const typeX1 = infoX + 42;
+  doc.rect(typeX1, y - 3, cbSize, cbSize);
+  if (evaluation.recruitmentType === 'budgeted') {
+    doc.setFont('helvetica', 'bold');
+    doc.text('✓', typeX1 + 0.5, y - 0.2);
+  }
+  doc.setFont('helvetica', 'normal');
+  doc.text(fr ? 'Budgété' : 'Budgeted', typeX1 + 5, y);
+
+  const typeX2 = typeX1 + 30;
+  doc.rect(typeX2, y - 3, cbSize, cbSize);
+  if (evaluation.recruitmentType === 'non-budgeted') {
+    doc.setFont('helvetica', 'bold');
+    doc.text('✓', typeX2 + 0.5, y - 0.2);
+  }
+  doc.setFont('helvetica', 'normal');
+  doc.text(fr ? 'Non budgété' : 'Non-budgeted', typeX2 + 5, y);
+
+  // Autre checkbox
+  doc.rect(motifX, y - 3, cbSize, cbSize);
+  if (evaluation.recruitmentReason === 'other') {
+    doc.setFont('helvetica', 'bold');
+    doc.text('✓', motifX + 0.5, y - 0.2);
+  }
+  doc.setFont('helvetica', 'normal');
+  doc.text(fr ? 'Autre' : 'Other', motifX + 5, y);
+
+  y = infoStartY + infoH + 6;
+
+  // ── SCORING TABLE ──
+  if (jobRole) {
+    const colCriteria = margin;
+    const catLabelW = 8;
+    const criteriaTextX = margin + catLabelW;
+    const criteriaTextW = contentWidth - catLabelW - 48;
+    const scoreColW = 12;
+    const scoreStartX = margin + contentWidth - 48;
+    const headerH = 10;
+
+    // Score labels
+    const scoreHeaders = fr
+      ? ['INSUFFISANT', 'PASSABLE', 'BIEN', 'TRÈS BIEN']
+      : ['INSUFFICIENT', 'PASSABLE', 'GOOD', 'VERY GOOD'];
+
+    // Table header row
+    doc.setFillColor(...GREEN);
+    doc.rect(colCriteria, y, contentWidth, headerH, 'F');
+    doc.setTextColor(...WHITE);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text(fr ? 'CRITÈRES' : 'CRITERIA', criteriaTextX + 2, y + 6);
+
+    for (let i = 0; i < 4; i++) {
+      const cx = scoreStartX + i * scoreColW + scoreColW / 2;
+      doc.setFontSize(5.5);
+      doc.text(scoreHeaders[i], cx, y + 4, { align: 'center' });
+      doc.setFontSize(9);
+      doc.text(String(i + 1), cx, y + 8.5, { align: 'center' });
+    }
+    y += headerH;
+
+    let totalPoints = 0;
+    let maxPoints = 0;
+    const allCriteria: { catName: string; criteria: typeof jobRole.categories[0]['criteria'] }[] = [];
+
+    jobRole.categories.forEach(cat => {
+      allCriteria.push({ catName: cat.name, criteria: cat.criteria });
+    });
+
+    // Draw each category
+    allCriteria.forEach(({ catName, criteria }) => {
+      const catStartY = y;
+      const rowH = 8;
+      const catH = criteria.length * rowH;
+
+      // Category vertical label background
+      doc.setFillColor(...GREEN);
+      doc.rect(colCriteria, y, catLabelW, catH, 'F');
+
+      // Draw criteria rows
+      criteria.forEach((crit, idx) => {
+        const rowY = y + idx * rowH;
+        const score = evaluation.scores.find(s => s.criterionId === crit.id)?.score || 0;
+        totalPoints += score;
+        maxPoints += jobRole.scaleMax;
+
+        // Alternating row background
+        if (idx % 2 === 0) {
+          doc.setFillColor(250, 250, 250);
+        } else {
+          doc.setFillColor(255, 255, 255);
+        }
+        doc.rect(criteriaTextX, rowY, contentWidth - catLabelW, rowH, 'F');
+
+        // Criteria text
+        doc.setTextColor(...BLACK);
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+
+        // Use French name from description if in French mode
+        const critText = fr ? crit.name : crit.name;
+        const descText = crit.description ? ` (${crit.description})` : '';
+        const fullText = critText + descText;
+        doc.text(fullText, criteriaTextX + 2, rowY + 5.5, { maxWidth: criteriaTextW - 4 });
+
+        // Score checkboxes
+        for (let v = 1; v <= 4; v++) {
+          const cx = scoreStartX + (v - 1) * scoreColW + scoreColW / 2;
+          if (score === v) {
+            doc.setFillColor(...GREEN);
+            doc.rect(cx - 2.5, rowY + 2, 5, 4, 'F');
+            doc.setTextColor(...WHITE);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.text(String(v), cx, rowY + 5.2, { align: 'center' });
+          } else {
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.3);
+            doc.rect(cx - 2.5, rowY + 2, 5, 4);
+          }
+        }
+
+        // Row border
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.2);
+        doc.line(criteriaTextX, rowY + rowH, margin + contentWidth, rowY + rowH);
+      });
+
+      // Category vertical label text (rotated)
+      doc.setTextColor(...WHITE);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'bold');
+      const catCenterY = catStartY + catH / 2;
+      doc.text(catName.toUpperCase(), colCriteria + catLabelW / 2, catCenterY, {
+        align: 'center',
+        angle: 90,
+      });
+
+      // Category border
+      doc.setDrawColor(...BORDER_GREEN);
+      doc.setLineWidth(0.3);
+      doc.rect(colCriteria, catStartY, contentWidth, catH);
+
+      y += catH;
+
+      // Page break check
+      if (y > 260) {
+        doc.addPage();
+        y = 15;
+      }
+    });
+
+    // TOTAL DES POINTS row
+    const totalRowH = 8;
+    doc.setFillColor(...GREEN);
+    doc.rect(colCriteria, y, contentWidth / 2 + 10, totalRowH, 'F');
+    doc.setTextColor(...WHITE);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(fr ? 'TOTAL DES POINTS' : 'TOTAL POINTS', colCriteria + contentWidth / 2 - 5, y + 5.5, { align: 'center' });
+
+    // Total value
+    doc.setFillColor(245, 245, 245);
+    doc.rect(colCriteria + contentWidth / 2 + 10, y, contentWidth / 2 - 10, totalRowH, 'F');
+    doc.setTextColor(...BLACK);
+    doc.setFontSize(10);
+    doc.text(`${totalPoints} / ${maxPoints}`, colCriteria + contentWidth * 3 / 4 + 5, y + 5.5, { align: 'center' });
+    doc.setDrawColor(...BORDER_GREEN);
+    doc.rect(colCriteria, y, contentWidth, totalRowH);
+    y += totalRowH;
+
+    // NOTE GLOBALE row
+    const pct = maxPoints > 0 ? ((totalPoints / maxPoints) * 100).toFixed(1) : '0';
+    doc.setFillColor(...GREEN);
+    doc.rect(colCriteria, y, contentWidth / 2 + 10, totalRowH, 'F');
+    doc.setTextColor(...WHITE);
+    doc.setFontSize(9);
+    doc.text(fr ? 'NOTE GLOBALE' : 'OVERALL SCORE', colCriteria + contentWidth / 2 - 5, y + 5.5, { align: 'center' });
+
+    doc.setFillColor(245, 245, 245);
+    doc.rect(colCriteria + contentWidth / 2 + 10, y, contentWidth / 2 - 10, totalRowH, 'F');
+    doc.setTextColor(...BLACK);
+    doc.setFontSize(10);
+    doc.text(`${pct}%`, colCriteria + contentWidth * 3 / 4 + 5, y + 5.5, { align: 'center' });
+    doc.setDrawColor(...BORDER_GREEN);
+    doc.rect(colCriteria, y, contentWidth, totalRowH);
+    y += totalRowH + 8;
+  }
+
+  // ── COMMENTAIRE GÉNÉRAL ──
+  if (y > 240) { doc.addPage(); y = 15; }
+
+  // Section header
+  doc.setFillColor(...GREEN);
+  doc.rect(margin, y, contentWidth, 7, 'F');
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text(
+    fr ? 'COMMENTAIRE GÉNÉRAL DU RECRUTEUR' : 'GENERAL RECRUITER COMMENT',
+    margin + 3, y + 5
+  );
+  y += 7;
+
+  // Comment box
+  const commentBoxH = 35;
+  doc.setDrawColor(...BORDER_GREEN);
+  doc.setLineWidth(0.5);
+  doc.rect(margin, y, contentWidth, commentBoxH);
+  doc.setTextColor(...BLACK);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  const commentLines = doc.splitTextToSize(evaluation.comments || '', contentWidth - 10);
+  doc.text(commentLines, margin + 5, y + 7);
+  y += commentBoxH + 8;
+
+  // ── DÉCISION FINALE ──
+  if (y > 260) { doc.addPage(); y = 15; }
+
+  doc.setFillColor(...GREEN);
+  doc.rect(margin, y, contentWidth, 7, 'F');
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text(
+    fr ? 'DÉCISION FINALE DU RECRUTEUR' : 'FINAL RECRUITER DECISION',
+    margin + 3, y + 5
+  );
+  y += 7;
+
+  // Decision box
+  const decisionBoxH = 12;
+  doc.setDrawColor(...BORDER_GREEN);
+  doc.rect(margin, y, contentWidth, decisionBoxH);
+
+  const leftDecX = margin + contentWidth / 4;
+  const rightDecX = margin + contentWidth * 3 / 4;
+
+  // FAVORABLE checkbox
+  const dcbSize = 5;
+  doc.setDrawColor(...BLACK);
+  doc.setLineWidth(0.4);
+  doc.rect(leftDecX - 15, y + 3.5, dcbSize, dcbSize);
+  if (evaluation.decision === 'favorable') {
+    doc.setFillColor(...GREEN);
+    doc.rect(leftDecX - 15, y + 3.5, dcbSize, dcbSize, 'F');
+    doc.setTextColor(...WHITE);
+    doc.setFontSize(9);
+    doc.text('✓', leftDecX - 14, y + 7.5);
+  }
+  doc.setTextColor(...BLACK);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text(labels.decision, margin, y);
-  y += 6;
-  const decisionText = evaluation.decision === 'favorable' ? labels.favorable :
-    evaluation.decision === 'unfavorable' ? labels.unfavorable : labels.pending;
-  const decisionColor: [number, number, number] = evaluation.decision === 'favorable' ? [34, 139, 34] :
-    evaluation.decision === 'unfavorable' ? [220, 53, 69] : [150, 150, 150];
-  doc.setTextColor(...decisionColor);
-  doc.setFontSize(14);
-  doc.text(decisionText.toUpperCase(), margin, y + 2);
+  doc.text(fr ? 'FAVORABLE' : 'FAVORABLE', leftDecX - 8, y + 7.5);
 
-  // Footer
-  doc.setTextColor(150, 150, 150);
-  doc.setFontSize(7);
-  doc.text(`Generated on ${new Date().toLocaleDateString()} — Ciments du Maroc Evaluation System`, pageWidth / 2, 290, { align: 'center' });
+  // NON FAVORABLE checkbox
+  doc.rect(rightDecX - 15, y + 3.5, dcbSize, dcbSize);
+  if (evaluation.decision === 'unfavorable') {
+    doc.setFillColor(220, 53, 69);
+    doc.rect(rightDecX - 15, y + 3.5, dcbSize, dcbSize, 'F');
+    doc.setTextColor(...WHITE);
+    doc.setFontSize(9);
+    doc.text('✓', rightDecX - 14, y + 7.5);
+  }
+  doc.setTextColor(...BLACK);
+  doc.setFontSize(10);
+  doc.text(fr ? 'NON FAVORABLE' : 'NOT FAVORABLE', rightDecX - 8, y + 7.5);
 
+  // Save
   doc.save(`evaluation-${evaluation.candidateName.replace(/\s+/g, '-')}-${evaluation.date}.pdf`);
 }
