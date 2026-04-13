@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function EvaluationsList({ evaluations, jobRoles, onDelete }: Props) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   if (evaluations.length === 0) {
     return (
