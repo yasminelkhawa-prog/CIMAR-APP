@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScoreButton } from './ScoreButton';
 import { JobRoleConfig, EvaluationForm, CriterionScore } from '@/types/evaluation';
 import { Save, CheckCircle2, XCircle, User } from 'lucide-react';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 interface Props {
   jobRoles: JobRoleConfig[];
@@ -17,7 +18,9 @@ interface Props {
 }
 
 export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Props) {
+  const { t } = useLanguage();
   const [candidateName, setCandidateName] = useState(existingEvaluation?.candidateName || '');
+  const [candidateSource, setCandidateSource] = useState<'internal' | 'external'>(existingEvaluation?.candidateSource || 'external');
   const [selectedRoleId, setSelectedRoleId] = useState(existingEvaluation?.jobRoleConfigId || jobRoles[0]?.id || '');
   const [interviewerName, setInterviewerName] = useState(existingEvaluation?.interviewerName || '');
   const [date, setDate] = useState(existingEvaluation?.date || new Date().toISOString().split('T')[0]);
@@ -79,6 +82,7 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
     const evaluation: EvaluationForm = {
       id: existingEvaluation?.id || crypto.randomUUID(),
       candidateName: candidateName.trim(),
+      candidateSource,
       jobRoleConfigId: selectedRoleId,
       interviewerName,
       date,
@@ -95,25 +99,36 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Candidate Selection */}
       <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-lg flex items-center gap-2">
             <User className="h-5 w-5 text-primary" />
-            Candidate Information
+            {t('candidateInfo')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <Label>Candidate Name</Label>
-              <Input value={candidateName} onChange={e => setCandidateName(e.target.value)} placeholder="Enter candidate's full name..." />
+              <Label>{t('candidateName')}</Label>
+              <Input value={candidateName} onChange={e => setCandidateName(e.target.value)} placeholder={t('candidateNamePlaceholder')} />
             </div>
             <div>
-              <Label>Job Role Configuration</Label>
+              <Label>{t('candidateSource')}</Label>
+              <Select value={candidateSource} onValueChange={v => setCandidateSource(v as 'internal' | 'external')}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="internal">{t('internal')}</SelectItem>
+                  <SelectItem value="external">{t('external')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('jobRoleConfig')}</Label>
               <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select role..." />
+                  <SelectValue placeholder={t('selectRole')} />
                 </SelectTrigger>
                 <SelectContent>
                   {jobRoles.map(r => (
@@ -124,39 +139,38 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
             </div>
           </div>
 
-
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <Label>Interviewer</Label>
-              <Input value={interviewerName} onChange={e => setInterviewerName(e.target.value)} placeholder="Your name" />
+              <Label>{t('interviewer')}</Label>
+              <Input value={interviewerName} onChange={e => setInterviewerName(e.target.value)} placeholder={t('interviewerPlaceholder')} />
             </div>
             <div>
-              <Label>Date</Label>
+              <Label>{t('date')}</Label>
               <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
             </div>
             <div>
-              <Label>Location</Label>
-              <Input value={location} onChange={e => setLocation(e.target.value)} placeholder="Office / Remote" />
+              <Label>{t('location')}</Label>
+              <Input value={location} onChange={e => setLocation(e.target.value)} placeholder={t('locationPlaceholder')} />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label>Reason</Label>
+                <Label>{t('reason')}</Label>
                 <Select value={recruitmentReason} onValueChange={v => setRecruitmentReason(v as typeof recruitmentReason)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="replacement">Replacement</SelectItem>
-                    <SelectItem value="creation">New Position</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                    <SelectItem value="replacement">{t('replacement')}</SelectItem>
+                    <SelectItem value="creation">{t('newPosition')}</SelectItem>
+                    <SelectItem value="other">{t('other')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Type</Label>
+                <Label>{t('type')}</Label>
                 <Select value={recruitmentType} onValueChange={v => setRecruitmentType(v as typeof recruitmentType)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="budgeted">Budgeted</SelectItem>
-                    <SelectItem value="non-budgeted">Non-Budgeted</SelectItem>
+                    <SelectItem value="budgeted">{t('budgeted')}</SelectItem>
+                    <SelectItem value="non-budgeted">{t('nonBudgeted')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -165,15 +179,14 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
         </CardContent>
       </Card>
 
-      {/* Scoring Grid */}
       {selectedRole && (
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Evaluation Grid</CardTitle>
+              <CardTitle className="text-lg">{t('evaluationGrid')}</CardTitle>
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Weighted Score</p>
+                  <p className="text-xs text-muted-foreground">{t('weightedScore')}</p>
                   <p className={`text-2xl font-bold ${getPercentageColor(percentage)}`}>
                     {totalWeightedScore}/{maxPossibleScore}
                   </p>
@@ -192,9 +205,7 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
                   <div className="flex items-center justify-between border-b pb-2">
                     <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">{cat.name}</h3>
                     {catScore && (
-                      <span className="text-sm font-medium">
-                        {catScore.score}/{catScore.max}
-                      </span>
+                      <span className="text-sm font-medium">{catScore.score}/{catScore.max}</span>
                     )}
                   </div>
                   {cat.criteria.map(crit => (
@@ -210,12 +221,7 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
                       </div>
                       <div className="flex gap-1.5">
                         {[1, 2, 3, 4].map(v => (
-                          <ScoreButton
-                            key={v}
-                            value={v}
-                            selected={getScore(crit.id) === v}
-                            onClick={() => setScore(crit.id, v)}
-                          />
+                          <ScoreButton key={v} value={v} selected={getScore(crit.id) === v} onClick={() => setScore(crit.id, v)} />
                         ))}
                       </div>
                     </div>
@@ -224,9 +230,8 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
               );
             })}
 
-            {/* Category Summary */}
             <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-              <h4 className="text-sm font-semibold mb-3">Score Breakdown</h4>
+              <h4 className="text-sm font-semibold mb-3">{t('scoreBreakdown')}</h4>
               {categoryScores.map(cs => {
                 const pct = cs.max > 0 ? Math.round((cs.score / cs.max) * 100) : 0;
                 return (
@@ -247,23 +252,17 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
         </Card>
       )}
 
-      {/* Comments & Decision */}
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg">Recruiter's Assessment</CardTitle>
+          <CardTitle className="text-lg">{t('recruiterAssessment')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label>General Comments</Label>
-            <Textarea
-              value={comments}
-              onChange={e => setComments(e.target.value)}
-              placeholder="Enter your overall assessment of the candidate..."
-              rows={4}
-            />
+            <Label>{t('generalComments')}</Label>
+            <Textarea value={comments} onChange={e => setComments(e.target.value)} placeholder={t('commentsPlaceholder')} rows={4} />
           </div>
           <div>
-            <Label className="mb-2 block">Final Decision</Label>
+            <Label className="mb-2 block">{t('finalDecision')}</Label>
             <div className="flex gap-3">
               <Button
                 type="button"
@@ -272,7 +271,7 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
                 onClick={() => setDecision('favorable')}
               >
                 <CheckCircle2 className="h-4 w-4 mr-2" />
-                Favorable
+                {t('favorable')}
               </Button>
               <Button
                 type="button"
@@ -281,14 +280,14 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
                 onClick={() => setDecision('unfavorable')}
               >
                 <XCircle className="h-4 w-4 mr-2" />
-                Unfavorable
+                {t('unfavorable')}
               </Button>
             </div>
           </div>
           <div className="flex justify-end pt-4">
             <Button onClick={handleSave} disabled={!candidateName.trim()} size="lg">
               <Save className="h-4 w-4 mr-2" />
-              Save Evaluation
+              {t('saveEvaluation')}
             </Button>
           </div>
         </CardContent>
