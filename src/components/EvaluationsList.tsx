@@ -10,9 +10,10 @@ interface Props {
   evaluations: EvaluationForm[];
   jobRoles: JobRoleConfig[];
   onDelete: (id: string) => void;
+  onSelect: (evaluation: EvaluationForm) => void;
 }
 
-export function EvaluationsList({ evaluations, jobRoles, onDelete }: Props) {
+export function EvaluationsList({ evaluations, jobRoles, onDelete, onSelect }: Props) {
   const { t, lang } = useLanguage();
 
   if (evaluations.length === 0) {
@@ -44,8 +45,9 @@ export function EvaluationsList({ evaluations, jobRoles, onDelete }: Props) {
         const pct = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
 
         return (
-          <Card key={ev.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="py-4 flex items-center gap-4">
+          <Card key={ev.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => onSelect(ev)}>
+            <CardContent className="py-4 flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
+              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onSelect(ev)}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="font-semibold text-sm">
