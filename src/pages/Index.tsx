@@ -70,7 +70,6 @@ export default function Index() {
           <TabsContent value="new">
             {showNewForm && (
               <EvaluationFormView
-                candidates={store.candidates}
                 jobRoles={store.jobRoles}
                 onSave={handleSave}
               />

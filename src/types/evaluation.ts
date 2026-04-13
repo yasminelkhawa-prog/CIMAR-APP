@@ -36,7 +36,7 @@ export interface CriterionScore {
 
 export interface EvaluationForm {
   id: string;
-  candidateId: string;
+  candidateName: string;
   jobRoleConfigId: string;
   interviewerName: string;
   date: string;
