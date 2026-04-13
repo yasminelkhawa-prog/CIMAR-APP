@@ -61,7 +61,8 @@ export const translations = {
     addCriterion: 'Add Criterion',
     criterionName: 'Criterion Name',
     criterionDesc: 'Description',
-    weight: 'Weight',
+    modify: 'Modify',
+    backToList: 'Back to List',
   },
   fr: {
     appTitle: 'Ciments du Maroc — Évaluation d\'Entretien',
@@ -124,6 +125,8 @@ export const translations = {
     criterionName: 'Nom du Critère',
     criterionDesc: 'Description',
     weight: 'Poids',
+    modify: 'Modifier',
+    backToList: 'Retour à la liste',
   },
 } as const;
 

@@ -8,16 +8,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScoreButton } from './ScoreButton';
 import { JobRoleConfig, EvaluationForm, CriterionScore } from '@/types/evaluation';
-import { Save, CheckCircle2, XCircle, User } from 'lucide-react';
+import { Save, CheckCircle2, XCircle, User, Pencil, ArrowLeft } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 interface Props {
   jobRoles: JobRoleConfig[];
   onSave: (evaluation: EvaluationForm) => void;
   existingEvaluation?: EvaluationForm;
+  readOnly?: boolean;
+  onEnableEdit?: () => void;
+  onBack?: () => void;
 }
 
-export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Props) {
+export function EvaluationFormView({ jobRoles, onSave, existingEvaluation, readOnly = false, onEnableEdit, onBack }: Props) {
   const { t } = useLanguage();
   const [candidateName, setCandidateName] = useState(existingEvaluation?.candidateName || '');
   const [candidateSource, setCandidateSource] = useState<'internal' | 'external'>(existingEvaluation?.candidateSource || 'external');
@@ -99,6 +102,19 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Top bar with back and modify buttons */}
+      {existingEvaluation && (
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> {t('backToList')}
+          </Button>
+          {readOnly && (
+            <Button onClick={onEnableEdit} size="sm" variant="outline">
+              <Pencil className="h-4 w-4 mr-1" /> {t('modify')}
+            </Button>
+          )}
+        </div>
+      )}
       <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -110,11 +126,11 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label>{t('candidateName')}</Label>
-              <Input value={candidateName} onChange={e => setCandidateName(e.target.value)} placeholder={t('candidateNamePlaceholder')} />
+              <Input value={candidateName} onChange={e => setCandidateName(e.target.value)} placeholder={t('candidateNamePlaceholder')} disabled={readOnly} />
             </div>
             <div>
               <Label>{t('candidateSource')}</Label>
-              <Select value={candidateSource} onValueChange={v => setCandidateSource(v as 'internal' | 'external')}>
+              <Select value={candidateSource} onValueChange={v => setCandidateSource(v as 'internal' | 'external')} disabled={readOnly}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -126,7 +142,7 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
             </div>
             <div>
               <Label>{t('jobRoleConfig')}</Label>
-              <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
+              <Select value={selectedRoleId} onValueChange={setSelectedRoleId} disabled={readOnly}>
                 <SelectTrigger>
                   <SelectValue placeholder={t('selectRole')} />
                 </SelectTrigger>
@@ -142,20 +158,20 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <Label>{t('interviewer')}</Label>
-              <Input value={interviewerName} onChange={e => setInterviewerName(e.target.value)} placeholder={t('interviewerPlaceholder')} />
+              <Input value={interviewerName} onChange={e => setInterviewerName(e.target.value)} placeholder={t('interviewerPlaceholder')} disabled={readOnly} />
             </div>
             <div>
               <Label>{t('date')}</Label>
-              <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
+              <Input type="date" value={date} onChange={e => setDate(e.target.value)} disabled={readOnly} />
             </div>
             <div>
               <Label>{t('location')}</Label>
-              <Input value={location} onChange={e => setLocation(e.target.value)} placeholder={t('locationPlaceholder')} />
+              <Input value={location} onChange={e => setLocation(e.target.value)} placeholder={t('locationPlaceholder')} disabled={readOnly} />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label>{t('reason')}</Label>
-                <Select value={recruitmentReason} onValueChange={v => setRecruitmentReason(v as typeof recruitmentReason)}>
+                <Select value={recruitmentReason} onValueChange={v => setRecruitmentReason(v as typeof recruitmentReason)} disabled={readOnly}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="replacement">{t('replacement')}</SelectItem>
@@ -166,7 +182,7 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
               </div>
               <div>
                 <Label>{t('type')}</Label>
-                <Select value={recruitmentType} onValueChange={v => setRecruitmentType(v as typeof recruitmentType)}>
+                <Select value={recruitmentType} onValueChange={v => setRecruitmentType(v as typeof recruitmentType)} disabled={readOnly}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="budgeted">{t('budgeted')}</SelectItem>
@@ -221,7 +237,7 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
                       </div>
                       <div className="flex gap-1.5">
                         {[1, 2, 3, 4].map(v => (
-                          <ScoreButton key={v} value={v} selected={getScore(crit.id) === v} onClick={() => setScore(crit.id, v)} />
+                          <ScoreButton key={v} value={v} selected={getScore(crit.id) === v} onClick={() => !readOnly && setScore(crit.id, v)} />
                         ))}
                       </div>
                     </div>
@@ -259,37 +275,41 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation }: Pro
         <CardContent className="space-y-4">
           <div>
             <Label>{t('generalComments')}</Label>
-            <Textarea value={comments} onChange={e => setComments(e.target.value)} placeholder={t('commentsPlaceholder')} rows={4} />
+            <Textarea value={comments} onChange={e => setComments(e.target.value)} placeholder={t('commentsPlaceholder')} rows={4} disabled={readOnly} />
           </div>
           <div>
             <Label className="mb-2 block">{t('finalDecision')}</Label>
             <div className="flex gap-3">
-              <Button
-                type="button"
-                variant={decision === 'favorable' ? 'default' : 'outline'}
-                className={decision === 'favorable' ? 'bg-success hover:bg-success/90' : ''}
-                onClick={() => setDecision('favorable')}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                {t('favorable')}
-              </Button>
-              <Button
-                type="button"
-                variant={decision === 'unfavorable' ? 'default' : 'outline'}
-                className={decision === 'unfavorable' ? 'bg-destructive hover:bg-destructive/90' : ''}
-                onClick={() => setDecision('unfavorable')}
-              >
-                <XCircle className="h-4 w-4 mr-2" />
-                {t('unfavorable')}
-              </Button>
+               <Button
+                 type="button"
+                 variant={decision === 'favorable' ? 'default' : 'outline'}
+                 className={decision === 'favorable' ? 'bg-success hover:bg-success/90' : ''}
+                 onClick={() => !readOnly && setDecision('favorable')}
+                 disabled={readOnly}
+               >
+                 <CheckCircle2 className="h-4 w-4 mr-2" />
+                 {t('favorable')}
+               </Button>
+               <Button
+                 type="button"
+                 variant={decision === 'unfavorable' ? 'default' : 'outline'}
+                 className={decision === 'unfavorable' ? 'bg-destructive hover:bg-destructive/90' : ''}
+                 onClick={() => !readOnly && setDecision('unfavorable')}
+                 disabled={readOnly}
+               >
+                 <XCircle className="h-4 w-4 mr-2" />
+                 {t('unfavorable')}
+               </Button>
             </div>
           </div>
-          <div className="flex justify-end pt-4">
-            <Button onClick={handleSave} disabled={!candidateName.trim()} size="lg">
-              <Save className="h-4 w-4 mr-2" />
-              {t('saveEvaluation')}
-            </Button>
-          </div>
+          {!readOnly && (
+            <div className="flex justify-end pt-4">
+              <Button onClick={handleSave} disabled={!candidateName.trim()} size="lg">
+                <Save className="h-4 w-4 mr-2" />
+                {t('saveEvaluation')}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
