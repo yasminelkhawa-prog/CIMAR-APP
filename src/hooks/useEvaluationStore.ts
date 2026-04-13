@@ -1,99 +1,129 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   JobRoleConfig,
   EvaluationForm,
   DEFAULT_JOB_ROLES,
-  MOCK_CANDIDATES,
-  Candidate,
   CriteriaCategory,
 } from '@/types/evaluation';
-
-const STORAGE_KEY_ROLES = 'numa-job-roles';
-const STORAGE_KEY_EVALUATIONS = 'numa-evaluations';
-
-function loadFromStorage<T>(key: string, fallback: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveToStorage<T>(key: string, value: T) {
-  localStorage.setItem(key, JSON.stringify(value));
-}
+import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 
 export function useEvaluationStore() {
-  const [jobRoles, setJobRoles] = useState<JobRoleConfig[]>(() =>
-    loadFromStorage(STORAGE_KEY_ROLES, DEFAULT_JOB_ROLES)
-  );
-  const [evaluations, setEvaluations] = useState<EvaluationForm[]>(() =>
-    loadFromStorage(STORAGE_KEY_EVALUATIONS, [])
-  );
-  const [candidates] = useState<Candidate[]>(MOCK_CANDIDATES);
+  const [jobRoles, setJobRoles] = useState<JobRoleConfig[]>(DEFAULT_JOB_ROLES);
+  const [evaluations, setEvaluations] = useState<EvaluationForm[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const updateJobRoles = useCallback((roles: JobRoleConfig[]) => {
-    setJobRoles(roles);
-    saveToStorage(STORAGE_KEY_ROLES, roles);
+  // Load from DB
+  useEffect(() => {
+    const loadData = async () => {
+      const [rolesRes, evalsRes] = await Promise.all([
+        supabase.from('job_role_configs').select('*'),
+        supabase.from('evaluations').select('*').order('created_at', { ascending: false }),
+      ]);
+
+      if (rolesRes.data && rolesRes.data.length > 0) {
+        setJobRoles(rolesRes.data.map(r => ({
+          id: r.id,
+          name: r.name,
+          categories: r.categories as unknown as CriteriaCategory[],
+          scaleMax: r.scale_max,
+        })));
+      } else {
+        // Seed default roles
+        for (const role of DEFAULT_JOB_ROLES) {
+          await supabase.from('job_role_configs').insert({
+            id: role.id,
+            name: role.name,
+            categories: role.categories as unknown as Json,
+            scale_max: role.scaleMax,
+          });
+        }
+      }
+
+      if (evalsRes.data) {
+        setEvaluations(evalsRes.data.map(e => ({
+          id: e.id,
+          candidateName: e.candidate_name,
+          candidateSource: e.candidate_source as 'internal' | 'external',
+          jobRoleConfigId: e.job_role_config_id || '',
+          interviewerName: e.interviewer_name || '',
+          date: e.evaluation_date,
+          location: e.location || '',
+          recruitmentReason: e.recruitment_reason as 'replacement' | 'creation' | 'other',
+          recruitmentType: e.recruitment_type as 'budgeted' | 'non-budgeted',
+          scores: e.scores as unknown as EvaluationForm['scores'],
+          comments: e.comments || '',
+          decision: e.decision as 'favorable' | 'unfavorable' | null,
+          createdAt: e.created_at,
+        })));
+      }
+      setLoading(false);
+    };
+    loadData();
   }, []);
 
-  const addJobRole = useCallback((role: JobRoleConfig) => {
-    setJobRoles(prev => {
-      const next = [...prev, role];
-      saveToStorage(STORAGE_KEY_ROLES, next);
-      return next;
+  const addJobRole = useCallback(async (role: JobRoleConfig) => {
+    setJobRoles(prev => [...prev, role]);
+    await supabase.from('job_role_configs').insert({
+      id: role.id,
+      name: role.name,
+      categories: role.categories as unknown as Json,
+      scale_max: role.scaleMax,
     });
   }, []);
 
-  const updateJobRole = useCallback((id: string, updates: Partial<JobRoleConfig>) => {
-    setJobRoles(prev => {
-      const next = prev.map(r => r.id === id ? { ...r, ...updates } : r);
-      saveToStorage(STORAGE_KEY_ROLES, next);
-      return next;
-    });
+  const updateJobRole = useCallback(async (id: string, updates: Partial<JobRoleConfig>) => {
+    setJobRoles(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
+    const dbUpdates: Record<string, unknown> = {};
+    if (updates.name) dbUpdates.name = updates.name;
+    if (updates.categories) dbUpdates.categories = updates.categories as unknown as Json;
+    if (updates.scaleMax) dbUpdates.scale_max = updates.scaleMax;
+    await supabase.from('job_role_configs').update(dbUpdates).eq('id', id);
   }, []);
 
-  const deleteJobRole = useCallback((id: string) => {
-    setJobRoles(prev => {
-      const next = prev.filter(r => r.id !== id);
-      saveToStorage(STORAGE_KEY_ROLES, next);
-      return next;
-    });
+  const deleteJobRole = useCallback(async (id: string) => {
+    setJobRoles(prev => prev.filter(r => r.id !== id));
+    await supabase.from('job_role_configs').delete().eq('id', id);
   }, []);
 
-  const updateRoleCategories = useCallback((roleId: string, categories: CriteriaCategory[]) => {
-    setJobRoles(prev => {
-      const next = prev.map(r => r.id === roleId ? { ...r, categories } : r);
-      saveToStorage(STORAGE_KEY_ROLES, next);
-      return next;
-    });
+  const updateRoleCategories = useCallback(async (roleId: string, categories: CriteriaCategory[]) => {
+    setJobRoles(prev => prev.map(r => r.id === roleId ? { ...r, categories } : r));
+    await supabase.from('job_role_configs').update({ categories: categories as unknown as Json }).eq('id', roleId);
   }, []);
 
-  const saveEvaluation = useCallback((evaluation: EvaluationForm) => {
+  const saveEvaluation = useCallback(async (evaluation: EvaluationForm) => {
     setEvaluations(prev => {
       const exists = prev.findIndex(e => e.id === evaluation.id);
-      const next = exists >= 0
+      return exists >= 0
         ? prev.map(e => e.id === evaluation.id ? evaluation : e)
-        : [...prev, evaluation];
-      saveToStorage(STORAGE_KEY_EVALUATIONS, next);
-      return next;
+        : [evaluation, ...prev];
+    });
+
+    await supabase.from('evaluations').upsert({
+      id: evaluation.id,
+      candidate_name: evaluation.candidateName,
+      candidate_source: evaluation.candidateSource,
+      job_role_config_id: evaluation.jobRoleConfigId || null,
+      interviewer_name: evaluation.interviewerName || null,
+      evaluation_date: evaluation.date,
+      location: evaluation.location || null,
+      recruitment_reason: evaluation.recruitmentReason,
+      recruitment_type: evaluation.recruitmentType,
+      scores: evaluation.scores as unknown as Json,
+      comments: evaluation.comments || null,
+      decision: evaluation.decision || null,
     });
   }, []);
 
-  const deleteEvaluation = useCallback((id: string) => {
-    setEvaluations(prev => {
-      const next = prev.filter(e => e.id !== id);
-      saveToStorage(STORAGE_KEY_EVALUATIONS, next);
-      return next;
-    });
+  const deleteEvaluation = useCallback(async (id: string) => {
+    setEvaluations(prev => prev.filter(e => e.id !== id));
+    await supabase.from('evaluations').delete().eq('id', id);
   }, []);
 
   return {
     jobRoles,
     evaluations,
-    candidates,
-    updateJobRoles,
+    loading,
     addJobRole,
     updateJobRole,
     deleteJobRole,
