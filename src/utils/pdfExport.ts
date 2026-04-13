@@ -1,5 +1,5 @@
 import { EvaluationForm, JobRoleConfig } from '@/types/evaluation';
-import logoImage from '../../public/cimar-logo.png';
+import logoImage from '../../public/cimar-logo-official.png';
 
 const GREEN = [39, 124, 75] as const; // #277C4B - CIMAR green
 const LIGHT_GREEN = [220, 237, 225] as const;
@@ -9,13 +9,8 @@ const BLACK = [0, 0, 0] as const;
 const GRAY = [100, 100, 100] as const;
 const BORDER_GREEN = [39, 124, 75] as const;
 
-// Convert image import to base64 for jsPDF
-function getImageBase64(imageSrc: string): string {
-  // If already a base64 data URL, return as-is
-  if (imageSrc.startsWith('data:')) return imageSrc;
-  // Otherwise assume it's a path and we need the raw base64
-  return imageSrc;
-}
+// X mark for checkboxes
+const X_MARK = 'X';
 
 export async function generateEvaluationPdf(
   evaluation: EvaluationForm,
@@ -32,9 +27,9 @@ export async function generateEvaluationPdf(
   const fr = lang === 'fr';
 
   // ── LOGO area ──
-  // Add CIMAR logo image
-  const logoWidth = 50;
-  const logoHeight = 20;
+  // Add CIMAR official logo image
+  const logoWidth = 70;
+  const logoHeight = 22;
   try {
     doc.addImage(logoImage, 'PNG', margin, y, logoWidth, logoHeight);
   } catch {
@@ -48,7 +43,7 @@ export async function generateEvaluationPdf(
     doc.setTextColor(...GRAY);
     doc.text('Heidelberg Materials', margin, y + 11);
   }
-  y += 22;
+  y += 26;
 
   // ── TITLE BOX ──
   const titleBoxH = 14;
