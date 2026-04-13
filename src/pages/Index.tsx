@@ -8,6 +8,7 @@ import { ChatBot } from '@/components/ChatBot';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useEvaluationStore } from '@/hooks/useEvaluationStore';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { EvaluationForm } from '@/types/evaluation';
 import { Plus, Settings2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import logoImg from '@/assets/logo-cimar.png';
@@ -17,12 +18,28 @@ export default function Index() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('evaluations');
   const [showNewForm, setShowNewForm] = useState(false);
+  const [viewingEvaluation, setViewingEvaluation] = useState<EvaluationForm | null>(null);
+  const [editMode, setEditMode] = useState(false);
 
   const handleSave = (evaluation: Parameters<typeof store.saveEvaluation>[0]) => {
     store.saveEvaluation(evaluation);
     setShowNewForm(false);
+    setViewingEvaluation(null);
+    setEditMode(false);
     setActiveTab('evaluations');
     toast.success(t('evaluationSaved'));
+  };
+
+  const handleSelectEvaluation = (ev: EvaluationForm) => {
+    setViewingEvaluation(ev);
+    setEditMode(false);
+    setActiveTab('view');
+  };
+
+  const handleBackToList = () => {
+    setViewingEvaluation(null);
+    setEditMode(false);
+    setActiveTab('evaluations');
   };
 
   return (
@@ -38,7 +55,7 @@ export default function Index() {
           </div>
           <div className="flex items-center gap-2">
             <LanguageToggle />
-            <Button onClick={() => { setShowNewForm(true); setActiveTab('new'); }} size="sm">
+            <Button onClick={() => { setShowNewForm(true); setViewingEvaluation(null); setActiveTab('new'); }} size="sm">
               <Plus className="h-4 w-4 mr-1" /> {t('newEvaluation')}
             </Button>
           </div>
@@ -46,7 +63,7 @@ export default function Index() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); if (v !== 'new') setShowNewForm(false); }}>
+        <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); if (v !== 'new') setShowNewForm(false); if (v !== 'view') { setViewingEvaluation(null); setEditMode(false); } }}>
           <TabsList className="mb-6">
             <TabsTrigger value="evaluations" className="gap-1.5">
               <FileText className="h-3.5 w-3.5" /> {t('evaluations')}
@@ -57,6 +74,9 @@ export default function Index() {
             <TabsTrigger value="config" className="gap-1.5">
               <Settings2 className="h-3.5 w-3.5" /> {t('configuration')}
             </TabsTrigger>
+            {viewingEvaluation && (
+              <TabsTrigger value="view" className="gap-1.5 hidden">view</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="evaluations">
@@ -67,6 +87,7 @@ export default function Index() {
                 store.deleteEvaluation(id);
                 toast.success(t('evaluationDeleted'));
               }}
+              onSelect={handleSelectEvaluation}
             />
           </TabsContent>
 
@@ -75,6 +96,19 @@ export default function Index() {
               <EvaluationFormView
                 jobRoles={store.jobRoles}
                 onSave={handleSave}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="view">
+            {viewingEvaluation && (
+              <EvaluationFormView
+                jobRoles={store.jobRoles}
+                onSave={handleSave}
+                existingEvaluation={viewingEvaluation}
+                readOnly={!editMode}
+                onEnableEdit={() => setEditMode(true)}
+                onBack={handleBackToList}
               />
             )}
           </TabsContent>
