@@ -14,7 +14,92 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      evaluations: {
+        Row: {
+          candidate_name: string
+          candidate_source: string
+          comments: string | null
+          created_at: string
+          decision: string | null
+          evaluation_date: string
+          id: string
+          interviewer_name: string | null
+          job_role_config_id: string | null
+          location: string | null
+          recruitment_reason: string
+          recruitment_type: string
+          scores: Json
+          updated_at: string
+        }
+        Insert: {
+          candidate_name: string
+          candidate_source?: string
+          comments?: string | null
+          created_at?: string
+          decision?: string | null
+          evaluation_date?: string
+          id?: string
+          interviewer_name?: string | null
+          job_role_config_id?: string | null
+          location?: string | null
+          recruitment_reason?: string
+          recruitment_type?: string
+          scores?: Json
+          updated_at?: string
+        }
+        Update: {
+          candidate_name?: string
+          candidate_source?: string
+          comments?: string | null
+          created_at?: string
+          decision?: string | null
+          evaluation_date?: string
+          id?: string
+          interviewer_name?: string | null
+          job_role_config_id?: string | null
+          location?: string | null
+          recruitment_reason?: string
+          recruitment_type?: string
+          scores?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evaluations_job_role_config_id_fkey"
+            columns: ["job_role_config_id"]
+            isOneToOne: false
+            referencedRelation: "job_role_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_role_configs: {
+        Row: {
+          categories: Json
+          created_at: string
+          id: string
+          name: string
+          scale_max: number
+          updated_at: string
+        }
+        Insert: {
+          categories?: Json
+          created_at?: string
+          id?: string
+          name: string
+          scale_max?: number
+          updated_at?: string
+        }
+        Update: {
+          categories?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          scale_max?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
