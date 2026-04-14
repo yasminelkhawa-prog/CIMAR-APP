@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index.tsx";
 import Auth from "./pages/Auth.tsx";
 import PendingApproval from "./pages/PendingApproval.tsx";
+import AssessmentPage from "./pages/AssessmentPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ function AppRoutes() {
   if (!user) {
     return (
       <Routes>
+        <Route path="/assessment/:token" element={<AssessmentPage />} />
         <Route path="*" element={<Auth />} />
       </Routes>
     );
@@ -42,6 +44,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Index />} />
+      <Route path="/assessment/:token" element={<AssessmentPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
