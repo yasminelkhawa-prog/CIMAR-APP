@@ -10,6 +10,7 @@ import { PlanIntegrationForm } from '@/components/PlanIntegrationForm';
 import { CvsRetenusForm } from '@/components/CvsRetenusForm';
 import { AdminPanel } from '@/components/AdminPanel';
 import { ProfileSettings } from '@/components/ProfileSettings';
+import { BigFiveAssessment } from '@/components/BigFiveAssessment';
 import { ChatBot } from '@/components/ChatBot';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useEvaluationStore } from '@/hooks/useEvaluationStore';
@@ -104,6 +105,8 @@ export default function Index() {
         return <PlanIntegrationForm />;
       case 'cvs-retenus':
         return <CvsRetenusForm />;
+      case 'big-five':
+        return <BigFiveAssessment />;
       case 'admin':
         return <AdminPanel />;
       case 'profile':
