@@ -26,7 +26,7 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation, readO
   const [candidateName, setCandidateName] = useState(existingEvaluation?.candidateName || '');
   const [candidateSource, setCandidateSource] = useState<'internal' | 'external'>(existingEvaluation?.candidateSource || 'external');
   const [selectedRoleId, setSelectedRoleId] = useState(existingEvaluation?.jobRoleConfigId || jobRoles[0]?.id || '');
-  const [interviewerName, setInterviewerName] = useState(existingEvaluation?.interviewerName || '');
+  const [interviewerName, setInterviewerName] = useState(existingEvaluation?.interviewerName || defaultInterviewer || '');
   const [date, setDate] = useState(existingEvaluation?.date || new Date().toISOString().split('T')[0]);
   const [location, setLocation] = useState(existingEvaluation?.location || '');
   const [recruitmentReason, setRecruitmentReason] = useState<'replacement' | 'creation' | 'other'>(existingEvaluation?.recruitmentReason || 'replacement');
