@@ -156,6 +156,11 @@ export const translations = {
     posteVise: 'Target Position',
     deleted: 'Deleted',
     created: 'Created successfully',
+    smartSelectionDesc: 'Upload CVs (PDF) and let AI classify and rank the best candidates per position',
+    clearAll: 'Clear All',
+    uploadCVs: 'Upload CVs',
+    noCvsAnalyzed: 'No CVs analyzed yet',
+    noCvsAnalyzedDesc: 'Upload PDF CVs to let AI classify and rank candidates automatically.',
   },
   fr: {
     appTitle: 'Ciments du Maroc — Évaluation d\'Entretien',
@@ -313,6 +318,11 @@ export const translations = {
     posteVise: 'Poste Visé',
     deleted: 'Supprimé',
     created: 'Créé avec succès',
+    smartSelectionDesc: 'Uploadez des CVs (PDF) et laissez l\'IA classer et sélectionner les meilleurs candidats par poste',
+    clearAll: 'Tout supprimer',
+    uploadCVs: 'Uploader des CVs',
+    noCvsAnalyzed: 'Aucun CV analysé',
+    noCvsAnalyzedDesc: 'Uploadez des CVs en PDF pour que l\'IA les classe et sélectionne automatiquement.',
   },
 } as const;
 
