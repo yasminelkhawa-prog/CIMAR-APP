@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      cv_analyses: {
+        Row: {
+          competences_cles: Json
+          created_at: string
+          cv_file_path: string | null
+          cv_raw_text: string | null
+          email: string | null
+          id: string
+          matching_score: number
+          nom_candidat: string
+          poste_assigne: string
+          session_id: string
+          synthese_ia: string
+          updated_at: string
+        }
+        Insert: {
+          competences_cles?: Json
+          created_at?: string
+          cv_file_path?: string | null
+          cv_raw_text?: string | null
+          email?: string | null
+          id?: string
+          matching_score?: number
+          nom_candidat?: string
+          poste_assigne?: string
+          session_id?: string
+          synthese_ia?: string
+          updated_at?: string
+        }
+        Update: {
+          competences_cles?: Json
+          created_at?: string
+          cv_file_path?: string | null
+          cv_raw_text?: string | null
+          email?: string | null
+          id?: string
+          matching_score?: number
+          nom_candidat?: string
+          poste_assigne?: string
+          session_id?: string
+          synthese_ia?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cvs_retenus: {
         Row: {
           created_at: string
