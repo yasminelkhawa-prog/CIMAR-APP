@@ -15,7 +15,8 @@ const X_MARK = 'X';
 export async function generateEvaluationPdf(
   evaluation: EvaluationForm,
   jobRole: JobRoleConfig | undefined,
-  lang: 'en' | 'fr' = 'fr'
+  lang: 'en' | 'fr' = 'fr',
+  signatureUrl?: string | null
 ) {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -409,6 +410,47 @@ export async function generateEvaluationPdf(
   doc.setTextColor(...BLACK);
   doc.setFontSize(10);
   doc.text(fr ? 'NON FAVORABLE' : 'NOT FAVORABLE', rightDecX - 8, y + 7.5);
+
+  // ── WATERMARK on all pages ──
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setTextColor(200, 200, 200);
+    doc.setFontSize(40);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CONFIDENTIEL', pageWidth / 2, 150, { align: 'center', angle: 45 });
+    doc.setFontSize(12);
+    doc.text('Ciments du Maroc', pageWidth / 2, 165, { align: 'center', angle: 45 });
+  }
+
+  // ── SIGNATURE in footer of last page ──
+  doc.setPage(totalPages);
+  const footerY = 270;
+  if (signatureUrl) {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+        img.src = signatureUrl;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      const dataUrl = canvas.toDataURL('image/png');
+      doc.addImage(dataUrl, 'PNG', pageWidth - margin - 50, footerY - 15, 45, 15);
+    } catch {
+      // Signature load failed, skip
+    }
+  }
+  doc.setTextColor(...GRAY);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'italic');
+  doc.text(evaluation.interviewerName || '', pageWidth - margin, footerY + 2, { align: 'right' });
+  doc.text(fr ? 'Document confidentiel — Ciments du Maroc' : 'Confidential — Ciments du Maroc', pageWidth / 2, footerY + 2, { align: 'center' });
 
   // Save
   doc.save(`evaluation-${evaluation.candidateName.replace(/\s+/g, '-')}-${evaluation.date}.pdf`);
