@@ -1,16 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, FileText, Trash2, RefreshCw, Download, Eye, Sparkles } from 'lucide-react';
+import { Upload, FileText, Trash2, RefreshCw, Eye, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 interface CvAnalysis {
   id: string;
@@ -31,16 +30,16 @@ const SCORE_COLORS: Record<string, string> = {
   low: 'bg-red-500',
 };
 
+const DIRECT_TEXT_MIN_LENGTH = 24;
+const READABLE_TEXT_MIN_LENGTH = 10;
+const OCR_PAGE_LIMIT = 2;
+
+const normalizeText = (value: string) => value.replace(/\s+/g, ' ').trim();
+
 function getScoreColor(score: number) {
   if (score >= 75) return SCORE_COLORS.high;
   if (score >= 50) return SCORE_COLORS.medium;
   return SCORE_COLORS.low;
-}
-
-function getScoreBadgeVariant(score: number): 'default' | 'secondary' | 'destructive' {
-  if (score >= 75) return 'default';
-  if (score >= 50) return 'secondary';
-  return 'destructive';
 }
 
 export function CvsRetenusForm() {
@@ -60,7 +59,7 @@ export function CvsRetenusForm() {
     if (data) {
       setAnalyses(data.map(d => ({
         ...d,
-        competences_cles: (d.competences_cles as any) || [],
+        competences_cles: (d.competences_cles as string[]) || [],
       })));
     }
   };
@@ -69,12 +68,68 @@ export function CvsRetenusForm() {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     let text = '';
+
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      text += content.items.map((item: any) => item.str).join(' ') + '\n';
+      text += content.items.map((item: any) => item.str || '').join(' ') + '\n';
     }
-    return text;
+
+    return normalizeText(text);
+  };
+
+  const renderPdfPageToImage = async (page: any) => {
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      throw new Error('Canvas context unavailable');
+    }
+
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+
+    await page.render({ canvasContext: context, viewport }).promise;
+    return canvas.toDataURL('image/png');
+  };
+
+  const extractTextFromPdfWithOcr = async (file: File): Promise<string> => {
+    const tesseractModule = await import('tesseract.js');
+    const createWorker = (tesseractModule as any).createWorker ?? (tesseractModule as any).default?.createWorker;
+
+    if (!createWorker) {
+      throw new Error('OCR worker unavailable');
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const worker = await createWorker('eng+fra');
+    let ocrText = '';
+
+    try {
+      for (let i = 1; i <= Math.min(pdf.numPages, OCR_PAGE_LIMIT); i++) {
+        const page = await pdf.getPage(i);
+        const imageDataUrl = await renderPdfPageToImage(page);
+        const result = await worker.recognize(imageDataUrl);
+        ocrText += ` ${result.data.text || ''}`;
+      }
+    } finally {
+      await worker.terminate();
+    }
+
+    return normalizeText(ocrText);
+  };
+
+  const extractReadableCvText = async (file: File): Promise<string> => {
+    const directText = await extractTextFromPdf(file);
+
+    if (directText.length >= DIRECT_TEXT_MIN_LENGTH) {
+      return directText;
+    }
+
+    const ocrText = await extractTextFromPdfWithOcr(file);
+    return normalizeText([directText, ocrText].filter(Boolean).join(' '));
   };
 
   const handleUploadAndAnalyze = async (files: FileList) => {
@@ -86,36 +141,38 @@ export function CvsRetenusForm() {
     const sessionId = crypto.randomUUID();
     const cvTexts: { text: string; filePath: string }[] = [];
 
-    // Extract text from each PDF
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       setProgress({ current: i + 1, total: files.length });
 
       try {
-        // Upload to storage
-        const path = `${sessionId}/${file.name}`;
-        await supabase.storage.from('cv-uploads').upload(path, file);
+        const text = await extractReadableCvText(file);
 
-        // Extract text
-        const text = await extractTextFromPdf(file);
-        if (text.trim().length > 50) {
-          cvTexts.push({ text, filePath: path });
-        } else {
-          toast.error(`${file.name}: texte trop court ou illisible`);
+        if (text.length < READABLE_TEXT_MIN_LENGTH) {
+          toast.error(`${file.name}: unreadable PDF, try a clearer export or scanned copy`);
+          continue;
         }
+
+        const path = `${sessionId}/${file.name}`;
+        const { error: uploadError } = await supabase.storage.from('cv-uploads').upload(path, file);
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        cvTexts.push({ text, filePath: path });
       } catch (e) {
         console.error('Error processing file:', file.name, e);
-        toast.error(`Erreur: ${file.name}`);
+        toast.error(`Unable to read ${file.name}`);
       }
     }
 
     if (cvTexts.length === 0) {
       setIsAnalyzing(false);
-      toast.error('Aucun CV lisible trouvé');
+      toast.error('No readable CV found');
       return;
     }
 
-    // Send to AI for analysis
     toast.info(`Analyse IA de ${cvTexts.length} CV en cours...`);
 
     try {
