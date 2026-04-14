@@ -1,5 +1,5 @@
 import {
-  ClipboardList, FileText, Briefcase, CalendarCheck, Users, Settings2
+  ClipboardList, FileText, Briefcase, CalendarCheck, Users, Settings2, Shield, User, LogOut
 } from 'lucide-react';
 import {
   Sidebar,
@@ -13,6 +13,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { useAuth } from '@/hooks/useAuth';
 
 export type SidebarSection =
   | 'evaluations'
@@ -20,7 +21,9 @@ export type SidebarSection =
   | 'fiche-poste'
   | 'plan-integration'
   | 'cvs-retenus'
-  | 'config';
+  | 'config'
+  | 'admin'
+  | 'profile';
 
 interface Props {
   activeSection: SidebarSection;
@@ -31,6 +34,7 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { t } = useLanguage();
+  const { isAdmin, signOut, profile } = useAuth();
 
   const items = [
     { id: 'evaluations' as SidebarSection, title: t('evaluationGrid'), icon: ClipboardList },
@@ -75,6 +79,34 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
                 >
                   <Settings2 className="h-4 w-4" />
                   {!collapsed && <span>{t('configuration')}</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => onSectionChange('admin')}
+                    isActive={activeSection === 'admin'}
+                    tooltip={t('userManagement')}
+                  >
+                    <Shield className="h-4 w-4" />
+                    {!collapsed && <span>{t('userManagement')}</span>}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => onSectionChange('profile')}
+                  isActive={activeSection === 'profile'}
+                  tooltip={t('myProfile')}
+                >
+                  <User className="h-4 w-4" />
+                  {!collapsed && <span>{profile?.full_name || t('myProfile')}</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={signOut} tooltip={t('logout')}>
+                  <LogOut className="h-4 w-4" />
+                  {!collapsed && <span>{t('logout')}</span>}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

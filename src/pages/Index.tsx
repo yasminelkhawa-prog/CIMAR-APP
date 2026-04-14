@@ -8,10 +8,13 @@ import { FicheEmbaucheForm } from '@/components/FicheEmbaucheForm';
 import { FichePosteForm } from '@/components/FichePosteForm';
 import { PlanIntegrationForm } from '@/components/PlanIntegrationForm';
 import { CvsRetenusForm } from '@/components/CvsRetenusForm';
+import { AdminPanel } from '@/components/AdminPanel';
+import { ProfileSettings } from '@/components/ProfileSettings';
 import { ChatBot } from '@/components/ChatBot';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useEvaluationStore } from '@/hooks/useEvaluationStore';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { useAuth } from '@/hooks/useAuth';
 import { EvaluationForm } from '@/types/evaluation';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
@@ -21,6 +24,7 @@ import logoImg from '@/assets/logo-cimar.png';
 export default function Index() {
   const store = useEvaluationStore();
   const { t } = useLanguage();
+  const { profile } = useAuth();
   const [activeSection, setActiveSection] = useState<SidebarSection>('evaluations');
   const [showNewEval, setShowNewEval] = useState(false);
   const [viewingEvaluation, setViewingEvaluation] = useState<EvaluationForm | null>(null);
@@ -47,7 +51,13 @@ export default function Index() {
 
   const renderEvaluations = () => {
     if (showNewEval) {
-      return <EvaluationFormView jobRoles={store.jobRoles} onSave={handleSave} />;
+      return (
+        <EvaluationFormView
+          jobRoles={store.jobRoles}
+          onSave={handleSave}
+          defaultInterviewer={profile?.full_name}
+        />
+      );
     }
     if (viewingEvaluation) {
       return (
@@ -94,6 +104,10 @@ export default function Index() {
         return <PlanIntegrationForm />;
       case 'cvs-retenus':
         return <CvsRetenusForm />;
+      case 'admin':
+        return <AdminPanel />;
+      case 'profile':
+        return <ProfileSettings />;
       case 'config':
         return (
           <ConfigPanel

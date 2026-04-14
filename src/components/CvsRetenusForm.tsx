@@ -5,9 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, FileText, Trash2, RefreshCw, Eye, Sparkles } from 'lucide-react';
+import { Upload, FileText, Trash2, RefreshCw, Eye, Sparkles, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import * as pdfjsLib from 'pdfjs-dist';
+import * as XLSX from 'xlsx';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
@@ -24,12 +25,7 @@ interface CvAnalysis {
   created_at: string;
 }
 
-const SCORE_COLORS: Record<string, string> = {
-  high: 'bg-green-500',
-  medium: 'bg-yellow-500',
-  low: 'bg-red-500',
-};
-
+const SCORE_COLORS: Record<string, string> = { high: 'bg-green-500', medium: 'bg-yellow-500', low: 'bg-red-500' };
 const DIRECT_TEXT_MIN_LENGTH = 24;
 const READABLE_TEXT_MIN_LENGTH = 10;
 const OCR_PAGE_LIMIT = 2;
@@ -57,10 +53,7 @@ export function CvsRetenusForm() {
       .select('*')
       .order('matching_score', { ascending: false });
     if (data) {
-      setAnalyses(data.map(d => ({
-        ...d,
-        competences_cles: (d.competences_cles as string[]) || [],
-      })));
+      setAnalyses(data.map(d => ({ ...d, competences_cles: (d.competences_cles as string[]) || [] })));
     }
   };
 
@@ -68,13 +61,11 @@ export function CvsRetenusForm() {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     let text = '';
-
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
       text += content.items.map((item: any) => item.str || '').join(' ') + '\n';
     }
-
     return normalizeText(text);
   };
 
@@ -82,14 +73,9 @@ export function CvsRetenusForm() {
     const viewport = page.getViewport({ scale: 1.5 });
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
-
-    if (!context) {
-      throw new Error('Canvas context unavailable');
-    }
-
+    if (!context) throw new Error('Canvas context unavailable');
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
-
     await page.render({ canvasContext: context, viewport }).promise;
     return canvas.toDataURL('image/png');
   };
@@ -97,16 +83,11 @@ export function CvsRetenusForm() {
   const extractTextFromPdfWithOcr = async (file: File): Promise<string> => {
     const tesseractModule = await import('tesseract.js');
     const createWorker = (tesseractModule as any).createWorker ?? (tesseractModule as any).default?.createWorker;
-
-    if (!createWorker) {
-      throw new Error('OCR worker unavailable');
-    }
-
+    if (!createWorker) throw new Error('OCR worker unavailable');
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const worker = await createWorker('eng+fra');
     let ocrText = '';
-
     try {
       for (let i = 1; i <= Math.min(pdf.numPages, OCR_PAGE_LIMIT); i++) {
         const page = await pdf.getPage(i);
@@ -114,52 +95,49 @@ export function CvsRetenusForm() {
         const result = await worker.recognize(imageDataUrl);
         ocrText += ` ${result.data.text || ''}`;
       }
-    } finally {
-      await worker.terminate();
-    }
-
+    } finally { await worker.terminate(); }
     return normalizeText(ocrText);
   };
 
-  const extractReadableCvText = async (file: File): Promise<string> => {
-    const directText = await extractTextFromPdf(file);
+  const extractTextFromWord = async (file: File): Promise<string> => {
+    const mammoth = await import('mammoth');
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return normalizeText(result.value);
+  };
 
-    if (directText.length >= DIRECT_TEXT_MIN_LENGTH) {
-      return directText;
+  const extractReadableCvText = async (file: File): Promise<string> => {
+    const isWord = file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc');
+
+    if (isWord) {
+      return await extractTextFromWord(file);
     }
 
+    const directText = await extractTextFromPdf(file);
+    if (directText.length >= DIRECT_TEXT_MIN_LENGTH) return directText;
     const ocrText = await extractTextFromPdfWithOcr(file);
     return normalizeText([directText, ocrText].filter(Boolean).join(' '));
   };
 
   const handleUploadAndAnalyze = async (files: FileList) => {
     if (files.length === 0) return;
-
     setIsAnalyzing(true);
     setProgress({ current: 0, total: files.length });
-
     const sessionId = crypto.randomUUID();
     const cvTexts: { text: string; filePath: string }[] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       setProgress({ current: i + 1, total: files.length });
-
       try {
         const text = await extractReadableCvText(file);
-
         if (text.length < READABLE_TEXT_MIN_LENGTH) {
-          toast.error(`${file.name}: unreadable PDF, try a clearer export or scanned copy`);
+          toast.error(`${file.name}: unreadable file`);
           continue;
         }
-
         const path = `${sessionId}/${file.name}`;
         const { error: uploadError } = await supabase.storage.from('cv-uploads').upload(path, file);
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
+        if (uploadError) throw uploadError;
         cvTexts.push({ text, filePath: path });
       } catch (e) {
         console.error('Error processing file:', file.name, e);
@@ -174,7 +152,6 @@ export function CvsRetenusForm() {
     }
 
     toast.info(`Analyse IA de ${cvTexts.length} CV en cours...`);
-
     try {
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-cv`,
@@ -187,14 +164,10 @@ export function CvsRetenusForm() {
           body: JSON.stringify({ cvTexts, sessionId }),
         }
       );
-
-      if (resp.status === 429) {
-        toast.error('Limite de requêtes atteinte, réessayez plus tard');
-      } else if (resp.status === 402) {
-        toast.error('Crédits IA insuffisants');
-      } else if (!resp.ok) {
-        toast.error('Erreur lors de l\'analyse IA');
-      } else {
+      if (resp.status === 429) toast.error('Limite de requêtes atteinte');
+      else if (resp.status === 402) toast.error('Crédits IA insuffisants');
+      else if (!resp.ok) toast.error('Erreur lors de l\'analyse IA');
+      else {
         const data = await resp.json();
         toast.success(`${data.results?.length || 0} CV analysés avec succès !`);
         loadAnalyses();
@@ -203,7 +176,6 @@ export function CvsRetenusForm() {
       console.error('Analysis error:', e);
       toast.error('Erreur de connexion au service d\'analyse');
     }
-
     setIsAnalyzing(false);
   };
 
@@ -223,7 +195,52 @@ export function CvsRetenusForm() {
     if (data?.publicUrl) window.open(data.publicUrl, '_blank');
   };
 
-  // Group analyses by poste
+  const handleDownloadReport = () => {
+    const wb = XLSX.utils.book_new();
+
+    Object.entries(grouped).forEach(([poste, candidates]) => {
+      const data = candidates.map((cv, i) => ({
+        'Rang': i + 1,
+        'Nom': cv.nom_candidat,
+        'Email': cv.email || '',
+        'Score (%)': cv.matching_score,
+        'Compétences': (cv.competences_cles || []).join(', '),
+        'Synthèse IA': cv.synthese_ia,
+        'Date': new Date(cv.created_at).toLocaleDateString('fr-FR'),
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(data);
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 6 }, { wch: 25 }, { wch: 30 }, { wch: 10 },
+        { wch: 40 }, { wch: 50 }, { wch: 12 },
+      ];
+
+      const sheetName = poste.substring(0, 31); // Excel sheet name limit
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+
+    // Summary sheet
+    const summaryData = Object.entries(grouped).flatMap(([poste, candidates]) =>
+      candidates.map((cv, i) => ({
+        'Poste': poste,
+        'Rang': i + 1,
+        'Nom': cv.nom_candidat,
+        'Score (%)': cv.matching_score,
+        'Email': cv.email || '',
+        'Compétences': (cv.competences_cles || []).join(', '),
+      }))
+    );
+    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    summaryWs['!cols'] = [{ wch: 20 }, { wch: 6 }, { wch: 25 }, { wch: 10 }, { wch: 30 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, summaryWs, 'Comparatif Global');
+
+    XLSX.writeFile(wb, `rapport_preselection_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success(t('downloadReport'));
+  };
+
+  // Group by poste
   const grouped = analyses.reduce<Record<string, CvAnalysis[]>>((acc, a) => {
     const key = a.poste_assigne || 'Autre';
     if (!acc[key]) acc[key] = [];
@@ -231,7 +248,6 @@ export function CvsRetenusForm() {
     return acc;
   }, {});
 
-  // Sort each group by score desc and take top 6
   Object.keys(grouped).forEach(key => {
     grouped[key].sort((a, b) => b.matching_score - a.matching_score);
     grouped[key] = grouped[key].slice(0, 6);
@@ -250,28 +266,26 @@ export function CvsRetenusForm() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
             {t('cvsRetenusTitle')} — Smart Selection
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {t('smartSelectionDesc')}
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">{t('smartSelectionDesc')}</p>
         </div>
         <div className="flex items-center gap-2">
           {analyses.length > 0 && (
-            <Button variant="outline" size="sm" onClick={handleDeleteAll}>
-              <Trash2 className="h-4 w-4 mr-1" /> {t('clearAll')}
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={handleDownloadReport}>
+                <Download className="h-4 w-4 mr-1" /> {t('downloadReport')}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleDeleteAll}>
+                <Trash2 className="h-4 w-4 mr-1" /> {t('clearAll')}
+              </Button>
+            </>
           )}
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isAnalyzing}
-            size="sm"
-          >
+          <Button onClick={() => fileInputRef.current?.click()} disabled={isAnalyzing} size="sm">
             {isAnalyzing ? (
               <><RefreshCw className="h-4 w-4 mr-1 animate-spin" /> Analyse en cours...</>
             ) : (
@@ -281,7 +295,7 @@ export function CvsRetenusForm() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf"
+            accept=".pdf,.docx,.doc"
             multiple
             className="hidden"
             onChange={e => e.target.files && handleUploadAndAnalyze(e.target.files)}
@@ -289,16 +303,13 @@ export function CvsRetenusForm() {
         </div>
       </div>
 
-      {/* Progress bar */}
       {isAnalyzing && (
         <Card>
           <CardContent className="py-4">
             <div className="flex items-center gap-3">
               <RefreshCw className="h-4 w-4 animate-spin text-primary" />
               <div className="flex-1">
-                <p className="text-sm font-medium mb-1">
-                  Traitement des CVs ({progress.current}/{progress.total})
-                </p>
+                <p className="text-sm font-medium mb-1">Traitement des CVs ({progress.current}/{progress.total})</p>
                 <Progress value={(progress.current / Math.max(progress.total, 1)) * 100} />
               </div>
             </div>
@@ -306,15 +317,12 @@ export function CvsRetenusForm() {
         </Card>
       )}
 
-      {/* Empty state */}
       {analyses.length === 0 && !isAnalyzing && (
         <Card>
           <CardContent className="py-12 text-center">
             <FileText className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-medium mb-2">{t('noCvsAnalyzed')}</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {t('noCvsAnalyzedDesc')}
-            </p>
+            <p className="text-sm text-muted-foreground mb-4">{t('noCvsAnalyzedDesc')}</p>
             <Button onClick={() => fileInputRef.current?.click()}>
               <Upload className="h-4 w-4 mr-2" /> {t('uploadCVs')}
             </Button>
@@ -322,7 +330,6 @@ export function CvsRetenusForm() {
         </Card>
       )}
 
-      {/* Kanban columns by poste */}
       {Object.keys(grouped).length > 0 && (
         <div className="grid gap-6">
           {Object.entries(grouped).map(([poste, candidates]) => (
@@ -346,39 +353,22 @@ export function CvsRetenusForm() {
                       borderLeftColor: cv.matching_score >= 75 ? '#22c55e' : cv.matching_score >= 50 ? '#eab308' : '#ef4444'
                     }}>
                       <CardContent className="p-4">
-                        {/* Header: Name + Score */}
                         <div className="flex items-start justify-between mb-3">
                           <div>
                             <p className="font-semibold text-sm">{cv.nom_candidat}</p>
-                            {cv.email && (
-                              <p className="text-xs text-muted-foreground">{cv.email}</p>
-                            )}
+                            {cv.email && <p className="text-xs text-muted-foreground">{cv.email}</p>}
                           </div>
                           <div className={`flex items-center justify-center w-10 h-10 rounded-full text-white text-xs font-bold ${getScoreColor(cv.matching_score)}`}>
                             {cv.matching_score}%
                           </div>
                         </div>
-
-                        {/* Rank badge */}
-                        <Badge variant="outline" className="mb-2 text-xs">
-                          #{index + 1}
-                        </Badge>
-
-                        {/* Competences chips */}
+                        <Badge variant="outline" className="mb-2 text-xs">#{index + 1}</Badge>
                         <div className="flex flex-wrap gap-1 mb-3">
                           {(cv.competences_cles || []).map((comp, i) => (
-                            <Badge key={i} variant="secondary" className="text-xs px-2 py-0.5">
-                              {comp}
-                            </Badge>
+                            <Badge key={i} variant="secondary" className="text-xs px-2 py-0.5">{comp}</Badge>
                           ))}
                         </div>
-
-                        {/* AI Insight */}
-                        <p className="text-xs italic text-muted-foreground mb-3 line-clamp-2">
-                          "{cv.synthese_ia}"
-                        </p>
-
-                        {/* Actions */}
+                        <p className="text-xs italic text-muted-foreground mb-3 line-clamp-2">"{cv.synthese_ia}"</p>
                         <div className="flex items-center gap-2">
                           {cv.cv_file_path && (
                             <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewCV(cv.cv_file_path)}>
