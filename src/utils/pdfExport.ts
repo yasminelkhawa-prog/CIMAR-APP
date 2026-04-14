@@ -454,3 +454,4 @@ export async function generateEvaluationPdf(
 
   // Save
   doc.save(`evaluation-${evaluation.candidateName.replace(/\s+/g, '-')}-${evaluation.date}.pdf`);
+}
