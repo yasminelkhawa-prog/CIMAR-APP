@@ -18,9 +18,10 @@ interface Props {
   readOnly?: boolean;
   onEnableEdit?: () => void;
   onBack?: () => void;
+  defaultInterviewer?: string;
 }
 
-export function EvaluationFormView({ jobRoles, onSave, existingEvaluation, readOnly = false, onEnableEdit, onBack }: Props) {
+export function EvaluationFormView({ jobRoles, onSave, existingEvaluation, readOnly = false, onEnableEdit, onBack, defaultInterviewer }: Props) {
   const { t } = useLanguage();
   const [candidateName, setCandidateName] = useState(existingEvaluation?.candidateName || '');
   const [candidateSource, setCandidateSource] = useState<'internal' | 'external'>(existingEvaluation?.candidateSource || 'external');
