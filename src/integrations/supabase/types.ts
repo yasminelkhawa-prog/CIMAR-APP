@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      assessments: {
+        Row: {
+          ai_analysis: Json | null
+          candidate_email: string | null
+          candidate_name: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          evaluation_id: string | null
+          id: string
+          job_role: string | null
+          ocean_scores: Json | null
+          status: Database["public"]["Enums"]["assessment_status"]
+          updated_at: string
+          uuid_token: string
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          candidate_email?: string | null
+          candidate_name?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          evaluation_id?: string | null
+          id?: string
+          job_role?: string | null
+          ocean_scores?: Json | null
+          status?: Database["public"]["Enums"]["assessment_status"]
+          updated_at?: string
+          uuid_token?: string
+        }
+        Update: {
+          ai_analysis?: Json | null
+          candidate_email?: string | null
+          candidate_name?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          evaluation_id?: string | null
+          id?: string
+          job_role?: string | null
+          ocean_scores?: Json | null
+          status?: Database["public"]["Enums"]["assessment_status"]
+          updated_at?: string
+          uuid_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessments_evaluation_id_fkey"
+            columns: ["evaluation_id"]
+            isOneToOne: false
+            referencedRelation: "evaluations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cv_analyses: {
         Row: {
           competences_cles: Json
@@ -299,6 +355,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      assessment_status: "pending" | "completed" | "analyzed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -427,6 +484,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      assessment_status: ["pending", "completed", "analyzed"],
     },
   },
 } as const
