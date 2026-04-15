@@ -9,8 +9,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { toast } from 'sonner';
-import { Plus, Send, Eye, Loader2, Brain, ExternalLink, Trash2 } from 'lucide-react';
+import { Plus, Send, Eye, Loader2, Brain, ExternalLink, Trash2, Settings2 } from 'lucide-react';
 import { BigFiveRadarChart } from './BigFiveRadarChart';
+import { AssessmentQuestionsManager } from './AssessmentQuestionsManager';
 
 interface Assessment {
   id: string;
@@ -44,6 +45,7 @@ interface AiAnalysis {
 export function BigFiveAssessment() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const [showConfig, setShowConfig] = useState(false);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -173,10 +175,17 @@ export function BigFiveAssessment() {
         <h2 className="text-xl font-bold flex items-center gap-2">
           <Brain className="h-5 w-5" /> Évaluation Big Five (OCEAN)
         </h2>
-        <Button onClick={() => setShowNew(true)} size="sm">
-          <Plus className="h-4 w-4 mr-1" /> Nouveau Test
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowConfig(!showConfig)}>
+            <Settings2 className="h-4 w-4 mr-1" /> Questions
+          </Button>
+          <Button onClick={() => setShowNew(true)} size="sm">
+            <Plus className="h-4 w-4 mr-1" /> Nouveau Test
+          </Button>
+        </div>
       </div>
+
+      {showConfig && <AssessmentQuestionsManager />}
 
       {showNew && (
         <Card>
