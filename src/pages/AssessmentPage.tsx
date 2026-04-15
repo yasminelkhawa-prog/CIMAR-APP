@@ -15,31 +15,22 @@ interface OceanScores {
   neuroticism: number;
 }
 
-const QUESTIONS = [
-  { trait: 'openness' as const, text: 'Je suis curieux(se) et j\'aime découvrir de nouvelles idées.', reversed: false },
-  { trait: 'openness' as const, text: 'Je préfère la routine aux nouvelles expériences.', reversed: true },
-  { trait: 'openness' as const, text: 'J\'apprécie l\'art, la musique et la créativité.', reversed: false },
-  { trait: 'conscientiousness' as const, text: 'Je suis organisé(e) et je planifie mes tâches à l\'avance.', reversed: false },
-  { trait: 'conscientiousness' as const, text: 'Il m\'arrive souvent de remettre les choses à plus tard.', reversed: true },
-  { trait: 'conscientiousness' as const, text: 'Je suis rigoureux(se) et attentif(ve) aux détails.', reversed: false },
-  { trait: 'extraversion' as const, text: 'Je me sens à l\'aise dans les groupes et les événements sociaux.', reversed: false },
-  { trait: 'extraversion' as const, text: 'Je préfère travailler seul(e) plutôt qu\'en équipe.', reversed: true },
-  { trait: 'extraversion' as const, text: 'Je prends facilement la parole en public.', reversed: false },
-  { trait: 'agreeableness' as const, text: 'Je fais confiance aux autres facilement.', reversed: false },
-  { trait: 'agreeableness' as const, text: 'J\'ai tendance à être critique envers les autres.', reversed: true },
-  { trait: 'agreeableness' as const, text: 'J\'aime aider les autres, même si cela me demande un effort.', reversed: false },
-  { trait: 'neuroticism' as const, text: 'Je m\'inquiète souvent pour des choses qui pourraient mal tourner.', reversed: false },
-  { trait: 'neuroticism' as const, text: 'Je reste calme même dans des situations stressantes.', reversed: true },
-  { trait: 'neuroticism' as const, text: 'Mes émotions changent rapidement.', reversed: false },
-];
+interface Question {
+  id: string;
+  trait: string;
+  text: string;
+  reversed: boolean;
+  sort_order: number;
+}
 
 const SCALE_LABELS = ['Pas du tout d\'accord', 'Pas d\'accord', 'Neutre', 'D\'accord', 'Tout à fait d\'accord'];
 
 export default function AssessmentPage() {
   const { token } = useParams<{ token: string }>();
   const [assessment, setAssessment] = useState<any>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
-  const [answers, setAnswers] = useState<number[]>(new Array(QUESTIONS.length).fill(3));
+  const [answers, setAnswers] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [notFound, setNotFound] = useState(false);
