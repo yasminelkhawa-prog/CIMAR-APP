@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Loader2, Brain, CheckCircle2 } from 'lucide-react';
@@ -15,56 +15,52 @@ interface OceanScores {
   neuroticism: number;
 }
 
-const QUESTIONS = [
-  { trait: 'openness' as const, text: 'Je suis curieux(se) et j\'aime découvrir de nouvelles idées.', reversed: false },
-  { trait: 'openness' as const, text: 'Je préfère la routine aux nouvelles expériences.', reversed: true },
-  { trait: 'openness' as const, text: 'J\'apprécie l\'art, la musique et la créativité.', reversed: false },
-  { trait: 'conscientiousness' as const, text: 'Je suis organisé(e) et je planifie mes tâches à l\'avance.', reversed: false },
-  { trait: 'conscientiousness' as const, text: 'Il m\'arrive souvent de remettre les choses à plus tard.', reversed: true },
-  { trait: 'conscientiousness' as const, text: 'Je suis rigoureux(se) et attentif(ve) aux détails.', reversed: false },
-  { trait: 'extraversion' as const, text: 'Je me sens à l\'aise dans les groupes et les événements sociaux.', reversed: false },
-  { trait: 'extraversion' as const, text: 'Je préfère travailler seul(e) plutôt qu\'en équipe.', reversed: true },
-  { trait: 'extraversion' as const, text: 'Je prends facilement la parole en public.', reversed: false },
-  { trait: 'agreeableness' as const, text: 'Je fais confiance aux autres facilement.', reversed: false },
-  { trait: 'agreeableness' as const, text: 'J\'ai tendance à être critique envers les autres.', reversed: true },
-  { trait: 'agreeableness' as const, text: 'J\'aime aider les autres, même si cela me demande un effort.', reversed: false },
-  { trait: 'neuroticism' as const, text: 'Je m\'inquiète souvent pour des choses qui pourraient mal tourner.', reversed: false },
-  { trait: 'neuroticism' as const, text: 'Je reste calme même dans des situations stressantes.', reversed: true },
-  { trait: 'neuroticism' as const, text: 'Mes émotions changent rapidement.', reversed: false },
-];
+interface Question {
+  id: string;
+  trait: string;
+  text: string;
+  reversed: boolean;
+  sort_order: number;
+}
 
 const SCALE_LABELS = ['Pas du tout d\'accord', 'Pas d\'accord', 'Neutre', 'D\'accord', 'Tout à fait d\'accord'];
 
 export default function AssessmentPage() {
   const { token } = useParams<{ token: string }>();
   const [assessment, setAssessment] = useState<any>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
-  const [answers, setAnswers] = useState<number[]>(new Array(QUESTIONS.length).fill(3));
+  const [answers, setAnswers] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     if (!token) return;
-    supabase.from('assessments').select('*').eq('uuid_token', token).single()
-      .then(({ data, error }) => {
-        if (error || !data) { setNotFound(true); }
-        else if (data.status !== 'pending') { setSubmitted(true); setAssessment(data); }
-        else { setAssessment(data); }
-        setLoading(false);
-      });
+    Promise.all([
+      supabase.from('assessments').select('*').eq('uuid_token', token).single(),
+      supabase.from('assessment_questions').select('*').eq('is_active', true).order('sort_order'),
+    ]).then(([assessRes, qRes]) => {
+      if (assessRes.error || !assessRes.data) { setNotFound(true); }
+      else if (assessRes.data.status !== 'pending') { setSubmitted(true); setAssessment(assessRes.data); }
+      else { setAssessment(assessRes.data); }
+      const qs = (qRes.data || []) as Question[];
+      setQuestions(qs);
+      setAnswers(new Array(qs.length).fill(3));
+      setLoading(false);
+    });
   }, [token]);
 
   const calculateScores = (): OceanScores => {
     const traitScores: Record<string, number[]> = {
       openness: [], conscientiousness: [], extraversion: [], agreeableness: [], neuroticism: [],
     };
-    QUESTIONS.forEach((q, i) => {
+    questions.forEach((q, i) => {
       const raw = answers[i];
       const val = q.reversed ? (6 - raw) : raw;
       traitScores[q.trait].push(val);
     });
-    const toPercent = (arr: number[]) => Math.round((arr.reduce((a, b) => a + b, 0) / (arr.length * 5)) * 100);
+    const toPercent = (arr: number[]) => arr.length === 0 ? 0 : Math.round((arr.reduce((a, b) => a + b, 0) / (arr.length * 5)) * 100);
     return {
       openness: toPercent(traitScores.openness),
       conscientiousness: toPercent(traitScores.conscientiousness),
@@ -82,8 +78,7 @@ export default function AssessmentPage() {
       status: 'completed',
       completed_at: new Date().toISOString(),
     }).eq('uuid_token', token);
-
-    if (error) { console.error(error); }
+    if (error) console.error(error);
     setSubmitted(true);
     setSubmitting(false);
   };
@@ -108,7 +103,7 @@ export default function AssessmentPage() {
       <Card className="max-w-md"><CardContent className="py-12 text-center">
         <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
         <p className="text-lg font-medium">Merci !</p>
-        <p className="text-sm text-muted-foreground mt-2">Votre évaluation a été enregistrée avec succès. L'équipe RH analysera vos résultats.</p>
+        <p className="text-sm text-muted-foreground mt-2">Votre évaluation a été enregistrée avec succès.</p>
       </CardContent></Card>
     </div>
   );
@@ -126,8 +121,8 @@ export default function AssessmentPage() {
           </p>
         </div>
 
-        {QUESTIONS.map((q, i) => (
-          <Card key={i} className="shadow-sm">
+        {questions.map((q, i) => (
+          <Card key={q.id} className="shadow-sm">
             <CardContent className="py-4">
               <p className="text-sm font-medium mb-4">{i + 1}. {q.text}</p>
               <div className="px-2">

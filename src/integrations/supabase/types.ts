@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      assessment_questions: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          reversed: boolean
+          sort_order: number
+          text: string
+          trait: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          reversed?: boolean
+          sort_order?: number
+          text: string
+          trait: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          reversed?: boolean
+          sort_order?: number
+          text?: string
+          trait?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       assessments: {
         Row: {
           ai_analysis: Json | null
