@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Loader2, Brain, CheckCircle2 } from 'lucide-react';
@@ -37,25 +37,30 @@ export default function AssessmentPage() {
 
   useEffect(() => {
     if (!token) return;
-    supabase.from('assessments').select('*').eq('uuid_token', token).single()
-      .then(({ data, error }) => {
-        if (error || !data) { setNotFound(true); }
-        else if (data.status !== 'pending') { setSubmitted(true); setAssessment(data); }
-        else { setAssessment(data); }
-        setLoading(false);
-      });
+    Promise.all([
+      supabase.from('assessments').select('*').eq('uuid_token', token).single(),
+      supabase.from('assessment_questions').select('*').eq('is_active', true).order('sort_order'),
+    ]).then(([assessRes, qRes]) => {
+      if (assessRes.error || !assessRes.data) { setNotFound(true); }
+      else if (assessRes.data.status !== 'pending') { setSubmitted(true); setAssessment(assessRes.data); }
+      else { setAssessment(assessRes.data); }
+      const qs = (qRes.data || []) as Question[];
+      setQuestions(qs);
+      setAnswers(new Array(qs.length).fill(3));
+      setLoading(false);
+    });
   }, [token]);
 
   const calculateScores = (): OceanScores => {
     const traitScores: Record<string, number[]> = {
       openness: [], conscientiousness: [], extraversion: [], agreeableness: [], neuroticism: [],
     };
-    QUESTIONS.forEach((q, i) => {
+    questions.forEach((q, i) => {
       const raw = answers[i];
       const val = q.reversed ? (6 - raw) : raw;
       traitScores[q.trait].push(val);
     });
-    const toPercent = (arr: number[]) => Math.round((arr.reduce((a, b) => a + b, 0) / (arr.length * 5)) * 100);
+    const toPercent = (arr: number[]) => arr.length === 0 ? 0 : Math.round((arr.reduce((a, b) => a + b, 0) / (arr.length * 5)) * 100);
     return {
       openness: toPercent(traitScores.openness),
       conscientiousness: toPercent(traitScores.conscientiousness),
@@ -73,8 +78,7 @@ export default function AssessmentPage() {
       status: 'completed',
       completed_at: new Date().toISOString(),
     }).eq('uuid_token', token);
-
-    if (error) { console.error(error); }
+    if (error) console.error(error);
     setSubmitted(true);
     setSubmitting(false);
   };
@@ -99,7 +103,7 @@ export default function AssessmentPage() {
       <Card className="max-w-md"><CardContent className="py-12 text-center">
         <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
         <p className="text-lg font-medium">Merci !</p>
-        <p className="text-sm text-muted-foreground mt-2">Votre évaluation a été enregistrée avec succès. L'équipe RH analysera vos résultats.</p>
+        <p className="text-sm text-muted-foreground mt-2">Votre évaluation a été enregistrée avec succès.</p>
       </CardContent></Card>
     </div>
   );
@@ -117,8 +121,8 @@ export default function AssessmentPage() {
           </p>
         </div>
 
-        {QUESTIONS.map((q, i) => (
-          <Card key={i} className="shadow-sm">
+        {questions.map((q, i) => (
+          <Card key={q.id} className="shadow-sm">
             <CardContent className="py-4">
               <p className="text-sm font-medium mb-4">{i + 1}. {q.text}</p>
               <div className="px-2">
