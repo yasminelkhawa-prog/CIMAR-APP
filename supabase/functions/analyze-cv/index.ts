@@ -135,6 +135,7 @@ ${text}`;
           synthese_ia: parsed.synthese_ia || "",
           cv_file_path: filePath || "",
           cv_raw_text: text.substring(0, 5000),
+          candidate_details: parsed.candidate_details || {},
         };
 
         const { data: inserted, error } = await supabase.from("cv_analyses").insert(record).select().single();
