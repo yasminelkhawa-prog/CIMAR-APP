@@ -265,14 +265,24 @@ export function CvsRetenusForm() {
       candidates.map((cv, i) => ({
         'Poste': poste,
         'Rang': i + 1,
-        'Nom complet': cv.nom_candidat,
+        'Prénom': cv.candidate_details?.prenom || (cv.nom_candidat || '').split(' ')[0] || '',
+        'Nom': cv.candidate_details?.nom || (cv.nom_candidat || '').split(' ').slice(1).join(' ') || '',
         'Score (%)': cv.matching_score,
+        'Région': cv.candidate_details?.region || '',
+        'Formation': cv.candidate_details?.formation || '',
+        'Poste actuel': cv.candidate_details?.poste_actuel || '',
+        'Entreprise': cv.candidate_details?.entreprise_actuelle || '',
+        'Expérience': cv.candidate_details?.annees_experience || '',
         'Email': cv.email || '',
-        'Compétences': (cv.competences_cles || []).join(', '),
+        'Téléphone': cv.candidate_details?.telephone || '',
       }))
     );
     const summaryWs = XLSX.utils.json_to_sheet(summaryData);
-    summaryWs['!cols'] = [{ wch: 30 }, { wch: 6 }, { wch: 25 }, { wch: 10 }, { wch: 30 }, { wch: 40 }];
+    summaryWs['!cols'] = [
+      { wch: 25 }, { wch: 6 }, { wch: 15 }, { wch: 20 }, { wch: 8 },
+      { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 10 },
+      { wch: 30 }, { wch: 15 },
+    ];
     XLSX.utils.book_append_sheet(wb, summaryWs, 'Comparatif Global');
 
     XLSX.writeFile(wb, `rapport_preselection_${new Date().toISOString().split('T')[0]}.xlsx`);
