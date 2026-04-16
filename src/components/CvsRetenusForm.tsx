@@ -13,6 +13,19 @@ import * as XLSX from 'xlsx';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
+interface CandidateDetails {
+  prenom?: string;
+  nom?: string;
+  region?: string;
+  etablissement_formation?: string;
+  formation?: string;
+  poste_actuel?: string;
+  entreprise_actuelle?: string;
+  date_debut_poste?: string;
+  annees_experience?: string;
+  telephone?: string;
+}
+
 interface CvAnalysis {
   id: string;
   session_id: string;
@@ -24,6 +37,7 @@ interface CvAnalysis {
   synthese_ia: string;
   cv_file_path: string;
   created_at: string;
+  candidate_details: CandidateDetails;
 }
 
 const SCORE_COLORS: Record<string, string> = { high: 'bg-green-500', medium: 'bg-yellow-500', low: 'bg-red-500' };
@@ -56,7 +70,11 @@ export function CvsRetenusForm() {
       .select('*')
       .order('matching_score', { ascending: false });
     if (data) {
-      setAnalyses(data.map(d => ({ ...d, competences_cles: (d.competences_cles as string[]) || [] })));
+      setAnalyses(data.map(d => ({
+        ...d,
+        competences_cles: (d.competences_cles as string[]) || [],
+        candidate_details: (d.candidate_details as unknown as CandidateDetails) || {},
+      })));
     }
   };
 
@@ -214,21 +232,29 @@ export function CvsRetenusForm() {
     const wb = XLSX.utils.book_new();
 
     Object.entries(grouped).forEach(([poste, candidates]) => {
-      const data = candidates.map((cv, i) => ({
+      const data = candidates.map((cv) => ({
         'Poste': poste,
-        'Prénom': (cv.nom_candidat || '').split(' ')[0] || '',
-        'Nom': (cv.nom_candidat || '').split(' ').slice(1).join(' ') || '',
+        'Prénom': cv.candidate_details?.prenom || (cv.nom_candidat || '').split(' ')[0] || '',
+        'Nom': cv.candidate_details?.nom || (cv.nom_candidat || '').split(' ').slice(1).join(' ') || '',
+        'Région': cv.candidate_details?.region || '',
+        'Établissement de formation': cv.candidate_details?.etablissement_formation || '',
+        'Formation': cv.candidate_details?.formation || '',
+        'Poste actuel': cv.candidate_details?.poste_actuel || '',
+        'Entreprise actuelle': cv.candidate_details?.entreprise_actuelle || '',
+        'Date début poste': cv.candidate_details?.date_debut_poste || '',
+        'Nbr années expérience': cv.candidate_details?.annees_experience || '',
         'Email': cv.email || '',
+        'Téléphone': cv.candidate_details?.telephone || '',
         'Score (%)': cv.matching_score,
         'Compétences clés': (cv.competences_cles || []).join(', '),
         'Synthèse IA': cv.synthese_ia,
-        'Date': new Date(cv.created_at).toLocaleDateString('fr-FR'),
       }));
 
       const ws = XLSX.utils.json_to_sheet(data);
       ws['!cols'] = [
-        { wch: 30 }, { wch: 15 }, { wch: 20 }, { wch: 30 },
-        { wch: 10 }, { wch: 40 }, { wch: 50 }, { wch: 12 },
+        { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 25 },
+        { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 12 }, { wch: 10 },
+        { wch: 30 }, { wch: 15 }, { wch: 8 }, { wch: 40 }, { wch: 50 },
       ];
       const sheetName = poste.substring(0, 31);
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -239,14 +265,24 @@ export function CvsRetenusForm() {
       candidates.map((cv, i) => ({
         'Poste': poste,
         'Rang': i + 1,
-        'Nom complet': cv.nom_candidat,
+        'Prénom': cv.candidate_details?.prenom || (cv.nom_candidat || '').split(' ')[0] || '',
+        'Nom': cv.candidate_details?.nom || (cv.nom_candidat || '').split(' ').slice(1).join(' ') || '',
         'Score (%)': cv.matching_score,
+        'Région': cv.candidate_details?.region || '',
+        'Formation': cv.candidate_details?.formation || '',
+        'Poste actuel': cv.candidate_details?.poste_actuel || '',
+        'Entreprise': cv.candidate_details?.entreprise_actuelle || '',
+        'Expérience': cv.candidate_details?.annees_experience || '',
         'Email': cv.email || '',
-        'Compétences': (cv.competences_cles || []).join(', '),
+        'Téléphone': cv.candidate_details?.telephone || '',
       }))
     );
     const summaryWs = XLSX.utils.json_to_sheet(summaryData);
-    summaryWs['!cols'] = [{ wch: 30 }, { wch: 6 }, { wch: 25 }, { wch: 10 }, { wch: 30 }, { wch: 40 }];
+    summaryWs['!cols'] = [
+      { wch: 25 }, { wch: 6 }, { wch: 15 }, { wch: 20 }, { wch: 8 },
+      { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 10 },
+      { wch: 30 }, { wch: 15 },
+    ];
     XLSX.utils.book_append_sheet(wb, summaryWs, 'Comparatif Global');
 
     XLSX.writeFile(wb, `rapport_preselection_${new Date().toISOString().split('T')[0]}.xlsx`);
@@ -405,14 +441,45 @@ export function CvsRetenusForm() {
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-3">
                           <div>
-                            <p className="font-semibold text-sm">{cv.nom_candidat}</p>
+                            <p className="font-semibold text-sm">
+                              {cv.candidate_details?.prenom || ''} {cv.candidate_details?.nom || cv.nom_candidat}
+                            </p>
                             {cv.email && <p className="text-xs text-muted-foreground">{cv.email}</p>}
+                            {cv.candidate_details?.telephone && (
+                              <p className="text-xs text-muted-foreground">{cv.candidate_details.telephone}</p>
+                            )}
                           </div>
                           <div className={`flex items-center justify-center w-10 h-10 rounded-full text-white text-xs font-bold ${getScoreColor(cv.matching_score)}`}>
                             {cv.matching_score}%
                           </div>
                         </div>
                         <Badge variant="outline" className="mb-2 text-xs">#{index + 1}</Badge>
+
+                        {/* Detailed candidate info */}
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mb-3">
+                          {cv.candidate_details?.region && (
+                            <div><span className="text-muted-foreground">Région:</span> {cv.candidate_details.region}</div>
+                          )}
+                          {cv.candidate_details?.formation && (
+                            <div><span className="text-muted-foreground">Formation:</span> {cv.candidate_details.formation}</div>
+                          )}
+                          {cv.candidate_details?.etablissement_formation && (
+                            <div><span className="text-muted-foreground">Établissement:</span> {cv.candidate_details.etablissement_formation}</div>
+                          )}
+                          {cv.candidate_details?.poste_actuel && (
+                            <div><span className="text-muted-foreground">Poste actuel:</span> {cv.candidate_details.poste_actuel}</div>
+                          )}
+                          {cv.candidate_details?.entreprise_actuelle && (
+                            <div><span className="text-muted-foreground">Entreprise:</span> {cv.candidate_details.entreprise_actuelle}</div>
+                          )}
+                          {cv.candidate_details?.date_debut_poste && (
+                            <div><span className="text-muted-foreground">Début poste:</span> {cv.candidate_details.date_debut_poste}</div>
+                          )}
+                          {cv.candidate_details?.annees_experience && (
+                            <div><span className="text-muted-foreground">Expérience:</span> {cv.candidate_details.annees_experience}</div>
+                          )}
+                        </div>
+
                         <div className="flex flex-wrap gap-1 mb-3">
                           {(cv.competences_cles || []).map((comp, i) => (
                             <Badge key={i} variant="secondary" className="text-xs px-2 py-0.5">{comp}</Badge>

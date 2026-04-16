@@ -1,0 +1,1 @@
+ALTER TABLE public.cv_analyses ADD COLUMN candidate_details jsonb NOT NULL DEFAULT '{}'::jsonb;

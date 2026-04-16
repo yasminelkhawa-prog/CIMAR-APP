@@ -42,7 +42,7 @@ Pour chaque CV, tu dois:
 2. Donner un score de matching sur 100 basé sur l'adéquation du profil avec le poste assigné
 3. Lister les 3 compétences clés (hard skills)
 4. Rédiger une synthèse de 20 mots max expliquant pourquoi ce candidat est pertinent pour ce poste
-5. Extraire le nom du candidat et son email s'ils sont visibles
+5. Extraire les informations détaillées du candidat: prénom, nom, email, téléphone, région/ville, établissement de formation, intitulé de formation, poste actuel, entreprise actuelle, date de début du poste actuel, nombre d'années d'expérience totale
 
 Tu dois répondre UNIQUEMENT avec le JSON demandé, sans aucun texte autour.`;
 
@@ -60,8 +60,22 @@ Retourne UNIQUEMENT un JSON avec ce format exact:
   "poste_assigne": "un des postes listés ou Non pertinent",
   "matching_score": 85,
   "competences_cles": ["Compétence 1", "Compétence 2", "Compétence 3"],
-  "synthese_ia": "Texte court ici"
+  "synthese_ia": "Texte court ici",
+  "candidate_details": {
+    "prenom": "Prénom",
+    "nom": "Nom",
+    "region": "Ville ou région",
+    "etablissement_formation": "Nom de l'école ou université",
+    "formation": "Intitulé du diplôme/formation",
+    "poste_actuel": "Intitulé du poste actuel",
+    "entreprise_actuelle": "Nom de l'entreprise actuelle",
+    "date_debut_poste": "MM/AAAA ou année",
+    "annees_experience": "X ans",
+    "telephone": "+212..."
+  }
 }
+
+Si une information n'est pas trouvée dans le CV, laisse une chaîne vide "".
 
 Contenu du CV:
 ${text}`;
@@ -121,6 +135,7 @@ ${text}`;
           synthese_ia: parsed.synthese_ia || "",
           cv_file_path: filePath || "",
           cv_raw_text: text.substring(0, 5000),
+          candidate_details: parsed.candidate_details || {},
         };
 
         const { data: inserted, error } = await supabase.from("cv_analyses").insert(record).select().single();
