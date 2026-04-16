@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, FileText, Trash2, RefreshCw, Eye, Sparkles, Download } from 'lucide-react';
+import { Upload, FileText, Trash2, RefreshCw, Eye, Sparkles, Download, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import * as pdfjsLib from 'pdfjs-dist';
 import * as XLSX from 'xlsx';
@@ -43,6 +44,8 @@ export function CvsRetenusForm() {
   const [analyses, setAnalyses] = useState<CvAnalysis[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [targetPositions, setTargetPositions] = useState<string[]>([]);
+  const [newPosition, setNewPosition] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadAnalyses(); }, []);
@@ -55,6 +58,18 @@ export function CvsRetenusForm() {
     if (data) {
       setAnalyses(data.map(d => ({ ...d, competences_cles: (d.competences_cles as string[]) || [] })));
     }
+  };
+
+  const addPosition = () => {
+    const pos = newPosition.trim();
+    if (pos && !targetPositions.includes(pos)) {
+      setTargetPositions(prev => [...prev, pos]);
+      setNewPosition('');
+    }
+  };
+
+  const removePosition = (index: number) => {
+    setTargetPositions(prev => prev.filter((_, i) => i !== index));
   };
 
   const extractTextFromPdf = async (file: File): Promise<string> => {
@@ -108,11 +123,7 @@ export function CvsRetenusForm() {
 
   const extractReadableCvText = async (file: File): Promise<string> => {
     const isWord = file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc');
-
-    if (isWord) {
-      return await extractTextFromWord(file);
-    }
-
+    if (isWord) return await extractTextFromWord(file);
     const directText = await extractTextFromPdf(file);
     if (directText.length >= DIRECT_TEXT_MIN_LENGTH) return directText;
     const ocrText = await extractTextFromPdfWithOcr(file);
@@ -121,6 +132,10 @@ export function CvsRetenusForm() {
 
   const handleUploadAndAnalyze = async (files: FileList) => {
     if (files.length === 0) return;
+    if (targetPositions.length === 0) {
+      toast.error(t('addPositionsFirst'));
+      return;
+    }
     setIsAnalyzing(true);
     setProgress({ current: 0, total: files.length });
     const sessionId = crypto.randomUUID();
@@ -161,7 +176,7 @@ export function CvsRetenusForm() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ cvTexts, sessionId }),
+          body: JSON.stringify({ cvTexts, sessionId, targetPositions }),
         }
       );
       if (resp.status === 429) toast.error('Limite de requêtes atteinte');
@@ -200,24 +215,22 @@ export function CvsRetenusForm() {
 
     Object.entries(grouped).forEach(([poste, candidates]) => {
       const data = candidates.map((cv, i) => ({
-        'Rang': i + 1,
-        'Nom': cv.nom_candidat,
+        'Poste': poste,
+        'Prénom': (cv.nom_candidat || '').split(' ')[0] || '',
+        'Nom': (cv.nom_candidat || '').split(' ').slice(1).join(' ') || '',
         'Email': cv.email || '',
         'Score (%)': cv.matching_score,
-        'Compétences': (cv.competences_cles || []).join(', '),
+        'Compétences clés': (cv.competences_cles || []).join(', '),
         'Synthèse IA': cv.synthese_ia,
         'Date': new Date(cv.created_at).toLocaleDateString('fr-FR'),
       }));
 
       const ws = XLSX.utils.json_to_sheet(data);
-
-      // Set column widths
       ws['!cols'] = [
-        { wch: 6 }, { wch: 25 }, { wch: 30 }, { wch: 10 },
-        { wch: 40 }, { wch: 50 }, { wch: 12 },
+        { wch: 30 }, { wch: 15 }, { wch: 20 }, { wch: 30 },
+        { wch: 10 }, { wch: 40 }, { wch: 50 }, { wch: 12 },
       ];
-
-      const sheetName = poste.substring(0, 31); // Excel sheet name limit
+      const sheetName = poste.substring(0, 31);
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
     });
 
@@ -226,21 +239,21 @@ export function CvsRetenusForm() {
       candidates.map((cv, i) => ({
         'Poste': poste,
         'Rang': i + 1,
-        'Nom': cv.nom_candidat,
+        'Nom complet': cv.nom_candidat,
         'Score (%)': cv.matching_score,
         'Email': cv.email || '',
         'Compétences': (cv.competences_cles || []).join(', '),
       }))
     );
     const summaryWs = XLSX.utils.json_to_sheet(summaryData);
-    summaryWs['!cols'] = [{ wch: 20 }, { wch: 6 }, { wch: 25 }, { wch: 10 }, { wch: 30 }, { wch: 40 }];
+    summaryWs['!cols'] = [{ wch: 30 }, { wch: 6 }, { wch: 25 }, { wch: 10 }, { wch: 30 }, { wch: 40 }];
     XLSX.utils.book_append_sheet(wb, summaryWs, 'Comparatif Global');
 
     XLSX.writeFile(wb, `rapport_preselection_${new Date().toISOString().split('T')[0]}.xlsx`);
     toast.success(t('downloadReport'));
   };
 
-  // Group by poste
+  // Group by poste, filter to only target positions if set
   const grouped = analyses.reduce<Record<string, CvAnalysis[]>>((acc, a) => {
     const key = a.poste_assigne || 'Autre';
     if (!acc[key]) acc[key] = [];
@@ -285,7 +298,7 @@ export function CvsRetenusForm() {
               </Button>
             </>
           )}
-          <Button onClick={() => fileInputRef.current?.click()} disabled={isAnalyzing} size="sm">
+          <Button onClick={() => fileInputRef.current?.click()} disabled={isAnalyzing || targetPositions.length === 0} size="sm">
             {isAnalyzing ? (
               <><RefreshCw className="h-4 w-4 mr-1 animate-spin" /> Analyse en cours...</>
             ) : (
@@ -302,6 +315,41 @@ export function CvsRetenusForm() {
           />
         </div>
       </div>
+
+      {/* Target Positions Input */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">{t('targetPositionsTitle')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2 mb-3">
+            <Input
+              value={newPosition}
+              onChange={e => setNewPosition(e.target.value)}
+              placeholder={t('targetPositionPlaceholder')}
+              className="flex-1"
+              onKeyDown={e => e.key === 'Enter' && addPosition()}
+            />
+            <Button size="sm" onClick={addPosition} disabled={!newPosition.trim()}>
+              <Plus className="h-4 w-4 mr-1" /> {t('add')}
+            </Button>
+          </div>
+          {targetPositions.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">{t('noPositionsDefined')}</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {targetPositions.map((pos, i) => (
+                <Badge key={i} variant="secondary" className="text-sm px-3 py-1 flex items-center gap-1">
+                  {pos}
+                  <button onClick={() => removePosition(i)} className="ml-1 hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {isAnalyzing && (
         <Card>
@@ -323,9 +371,11 @@ export function CvsRetenusForm() {
             <FileText className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-medium mb-2">{t('noCvsAnalyzed')}</h3>
             <p className="text-sm text-muted-foreground mb-4">{t('noCvsAnalyzedDesc')}</p>
-            <Button onClick={() => fileInputRef.current?.click()}>
-              <Upload className="h-4 w-4 mr-2" /> {t('uploadCVs')}
-            </Button>
+            {targetPositions.length > 0 && (
+              <Button onClick={() => fileInputRef.current?.click()}>
+                <Upload className="h-4 w-4 mr-2" /> {t('uploadCVs')}
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
