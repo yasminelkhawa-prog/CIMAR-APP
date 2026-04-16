@@ -13,6 +13,19 @@ import * as XLSX from 'xlsx';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
+interface CandidateDetails {
+  prenom?: string;
+  nom?: string;
+  region?: string;
+  etablissement_formation?: string;
+  formation?: string;
+  poste_actuel?: string;
+  entreprise_actuelle?: string;
+  date_debut_poste?: string;
+  annees_experience?: string;
+  telephone?: string;
+}
+
 interface CvAnalysis {
   id: string;
   session_id: string;
@@ -24,6 +37,7 @@ interface CvAnalysis {
   synthese_ia: string;
   cv_file_path: string;
   created_at: string;
+  candidate_details: CandidateDetails;
 }
 
 const SCORE_COLORS: Record<string, string> = { high: 'bg-green-500', medium: 'bg-yellow-500', low: 'bg-red-500' };
