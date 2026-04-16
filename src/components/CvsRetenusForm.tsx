@@ -423,14 +423,45 @@ export function CvsRetenusForm() {
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-3">
                           <div>
-                            <p className="font-semibold text-sm">{cv.nom_candidat}</p>
+                            <p className="font-semibold text-sm">
+                              {cv.candidate_details?.prenom || ''} {cv.candidate_details?.nom || cv.nom_candidat}
+                            </p>
                             {cv.email && <p className="text-xs text-muted-foreground">{cv.email}</p>}
+                            {cv.candidate_details?.telephone && (
+                              <p className="text-xs text-muted-foreground">{cv.candidate_details.telephone}</p>
+                            )}
                           </div>
                           <div className={`flex items-center justify-center w-10 h-10 rounded-full text-white text-xs font-bold ${getScoreColor(cv.matching_score)}`}>
                             {cv.matching_score}%
                           </div>
                         </div>
                         <Badge variant="outline" className="mb-2 text-xs">#{index + 1}</Badge>
+
+                        {/* Detailed candidate info */}
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mb-3">
+                          {cv.candidate_details?.region && (
+                            <div><span className="text-muted-foreground">Région:</span> {cv.candidate_details.region}</div>
+                          )}
+                          {cv.candidate_details?.formation && (
+                            <div><span className="text-muted-foreground">Formation:</span> {cv.candidate_details.formation}</div>
+                          )}
+                          {cv.candidate_details?.etablissement_formation && (
+                            <div><span className="text-muted-foreground">Établissement:</span> {cv.candidate_details.etablissement_formation}</div>
+                          )}
+                          {cv.candidate_details?.poste_actuel && (
+                            <div><span className="text-muted-foreground">Poste actuel:</span> {cv.candidate_details.poste_actuel}</div>
+                          )}
+                          {cv.candidate_details?.entreprise_actuelle && (
+                            <div><span className="text-muted-foreground">Entreprise:</span> {cv.candidate_details.entreprise_actuelle}</div>
+                          )}
+                          {cv.candidate_details?.date_debut_poste && (
+                            <div><span className="text-muted-foreground">Début poste:</span> {cv.candidate_details.date_debut_poste}</div>
+                          )}
+                          {cv.candidate_details?.annees_experience && (
+                            <div><span className="text-muted-foreground">Expérience:</span> {cv.candidate_details.annees_experience}</div>
+                          )}
+                        </div>
+
                         <div className="flex flex-wrap gap-1 mb-3">
                           {(cv.competences_cles || []).map((comp, i) => (
                             <Badge key={i} variant="secondary" className="text-xs px-2 py-0.5">{comp}</Badge>
