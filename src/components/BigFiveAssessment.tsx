@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+
 import { useLanguage } from '@/i18n/LanguageContext';
 import { toast } from 'sonner';
 import { Plus, Send, Eye, Loader2, Brain, ExternalLink, Trash2, Settings2 } from 'lucide-react';
@@ -43,7 +43,7 @@ interface AiAnalysis {
 }
 
 export function BigFiveAssessment() {
-  const { user } = useAuth();
+  
   const { t } = useLanguage();
   const [showConfig, setShowConfig] = useState(false);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
@@ -90,7 +90,7 @@ export function BigFiveAssessment() {
       candidate_name: newName.trim(),
       candidate_email: newEmail.trim(),
       job_role: newRole.trim(),
-      created_by: user?.id,
+      created_by: null,
     });
     if (error) {
       toast.error(error.message);
