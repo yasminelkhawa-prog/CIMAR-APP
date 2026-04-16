@@ -105,6 +105,7 @@ export type Database = {
       }
       cv_analyses: {
         Row: {
+          candidate_details: Json
           competences_cles: Json
           created_at: string
           cv_file_path: string | null
@@ -119,6 +120,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          candidate_details?: Json
           competences_cles?: Json
           created_at?: string
           cv_file_path?: string | null
@@ -133,6 +135,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          candidate_details?: Json
           competences_cles?: Json
           created_at?: string
           cv_file_path?: string | null
