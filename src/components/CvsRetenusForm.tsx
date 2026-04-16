@@ -232,21 +232,29 @@ export function CvsRetenusForm() {
     const wb = XLSX.utils.book_new();
 
     Object.entries(grouped).forEach(([poste, candidates]) => {
-      const data = candidates.map((cv, i) => ({
+      const data = candidates.map((cv) => ({
         'Poste': poste,
-        'Prénom': (cv.nom_candidat || '').split(' ')[0] || '',
-        'Nom': (cv.nom_candidat || '').split(' ').slice(1).join(' ') || '',
+        'Prénom': cv.candidate_details?.prenom || (cv.nom_candidat || '').split(' ')[0] || '',
+        'Nom': cv.candidate_details?.nom || (cv.nom_candidat || '').split(' ').slice(1).join(' ') || '',
+        'Région': cv.candidate_details?.region || '',
+        'Établissement de formation': cv.candidate_details?.etablissement_formation || '',
+        'Formation': cv.candidate_details?.formation || '',
+        'Poste actuel': cv.candidate_details?.poste_actuel || '',
+        'Entreprise actuelle': cv.candidate_details?.entreprise_actuelle || '',
+        'Date début poste': cv.candidate_details?.date_debut_poste || '',
+        'Nbr années expérience': cv.candidate_details?.annees_experience || '',
         'Email': cv.email || '',
+        'Téléphone': cv.candidate_details?.telephone || '',
         'Score (%)': cv.matching_score,
         'Compétences clés': (cv.competences_cles || []).join(', '),
         'Synthèse IA': cv.synthese_ia,
-        'Date': new Date(cv.created_at).toLocaleDateString('fr-FR'),
       }));
 
       const ws = XLSX.utils.json_to_sheet(data);
       ws['!cols'] = [
-        { wch: 30 }, { wch: 15 }, { wch: 20 }, { wch: 30 },
-        { wch: 10 }, { wch: 40 }, { wch: 50 }, { wch: 12 },
+        { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 25 },
+        { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 12 }, { wch: 10 },
+        { wch: 30 }, { wch: 15 }, { wch: 8 }, { wch: 40 }, { wch: 50 },
       ];
       const sheetName = poste.substring(0, 31);
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
