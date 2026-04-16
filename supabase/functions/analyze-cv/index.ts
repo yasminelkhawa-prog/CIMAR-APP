@@ -6,23 +6,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Tu es un expert RH spécialisé dans l'analyse de CV. Tu analyses le CV fourni et tu détermines:
-1. Le poste le plus adapté parmi: DAF, RH, Marketing/Digital, IT, Juridique, Logistique, Commercial, Audit, Finance, Ingénierie, Qualité, HSE, Achat, Communication, Autre
-2. Un score de matching sur 100 basé sur les compétences et l'expérience
-3. Les 3 compétences clés (hard skills)
-4. Une synthèse de 20 mots max expliquant pourquoi ce candidat est pertinent
-5. Le nom du candidat et son email s'ils sont visibles
-
-Tu dois répondre UNIQUEMENT avec le JSON demandé, sans aucun texte autour.`;
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { cvTexts, sessionId } = await req.json();
+    const { cvTexts, sessionId, targetPositions } = await req.json();
 
     if (!cvTexts || !Array.isArray(cvTexts) || cvTexts.length === 0) {
       return new Response(JSON.stringify({ error: "cvTexts array is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!targetPositions || !Array.isArray(targetPositions) || targetPositions.length === 0) {
+      return new Response(JSON.stringify({ error: "targetPositions array is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -35,16 +33,31 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    const positionsList = targetPositions.join(", ");
+
+    const SYSTEM_PROMPT = `Tu es un expert RH spécialisé dans l'analyse de CV. On recrute pour les postes suivants: ${positionsList}.
+
+Pour chaque CV, tu dois:
+1. Déterminer le poste le plus adapté UNIQUEMENT parmi: ${positionsList}. Si le candidat ne correspond à aucun de ces postes, utilise "Non pertinent".
+2. Donner un score de matching sur 100 basé sur l'adéquation du profil avec le poste assigné
+3. Lister les 3 compétences clés (hard skills)
+4. Rédiger une synthèse de 20 mots max expliquant pourquoi ce candidat est pertinent pour ce poste
+5. Extraire le nom du candidat et son email s'ils sont visibles
+
+Tu dois répondre UNIQUEMENT avec le JSON demandé, sans aucun texte autour.`;
+
     const results = [];
 
     for (const cv of cvTexts) {
       const { text, filePath } = cv;
 
-      const userPrompt = `Analyse ce CV et retourne UNIQUEMENT un JSON avec ce format exact:
+      const userPrompt = `Analyse ce CV et classe-le pour l'un des postes suivants: ${positionsList}.
+
+Retourne UNIQUEMENT un JSON avec ce format exact:
 {
   "nom_candidat": "Prénom Nom",
   "email": "email@exemple.com",
-  "poste_assigne": "DAF",
+  "poste_assigne": "un des postes listés ou Non pertinent",
   "matching_score": 85,
   "competences_cles": ["Compétence 1", "Compétence 2", "Compétence 3"],
   "synthese_ia": "Texte court ici"
@@ -90,7 +103,6 @@ ${text}`;
         const data = await response.json();
         const content = data.choices?.[0]?.message?.content || "";
 
-        // Extract JSON from response
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
           console.error("No JSON found in AI response for:", filePath);
@@ -103,7 +115,7 @@ ${text}`;
           session_id: sessionId,
           nom_candidat: parsed.nom_candidat || "Inconnu",
           email: parsed.email || "",
-          poste_assigne: parsed.poste_assigne || "Autre",
+          poste_assigne: parsed.poste_assigne || "Non pertinent",
           matching_score: Math.min(100, Math.max(0, parsed.matching_score || 0)),
           competences_cles: parsed.competences_cles || [],
           synthese_ia: parsed.synthese_ia || "",
@@ -118,7 +130,6 @@ ${text}`;
           results.push(inserted);
         }
 
-        // Small delay to avoid rate limiting
         await new Promise(r => setTimeout(r, 500));
       } catch (e) {
         console.error("Error analyzing CV:", filePath, e);
