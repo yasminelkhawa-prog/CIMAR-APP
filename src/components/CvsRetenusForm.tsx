@@ -70,7 +70,11 @@ export function CvsRetenusForm() {
       .select('*')
       .order('matching_score', { ascending: false });
     if (data) {
-      setAnalyses(data.map(d => ({ ...d, competences_cles: (d.competences_cles as string[]) || [] })));
+      setAnalyses(data.map(d => ({
+        ...d,
+        competences_cles: (d.competences_cles as string[]) || [],
+        candidate_details: (d.candidate_details as unknown as CandidateDetails) || {},
+      })));
     }
   };
 
