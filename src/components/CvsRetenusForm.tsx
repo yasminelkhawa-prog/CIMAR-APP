@@ -139,13 +139,64 @@ export function CvsRetenusForm() {
     return normalizeText(result.value);
   };
 
+  const extractTextFromImage = async (file: File): Promise<string> => {
+    const tesseractModule = await import('tesseract.js');
+    const createWorker = (tesseractModule as any).createWorker ?? (tesseractModule as any).default?.createWorker;
+    if (!createWorker) throw new Error('OCR worker unavailable');
+    const worker = await createWorker('eng+fra');
+    let ocrText = '';
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const result = await worker.recognize(dataUrl);
+      ocrText = result.data.text || '';
+    } finally { await worker.terminate(); }
+    return normalizeText(ocrText);
+  };
+
+  // Heuristic post-OCR cleanup for common scan misreads
+  const cleanupOcrText = (raw: string): string => {
+    let text = raw;
+    // Normalize unicode quotes/dashes
+    text = text.replace(/[\u2018\u2019\u201A\u2032]/g, "'")
+               .replace(/[\u201C\u201D\u201E\u2033]/g, '"')
+               .replace(/[\u2013\u2014\u2212]/g, '-');
+    // Remove stray pipe/backtick artifacts inside words
+    text = text.replace(/(\w)[|`](\w)/g, '$1l$2');
+    // Fix emails: remove spaces around @ and dots, fix common misreads
+    text = text.replace(/([A-Za-z0-9._%+-]+)\s*@\s*([A-Za-z0-9.-]+)\s*\.\s*([A-Za-z]{2,})/g, '$1@$2.$3');
+    text = text.replace(/([A-Za-z0-9._%+-]+)0([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, (m, a, b) => `${a}@${b}`);
+    // Fix phone numbers: collapse spaces in long digit runs, fix O/o → 0 inside digit groups
+    text = text.replace(/(\+?\d[\d\s().-]{7,}\d)/g, (match) =>
+      match.replace(/[Oo]/g, '0').replace(/[Il|]/g, '1')
+    );
+    // In ALL-CAPS words (likely names/titles), fix 0 → O and 1 → I
+    text = text.replace(/\b[A-Z0-9]{2,}\b/g, (word) => {
+      if (/^\d+$/.test(word)) return word; // pure number
+      return word.replace(/0/g, 'O').replace(/1/g, 'I');
+    });
+    // Collapse repeated whitespace
+    return text.replace(/\s+/g, ' ').trim();
+  };
+
   const extractReadableCvText = async (file: File): Promise<string> => {
-    const isWord = file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc');
+    const name = file.name.toLowerCase();
+    const isWord = name.endsWith('.docx') || name.endsWith('.doc');
+    const isImage = file.type.startsWith('image/') ||
+      /\.(jpe?g|png|webp|bmp|tiff?|heic)$/i.test(name);
     if (isWord) return await extractTextFromWord(file);
+    if (isImage) {
+      const ocrText = await extractTextFromImage(file);
+      return cleanupOcrText(ocrText);
+    }
     const directText = await extractTextFromPdf(file);
     if (directText.length >= DIRECT_TEXT_MIN_LENGTH) return directText;
     const ocrText = await extractTextFromPdfWithOcr(file);
-    return normalizeText([directText, ocrText].filter(Boolean).join(' '));
+    return cleanupOcrText(normalizeText([directText, ocrText].filter(Boolean).join(' ')));
   };
 
   const handleUploadAndAnalyze = async (files: FileList) => {
@@ -344,7 +395,7 @@ export function CvsRetenusForm() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.docx,.doc"
+            accept=".pdf,.docx,.doc,image/*,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff,.heic"
             multiple
             className="hidden"
             onChange={e => e.target.files && handleUploadAndAnalyze(e.target.files)}
