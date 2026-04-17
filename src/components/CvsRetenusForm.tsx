@@ -62,6 +62,7 @@ export function CvsRetenusForm() {
   const [targetPositions, setTargetPositions] = useState<string[]>([]);
   const [newPosition, setNewPosition] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [openPoste, setOpenPoste] = useState<string | null>(null);
 
   useEffect(() => { loadAnalyses(); }, []);
 
