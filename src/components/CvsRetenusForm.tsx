@@ -470,94 +470,159 @@ export function CvsRetenusForm() {
       )}
 
       {Object.keys(grouped).length > 0 && (
-        <div className="grid gap-6">
-          {Object.entries(grouped).map(([poste, candidates]) => (
-            <Card key={poste}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Badge className={posteColors[poste] || 'bg-gray-100 text-gray-800 border-gray-300'} variant="outline">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Object.entries(grouped).map(([poste, candidates]) => {
+            const avgScore = Math.round(
+              candidates.reduce((s, c) => s + c.matching_score, 0) / candidates.length
+            );
+            const topScore = candidates[0]?.matching_score || 0;
+            return (
+              <Card
+                key={poste}
+                className="cursor-pointer hover:shadow-lg transition-all hover:-translate-y-0.5 border-l-4"
+                style={{
+                  borderLeftColor: topScore >= 75 ? '#22c55e' : topScore >= 50 ? '#eab308' : '#ef4444',
+                }}
+                onClick={() => setOpenPoste(poste)}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <Badge
+                      className={posteColors[poste] || 'bg-gray-100 text-gray-800 border-gray-300'}
+                      variant="outline"
+                    >
                       {poste}
                     </Badge>
-                    <span className="text-sm text-muted-foreground font-normal">
-                      Top {candidates.length} candidat(s)
-                    </span>
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {candidates.map((cv, index) => (
-                    <Card key={cv.id} className="relative overflow-hidden border-l-4" style={{
-                      borderLeftColor: cv.matching_score >= 75 ? '#22c55e' : cv.matching_score >= 50 ? '#eab308' : '#ef4444'
-                    }}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <p className="font-semibold text-sm">
-                              {cv.candidate_details?.prenom || ''} {cv.candidate_details?.nom || cv.nom_candidat}
-                            </p>
-                            {cv.email && <p className="text-xs text-muted-foreground">{cv.email}</p>}
-                            {cv.candidate_details?.telephone && (
-                              <p className="text-xs text-muted-foreground">{cv.candidate_details.telephone}</p>
-                            )}
-                          </div>
-                          <div className={`flex items-center justify-center w-10 h-10 rounded-full text-white text-xs font-bold ${getScoreColor(cv.matching_score)}`}>
-                            {cv.matching_score}%
-                          </div>
-                        </div>
-                        <Badge variant="outline" className="mb-2 text-xs">#{index + 1}</Badge>
-
-                        {/* Detailed candidate info */}
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mb-3">
-                          {cv.candidate_details?.region && (
-                            <div><span className="text-muted-foreground">Région:</span> {cv.candidate_details.region}</div>
-                          )}
-                          {cv.candidate_details?.formation && (
-                            <div><span className="text-muted-foreground">Formation:</span> {cv.candidate_details.formation}</div>
-                          )}
-                          {cv.candidate_details?.etablissement_formation && (
-                            <div><span className="text-muted-foreground">Établissement:</span> {cv.candidate_details.etablissement_formation}</div>
-                          )}
-                          {cv.candidate_details?.poste_actuel && (
-                            <div><span className="text-muted-foreground">Poste actuel:</span> {cv.candidate_details.poste_actuel}</div>
-                          )}
-                          {cv.candidate_details?.entreprise_actuelle && (
-                            <div><span className="text-muted-foreground">Entreprise:</span> {cv.candidate_details.entreprise_actuelle}</div>
-                          )}
-                          {cv.candidate_details?.date_debut_poste && (
-                            <div><span className="text-muted-foreground">Début poste:</span> {cv.candidate_details.date_debut_poste}</div>
-                          )}
-                          {cv.candidate_details?.annees_experience && (
-                            <div><span className="text-muted-foreground">Expérience:</span> {cv.candidate_details.annees_experience}</div>
-                          )}
-                        </div>
-
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {(cv.competences_cles || []).map((comp, i) => (
-                            <Badge key={i} variant="secondary" className="text-xs px-2 py-0.5">{comp}</Badge>
-                          ))}
-                        </div>
-                        <p className="text-xs italic text-muted-foreground mb-3 line-clamp-2">"{cv.synthese_ia}"</p>
-                        <div className="flex items-center gap-2">
-                          {cv.cv_file_path && (
-                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewCV(cv.cv_file_path)}>
-                              <Eye className="h-3 w-3 mr-1" /> CV
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="sm" className="h-7 text-xs ml-auto" onClick={() => handleDeleteCard(cv.id)}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">{candidates.length}</span>
+                    <span className="text-muted-foreground">candidat(s)</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <div>
+                      <p className="text-muted-foreground">Top score</p>
+                      <p className={`text-lg font-bold ${topScore >= 75 ? 'text-green-600' : topScore >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                        {topScore}%
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-muted-foreground">Moyenne</p>
+                      <p className="text-lg font-bold text-muted-foreground">{avgScore}%</p>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <p className="text-xs text-muted-foreground mb-1">Meilleur candidat</p>
+                    <p className="text-sm font-medium truncate">
+                      {candidates[0]?.candidate_details?.prenom || ''}{' '}
+                      {candidates[0]?.candidate_details?.nom || candidates[0]?.nom_candidat}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
+
+      {/* Detail dialog: shows all candidates for the selected poste */}
+      <Dialog open={!!openPoste} onOpenChange={(o) => !o && setOpenPoste(null)}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Badge
+                className={openPoste ? (posteColors[openPoste] || 'bg-gray-100 text-gray-800 border-gray-300') : ''}
+                variant="outline"
+              >
+                {openPoste}
+              </Badge>
+              <span className="text-sm text-muted-foreground font-normal">
+                {openPoste ? grouped[openPoste]?.length || 0 : 0} candidat(s) — Insights détaillés
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+          {openPoste && grouped[openPoste] && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              {grouped[openPoste].map((cv, index) => (
+                <Card
+                  key={cv.id}
+                  className="relative overflow-hidden border-l-4"
+                  style={{
+                    borderLeftColor: cv.matching_score >= 75 ? '#22c55e' : cv.matching_score >= 50 ? '#eab308' : '#ef4444',
+                  }}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="font-semibold text-sm">
+                          {cv.candidate_details?.prenom || ''} {cv.candidate_details?.nom || cv.nom_candidat}
+                        </p>
+                        {cv.email && <p className="text-xs text-muted-foreground">{cv.email}</p>}
+                        {cv.candidate_details?.telephone && (
+                          <p className="text-xs text-muted-foreground">{cv.candidate_details.telephone}</p>
+                        )}
+                      </div>
+                      <div className={`flex items-center justify-center w-10 h-10 rounded-full text-white text-xs font-bold ${getScoreColor(cv.matching_score)}`}>
+                        {cv.matching_score}%
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="mb-2 text-xs">#{index + 1}</Badge>
+
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mb-3">
+                      {cv.candidate_details?.region && (
+                        <div><span className="text-muted-foreground">Région:</span> {cv.candidate_details.region}</div>
+                      )}
+                      {cv.candidate_details?.formation && (
+                        <div><span className="text-muted-foreground">Formation:</span> {cv.candidate_details.formation}</div>
+                      )}
+                      {cv.candidate_details?.etablissement_formation && (
+                        <div><span className="text-muted-foreground">Établissement:</span> {cv.candidate_details.etablissement_formation}</div>
+                      )}
+                      {cv.candidate_details?.poste_actuel && (
+                        <div><span className="text-muted-foreground">Poste actuel:</span> {cv.candidate_details.poste_actuel}</div>
+                      )}
+                      {cv.candidate_details?.entreprise_actuelle && (
+                        <div><span className="text-muted-foreground">Entreprise:</span> {cv.candidate_details.entreprise_actuelle}</div>
+                      )}
+                      {cv.candidate_details?.date_debut_poste && (
+                        <div><span className="text-muted-foreground">Début poste:</span> {cv.candidate_details.date_debut_poste}</div>
+                      )}
+                      {cv.candidate_details?.annees_experience && (
+                        <div><span className="text-muted-foreground">Expérience:</span> {cv.candidate_details.annees_experience}</div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {(cv.competences_cles || []).map((comp, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs px-2 py-0.5">{comp}</Badge>
+                      ))}
+                    </div>
+                    <p className="text-xs italic text-muted-foreground mb-3">"{cv.synthese_ia}"</p>
+                    <div className="flex items-center gap-2">
+                      {cv.cv_file_path && (
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewCV(cv.cv_file_path)}>
+                          <Eye className="h-3 w-3 mr-1" /> CV
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs ml-auto"
+                        onClick={() => handleDeleteCard(cv.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
