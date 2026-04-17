@@ -6,11 +6,16 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, FileText, Trash2, RefreshCw, Eye, Sparkles, Download, Plus, X, Users, ChevronRight } from 'lucide-react';
+import {
+  Upload, FileText, Trash2, RefreshCw, Eye, Sparkles, Download, Plus, X, Users,
+  ChevronRight, MapPin, GraduationCap, Briefcase, Building2, Calendar, Clock,
+  Mail, Phone, Trophy, Award, TrendingUp, User as UserIcon,
+} from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import * as pdfjsLib from 'pdfjs-dist';
 import * as XLSX from 'xlsx';
+import { cvAnalysisRunner, type RunnerState } from '@/lib/cvAnalysisRunner';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
@@ -41,30 +46,82 @@ interface CvAnalysis {
   candidate_details: CandidateDetails;
 }
 
-const SCORE_COLORS: Record<string, string> = { high: 'bg-green-500', medium: 'bg-yellow-500', low: 'bg-red-500' };
 const DIRECT_TEXT_MIN_LENGTH = 24;
 const READABLE_TEXT_MIN_LENGTH = 10;
 const OCR_PAGE_LIMIT = 2;
 
 const normalizeText = (value: string) => value.replace(/\s+/g, ' ').trim();
 
-function getScoreColor(score: number) {
-  if (score >= 75) return SCORE_COLORS.high;
-  if (score >= 50) return SCORE_COLORS.medium;
-  return SCORE_COLORS.low;
+function getScoreTone(score: number) {
+  if (score >= 75) return { ring: 'ring-emerald-500/40', text: 'text-emerald-600', bg: 'bg-emerald-500', soft: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-500', label: 'Excellent' };
+  if (score >= 50) return { ring: 'ring-amber-500/40', text: 'text-amber-600', bg: 'bg-amber-500', soft: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-500', label: 'Bon' };
+  return { ring: 'ring-rose-500/40', text: 'text-rose-600', bg: 'bg-rose-500', soft: 'bg-rose-50 dark:bg-rose-950/30', border: 'border-rose-500', label: 'Faible' };
 }
+
+function getInitials(prenom?: string, nom?: string, fallback = '') {
+  const p = (prenom || '').trim();
+  const n = (nom || '').trim();
+  if (p || n) return `${p[0] || ''}${n[0] || ''}`.toUpperCase();
+  const parts = fallback.trim().split(/\s+/);
+  return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?';
+}
+
+function buildExportRows(poste: string, candidates: CvAnalysis[]) {
+  return candidates.map((cv) => ({
+    'Poste': poste,
+    'Prénom': cv.candidate_details?.prenom || (cv.nom_candidat || '').split(' ')[0] || '',
+    'Nom': cv.candidate_details?.nom || (cv.nom_candidat || '').split(' ').slice(1).join(' ') || '',
+    'Région': cv.candidate_details?.region || '',
+    'Établissement de formation': cv.candidate_details?.etablissement_formation || '',
+    'Formation': cv.candidate_details?.formation || '',
+    'Poste actuel': cv.candidate_details?.poste_actuel || '',
+    'Entreprise actuelle': cv.candidate_details?.entreprise_actuelle || '',
+    'Date début poste': cv.candidate_details?.date_debut_poste || '',
+    'Nbr années expérience': cv.candidate_details?.annees_experience || '',
+    'Email': cv.email || '',
+    'Téléphone': cv.candidate_details?.telephone || '',
+    'Score (%)': cv.matching_score,
+    'Compétences clés': (cv.competences_cles || []).join(', '),
+    'Synthèse IA': cv.synthese_ia,
+  }));
+}
+
+const EXPORT_COL_WIDTHS = [
+  { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 25 },
+  { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 12 }, { wch: 10 },
+  { wch: 30 }, { wch: 15 }, { wch: 8 }, { wch: 40 }, { wch: 50 },
+];
 
 export function CvsRetenusForm() {
   const { t } = useLanguage();
   const [analyses, setAnalyses] = useState<CvAnalysis[]>([]);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 0 });
-  const [targetPositions, setTargetPositions] = useState<string[]>([]);
+  const [runnerState, setRunnerState] = useState<RunnerState>(cvAnalysisRunner.getState());
+  const [extractProgress, setExtractProgress] = useState({ current: 0, total: 0, name: '' });
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [targetPositions, setTargetPositions] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('cv-target-positions') || '[]'); } catch { return []; }
+  });
   const [newPosition, setNewPosition] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [openPoste, setOpenPoste] = useState<string | null>(null);
 
   useEffect(() => { loadAnalyses(); }, []);
+
+  // Subscribe to background runner so progress survives navigation
+  useEffect(() => {
+    const unsub = cvAnalysisRunner.subscribe(setRunnerState);
+    return () => { unsub(); };
+  }, []);
+
+  // When analysis finishes, auto-refresh list
+  useEffect(() => {
+    if (runnerState.stage === 'done') loadAnalyses();
+  }, [runnerState.stage]);
+
+  // Persist target positions
+  useEffect(() => {
+    localStorage.setItem('cv-target-positions', JSON.stringify(targetPositions));
+  }, [targetPositions]);
 
   const loadAnalyses = async () => {
     const { data } = await supabase
@@ -160,28 +217,21 @@ export function CvsRetenusForm() {
     return normalizeText(ocrText);
   };
 
-  // Heuristic post-OCR cleanup for common scan misreads
   const cleanupOcrText = (raw: string): string => {
     let text = raw;
-    // Normalize unicode quotes/dashes
     text = text.replace(/[\u2018\u2019\u201A\u2032]/g, "'")
                .replace(/[\u201C\u201D\u201E\u2033]/g, '"')
                .replace(/[\u2013\u2014\u2212]/g, '-');
-    // Remove stray pipe/backtick artifacts inside words
     text = text.replace(/(\w)[|`](\w)/g, '$1l$2');
-    // Fix emails: remove spaces around @ and dots, fix common misreads
     text = text.replace(/([A-Za-z0-9._%+-]+)\s*@\s*([A-Za-z0-9.-]+)\s*\.\s*([A-Za-z]{2,})/g, '$1@$2.$3');
     text = text.replace(/([A-Za-z0-9._%+-]+)0([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, (m, a, b) => `${a}@${b}`);
-    // Fix phone numbers: collapse spaces in long digit runs, fix O/o → 0 inside digit groups
     text = text.replace(/(\+?\d[\d\s().-]{7,}\d)/g, (match) =>
       match.replace(/[Oo]/g, '0').replace(/[Il|]/g, '1')
     );
-    // In ALL-CAPS words (likely names/titles), fix 0 → O and 1 → I
     text = text.replace(/\b[A-Z0-9]{2,}\b/g, (word) => {
-      if (/^\d+$/.test(word)) return word; // pure number
+      if (/^\d+$/.test(word)) return word;
       return word.replace(/0/g, 'O').replace(/1/g, 'I');
     });
-    // Collapse repeated whitespace
     return text.replace(/\s+/g, ' ').trim();
   };
 
@@ -207,14 +257,19 @@ export function CvsRetenusForm() {
       toast.error(t('addPositionsFirst'));
       return;
     }
-    setIsAnalyzing(true);
-    setProgress({ current: 0, total: files.length });
+    if (cvAnalysisRunner.isRunning()) {
+      toast.error('Une analyse est déjà en cours');
+      return;
+    }
+    setIsExtracting(true);
+    setExtractProgress({ current: 0, total: files.length, name: '' });
     const sessionId = crypto.randomUUID();
     const cvTexts: { text: string; filePath: string }[] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      setProgress({ current: i + 1, total: files.length });
+      setExtractProgress({ current: i + 1, total: files.length, name: file.name });
+      cvAnalysisRunner.setExtractionProgress(i + 1, files.length, file.name);
       try {
         const text = await extractReadableCvText(file);
         if (text.length < READABLE_TEXT_MIN_LENGTH) {
@@ -230,39 +285,26 @@ export function CvsRetenusForm() {
         toast.error(`Unable to read ${file.name}`);
       }
     }
+    setIsExtracting(false);
 
     if (cvTexts.length === 0) {
-      setIsAnalyzing(false);
       toast.error('No readable CV found');
       return;
     }
 
-    toast.info(`Analyse IA de ${cvTexts.length} CV en cours...`);
-    try {
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-cv`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ cvTexts, sessionId, targetPositions }),
-        }
-      );
-      if (resp.status === 429) toast.error('Limite de requêtes atteinte');
-      else if (resp.status === 402) toast.error('Crédits IA insuffisants');
-      else if (!resp.ok) toast.error('Erreur lors de l\'analyse IA');
-      else {
-        const data = await resp.json();
-        toast.success(`${data.results?.length || 0} CV analysés avec succès !`);
+    toast.info(`Analyse IA de ${cvTexts.length} CV en cours... Vous pouvez naviguer librement.`);
+
+    // Fire and forget — runner is a singleton so it survives unmount
+    cvAnalysisRunner.run({
+      cvTexts,
+      sessionId,
+      targetPositions,
+      onError: (msg) => toast.error(msg),
+      onSuccess: (count) => {
+        toast.success(`${count} CV analysés avec succès !`);
         loadAnalyses();
-      }
-    } catch (e) {
-      console.error('Analysis error:', e);
-      toast.error('Erreur de connexion au service d\'analyse');
-    }
-    setIsAnalyzing(false);
+      },
+    });
   };
 
   const handleDeleteAll = async () => {
@@ -283,37 +325,11 @@ export function CvsRetenusForm() {
 
   const handleDownloadReport = () => {
     const wb = XLSX.utils.book_new();
-
     Object.entries(grouped).forEach(([poste, candidates]) => {
-      const data = candidates.map((cv) => ({
-        'Poste': poste,
-        'Prénom': cv.candidate_details?.prenom || (cv.nom_candidat || '').split(' ')[0] || '',
-        'Nom': cv.candidate_details?.nom || (cv.nom_candidat || '').split(' ').slice(1).join(' ') || '',
-        'Région': cv.candidate_details?.region || '',
-        'Établissement de formation': cv.candidate_details?.etablissement_formation || '',
-        'Formation': cv.candidate_details?.formation || '',
-        'Poste actuel': cv.candidate_details?.poste_actuel || '',
-        'Entreprise actuelle': cv.candidate_details?.entreprise_actuelle || '',
-        'Date début poste': cv.candidate_details?.date_debut_poste || '',
-        'Nbr années expérience': cv.candidate_details?.annees_experience || '',
-        'Email': cv.email || '',
-        'Téléphone': cv.candidate_details?.telephone || '',
-        'Score (%)': cv.matching_score,
-        'Compétences clés': (cv.competences_cles || []).join(', '),
-        'Synthèse IA': cv.synthese_ia,
-      }));
-
-      const ws = XLSX.utils.json_to_sheet(data);
-      ws['!cols'] = [
-        { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 25 },
-        { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 12 }, { wch: 10 },
-        { wch: 30 }, { wch: 15 }, { wch: 8 }, { wch: 40 }, { wch: 50 },
-      ];
-      const sheetName = poste.substring(0, 31);
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      const ws = XLSX.utils.json_to_sheet(buildExportRows(poste, candidates));
+      ws['!cols'] = EXPORT_COL_WIDTHS;
+      XLSX.utils.book_append_sheet(wb, ws, poste.substring(0, 31));
     });
-
-    // Summary sheet
     const summaryData = Object.entries(grouped).flatMap(([poste, candidates]) =>
       candidates.map((cv, i) => ({
         'Poste': poste,
@@ -337,12 +353,20 @@ export function CvsRetenusForm() {
       { wch: 30 }, { wch: 15 },
     ];
     XLSX.utils.book_append_sheet(wb, summaryWs, 'Comparatif Global');
-
     XLSX.writeFile(wb, `rapport_preselection_${new Date().toISOString().split('T')[0]}.xlsx`);
     toast.success(t('downloadReport'));
   };
 
-  // Group by poste, filter to only target positions if set
+  const handleDownloadPosteReport = (poste: string, candidates: CvAnalysis[]) => {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(buildExportRows(poste, candidates));
+    ws['!cols'] = EXPORT_COL_WIDTHS;
+    XLSX.utils.book_append_sheet(wb, ws, poste.substring(0, 31));
+    const safe = poste.replace(/[^a-z0-9]/gi, '_').substring(0, 40);
+    XLSX.writeFile(wb, `${safe}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success(`Export "${poste}" téléchargé`);
+  };
+
   const grouped = analyses.reduce<Record<string, CvAnalysis[]>>((acc, a) => {
     const key = a.poste_assigne || 'Autre';
     if (!acc[key]) acc[key] = [];
@@ -355,16 +379,19 @@ export function CvsRetenusForm() {
     grouped[key] = grouped[key].slice(0, 6);
   });
 
-  const posteColors: Record<string, string> = {
-    DAF: 'bg-blue-100 text-blue-800 border-blue-300',
-    RH: 'bg-purple-100 text-purple-800 border-purple-300',
-    'Marketing/Digital': 'bg-pink-100 text-pink-800 border-pink-300',
-    IT: 'bg-cyan-100 text-cyan-800 border-cyan-300',
-    Finance: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-    Juridique: 'bg-amber-100 text-amber-800 border-amber-300',
-    Commercial: 'bg-orange-100 text-orange-800 border-orange-300',
-    Audit: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+  const posteAccents: Record<string, string> = {
+    DAF: 'from-blue-500 to-blue-600',
+    RH: 'from-purple-500 to-purple-600',
+    'Marketing/Digital': 'from-pink-500 to-pink-600',
+    IT: 'from-cyan-500 to-cyan-600',
+    Finance: 'from-emerald-500 to-emerald-600',
+    Juridique: 'from-amber-500 to-amber-600',
+    Commercial: 'from-orange-500 to-orange-600',
+    Audit: 'from-indigo-500 to-indigo-600',
   };
+  const accentFor = (poste: string) => posteAccents[poste] || 'from-slate-500 to-slate-600';
+
+  const showRunningBar = isExtracting || runnerState.isAnalyzing;
 
   return (
     <div className="space-y-6">
@@ -387,9 +414,13 @@ export function CvsRetenusForm() {
               </Button>
             </>
           )}
-          <Button onClick={() => fileInputRef.current?.click()} disabled={isAnalyzing || targetPositions.length === 0} size="sm">
-            {isAnalyzing ? (
-              <><RefreshCw className="h-4 w-4 mr-1 animate-spin" /> Analyse en cours...</>
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={showRunningBar || targetPositions.length === 0}
+            size="sm"
+          >
+            {showRunningBar ? (
+              <><RefreshCw className="h-4 w-4 mr-1 animate-spin" /> En cours...</>
             ) : (
               <><Upload className="h-4 w-4 mr-1" /> {t('uploadCVs')}</>
             )}
@@ -440,21 +471,35 @@ export function CvsRetenusForm() {
         </CardContent>
       </Card>
 
-      {isAnalyzing && (
-        <Card>
+      {showRunningBar && (
+        <Card className="border-primary/40 bg-primary/5">
           <CardContent className="py-4">
             <div className="flex items-center gap-3">
               <RefreshCw className="h-4 w-4 animate-spin text-primary" />
               <div className="flex-1">
-                <p className="text-sm font-medium mb-1">Traitement des CVs ({progress.current}/{progress.total})</p>
-                <Progress value={(progress.current / Math.max(progress.total, 1)) * 100} />
+                <p className="text-sm font-medium mb-1">
+                  {isExtracting
+                    ? `Extraction de texte (${extractProgress.current}/${extractProgress.total})${extractProgress.name ? ` — ${extractProgress.name}` : ''}`
+                    : runnerState.message || `Analyse IA en cours (${runnerState.current}/${runnerState.total})`}
+                </p>
+                <Progress
+                  value={isExtracting
+                    ? (extractProgress.current / Math.max(extractProgress.total, 1)) * 100
+                    : 100}
+                  className={!isExtracting ? 'animate-pulse' : ''}
+                />
+                {!isExtracting && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    L'analyse continue en arrière-plan — vous pouvez naviguer librement.
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {analyses.length === 0 && !isAnalyzing && (
+      {analyses.length === 0 && !showRunningBar && (
         <Card>
           <CardContent className="py-12 text-center">
             <FileText className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
@@ -476,51 +521,71 @@ export function CvsRetenusForm() {
               candidates.reduce((s, c) => s + c.matching_score, 0) / candidates.length
             );
             const topScore = candidates[0]?.matching_score || 0;
+            const tone = getScoreTone(topScore);
+            const top = candidates[0];
+            const accent = accentFor(poste);
             return (
               <Card
                 key={poste}
-                className="cursor-pointer hover:shadow-lg transition-all hover:-translate-y-0.5 border-l-4"
-                style={{
-                  borderLeftColor: topScore >= 75 ? '#22c55e' : topScore >= 50 ? '#eab308' : '#ef4444',
-                }}
+                className="group relative overflow-hidden cursor-pointer hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-border/60"
                 onClick={() => setOpenPoste(poste)}
               >
-                <CardHeader className="pb-3">
+                {/* Decorative accent bar */}
+                <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${accent}`} />
+                {/* Decorative blob */}
+                <div className={`absolute -top-16 -right-16 w-40 h-40 rounded-full bg-gradient-to-br ${accent} opacity-10 blur-2xl group-hover:opacity-20 transition-opacity`} />
+
+                <CardHeader className="pb-2 pt-5">
                   <div className="flex items-start justify-between gap-2">
-                    <Badge
-                      className={posteColors[poste] || 'bg-gray-100 text-gray-800 border-gray-300'}
-                      variant="outline"
-                    >
-                      {poste}
-                    </Badge>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+                        Poste
+                      </p>
+                      <h3 className="font-bold text-base truncate" title={poste}>{poste}</h3>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1" />
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">{candidates.length}</span>
-                    <span className="text-muted-foreground">candidat(s)</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <div>
-                      <p className="text-muted-foreground">Top score</p>
-                      <p className={`text-lg font-bold ${topScore >= 75 ? 'text-green-600' : topScore >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
-                        {topScore}%
-                      </p>
+                <CardContent className="space-y-4">
+                  {/* Stats row */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg bg-muted/50 p-2 text-center">
+                      <Users className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-1" />
+                      <p className="text-base font-bold">{candidates.length}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">CVs</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-muted-foreground">Moyenne</p>
-                      <p className="text-lg font-bold text-muted-foreground">{avgScore}%</p>
+                    <div className={`rounded-lg ${tone.soft} p-2 text-center`}>
+                      <Trophy className={`h-3.5 w-3.5 mx-auto ${tone.text} mb-1`} />
+                      <p className={`text-base font-bold ${tone.text}`}>{topScore}%</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">Top</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-2 text-center">
+                      <TrendingUp className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-1" />
+                      <p className="text-base font-bold">{avgScore}%</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">Moy.</p>
                     </div>
                   </div>
-                  <div className="pt-2 border-t">
-                    <p className="text-xs text-muted-foreground mb-1">Meilleur candidat</p>
-                    <p className="text-sm font-medium truncate">
-                      {candidates[0]?.candidate_details?.prenom || ''}{' '}
-                      {candidates[0]?.candidate_details?.nom || candidates[0]?.nom_candidat}
-                    </p>
-                  </div>
+
+                  {/* Top candidate preview */}
+                  {top && (
+                    <div className="flex items-center gap-3 p-2.5 rounded-lg border border-border/60 bg-card">
+                      <div className={`flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br ${accent} flex items-center justify-center text-white text-xs font-bold shadow-sm`}>
+                        {getInitials(top.candidate_details?.prenom, top.candidate_details?.nom, top.nom_candidat)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1">
+                          <Award className={`h-3 w-3 ${tone.text} flex-shrink-0`} />
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                            Meilleur candidat
+                          </p>
+                        </div>
+                        <p className="text-sm font-semibold truncate">
+                          {top.candidate_details?.prenom || ''}{' '}
+                          {top.candidate_details?.nom || top.nom_candidat}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -528,101 +593,171 @@ export function CvsRetenusForm() {
         </div>
       )}
 
-      {/* Detail dialog: shows all candidates for the selected poste */}
+      {/* Detail dialog */}
       <Dialog open={!!openPoste} onOpenChange={(o) => !o && setOpenPoste(null)}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Badge
-                className={openPoste ? (posteColors[openPoste] || 'bg-gray-100 text-gray-800 border-gray-300') : ''}
-                variant="outline"
-              >
-                {openPoste}
-              </Badge>
-              <span className="text-sm text-muted-foreground font-normal">
-                {openPoste ? grouped[openPoste]?.length || 0 : 0} candidat(s) — Insights détaillés
-              </span>
-            </DialogTitle>
+            <div className="flex items-start justify-between gap-4 pr-6">
+              <div className="min-w-0 flex-1">
+                <div className={`inline-block h-1 w-12 rounded-full bg-gradient-to-r ${openPoste ? accentFor(openPoste) : ''} mb-2`} />
+                <DialogTitle className="text-xl">{openPoste}</DialogTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {openPoste ? grouped[openPoste]?.length || 0 : 0} candidat(s) — Insights détaillés
+                </p>
+              </div>
+              {openPoste && grouped[openPoste]?.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDownloadPosteReport(openPoste, grouped[openPoste])}
+                >
+                  <Download className="h-4 w-4 mr-1" /> Export Excel
+                </Button>
+              )}
+            </div>
           </DialogHeader>
           {openPoste && grouped[openPoste] && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              {grouped[openPoste].map((cv, index) => (
-                <Card
-                  key={cv.id}
-                  className="relative overflow-hidden border-l-4"
-                  style={{
-                    borderLeftColor: cv.matching_score >= 75 ? '#22c55e' : cv.matching_score >= 50 ? '#eab308' : '#ef4444',
-                  }}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <p className="font-semibold text-sm">
-                          {cv.candidate_details?.prenom || ''} {cv.candidate_details?.nom || cv.nom_candidat}
-                        </p>
-                        {cv.email && <p className="text-xs text-muted-foreground">{cv.email}</p>}
-                        {cv.candidate_details?.telephone && (
-                          <p className="text-xs text-muted-foreground">{cv.candidate_details.telephone}</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+              {grouped[openPoste].map((cv, index) => {
+                const tone = getScoreTone(cv.matching_score);
+                const accent = accentFor(openPoste);
+                return (
+                  <Card
+                    key={cv.id}
+                    className={`relative overflow-hidden border-2 hover:shadow-md transition-shadow ${tone.border}/30`}
+                  >
+                    {/* Rank badge */}
+                    <div className="absolute top-3 left-3 z-10">
+                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        index === 0 ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200'
+                        : index === 1 ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                        : index === 2 ? 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200'
+                        : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {index < 3 && <Trophy className="h-2.5 w-2.5" />} #{index + 1}
+                      </div>
+                    </div>
+
+                    <CardContent className="p-5 pt-10">
+                      {/* Header with avatar + score */}
+                      <div className="flex items-start gap-3 mb-4">
+                        <div className={`flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br ${accent} flex items-center justify-center text-white text-sm font-bold shadow-md`}>
+                          {getInitials(cv.candidate_details?.prenom, cv.candidate_details?.nom, cv.nom_candidat)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-sm truncate">
+                            {cv.candidate_details?.prenom || ''}{' '}
+                            {cv.candidate_details?.nom || cv.nom_candidat}
+                          </p>
+                          <div className="flex flex-col gap-0.5 mt-0.5">
+                            {cv.email && (
+                              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                <Mail className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{cv.email}</span>
+                              </div>
+                            )}
+                            {cv.candidate_details?.telephone && (
+                              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                                <Phone className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{cv.candidate_details.telephone}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {/* Score ring */}
+                        <div className={`flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-full ${tone.bg} text-white shadow-md ring-4 ${tone.ring}`}>
+                          <span className="text-base font-bold leading-none">{cv.matching_score}</span>
+                          <span className="text-[9px] opacity-90">{tone.label}</span>
+                        </div>
+                      </div>
+
+                      {/* Detail grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 text-xs">
+                        {cv.candidate_details?.region && (
+                          <DetailRow icon={MapPin} label="Région" value={cv.candidate_details.region} />
+                        )}
+                        {cv.candidate_details?.annees_experience && (
+                          <DetailRow icon={Clock} label="Expérience" value={cv.candidate_details.annees_experience} />
+                        )}
+                        {cv.candidate_details?.formation && (
+                          <DetailRow icon={GraduationCap} label="Formation" value={cv.candidate_details.formation} />
+                        )}
+                        {cv.candidate_details?.etablissement_formation && (
+                          <DetailRow icon={Building2} label="École" value={cv.candidate_details.etablissement_formation} />
+                        )}
+                        {cv.candidate_details?.poste_actuel && (
+                          <DetailRow icon={Briefcase} label="Poste actuel" value={cv.candidate_details.poste_actuel} />
+                        )}
+                        {cv.candidate_details?.entreprise_actuelle && (
+                          <DetailRow icon={Building2} label="Entreprise" value={cv.candidate_details.entreprise_actuelle} />
+                        )}
+                        {cv.candidate_details?.date_debut_poste && (
+                          <DetailRow icon={Calendar} label="Depuis" value={cv.candidate_details.date_debut_poste} />
                         )}
                       </div>
-                      <div className={`flex items-center justify-center w-10 h-10 rounded-full text-white text-xs font-bold ${getScoreColor(cv.matching_score)}`}>
-                        {cv.matching_score}%
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="mb-2 text-xs">#{index + 1}</Badge>
 
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mb-3">
-                      {cv.candidate_details?.region && (
-                        <div><span className="text-muted-foreground">Région:</span> {cv.candidate_details.region}</div>
+                      {/* Skills */}
+                      {(cv.competences_cles || []).length > 0 && (
+                        <div className="mb-3">
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1.5">
+                            Compétences clés
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {cv.competences_cles.map((comp, i) => (
+                              <Badge key={i} variant="secondary" className="text-[11px] px-2 py-0.5 font-normal">
+                                {comp}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
                       )}
-                      {cv.candidate_details?.formation && (
-                        <div><span className="text-muted-foreground">Formation:</span> {cv.candidate_details.formation}</div>
-                      )}
-                      {cv.candidate_details?.etablissement_formation && (
-                        <div><span className="text-muted-foreground">Établissement:</span> {cv.candidate_details.etablissement_formation}</div>
-                      )}
-                      {cv.candidate_details?.poste_actuel && (
-                        <div><span className="text-muted-foreground">Poste actuel:</span> {cv.candidate_details.poste_actuel}</div>
-                      )}
-                      {cv.candidate_details?.entreprise_actuelle && (
-                        <div><span className="text-muted-foreground">Entreprise:</span> {cv.candidate_details.entreprise_actuelle}</div>
-                      )}
-                      {cv.candidate_details?.date_debut_poste && (
-                        <div><span className="text-muted-foreground">Début poste:</span> {cv.candidate_details.date_debut_poste}</div>
-                      )}
-                      {cv.candidate_details?.annees_experience && (
-                        <div><span className="text-muted-foreground">Expérience:</span> {cv.candidate_details.annees_experience}</div>
-                      )}
-                    </div>
 
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {(cv.competences_cles || []).map((comp, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs px-2 py-0.5">{comp}</Badge>
-                      ))}
-                    </div>
-                    <p className="text-xs italic text-muted-foreground mb-3">"{cv.synthese_ia}"</p>
-                    <div className="flex items-center gap-2">
-                      {cv.cv_file_path && (
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewCV(cv.cv_file_path)}>
-                          <Eye className="h-3 w-3 mr-1" /> CV
+                      {/* AI synthesis */}
+                      {cv.synthese_ia && (
+                        <div className={`p-2.5 rounded-lg ${tone.soft} border-l-2 ${tone.border} mb-3`}>
+                          <div className="flex items-start gap-1.5">
+                            <Sparkles className={`h-3 w-3 ${tone.text} flex-shrink-0 mt-0.5`} />
+                            <p className="text-xs italic leading-relaxed">{cv.synthese_ia}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 pt-2 border-t">
+                        {cv.cv_file_path && (
+                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewCV(cv.cv_file_path)}>
+                            <Eye className="h-3 w-3 mr-1" /> Voir CV
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs ml-auto text-muted-foreground hover:text-destructive"
+                          onClick={() => handleDeleteCard(cv.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
                         </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs ml-auto"
-                        onClick={() => handleDeleteCard(cv.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function DetailRow({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-1.5 min-w-0">
+      <Icon className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
+      <div className="min-w-0">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{label}</p>
+        <p className="text-xs font-medium truncate" title={value}>{value}</p>
+      </div>
     </div>
   );
 }
