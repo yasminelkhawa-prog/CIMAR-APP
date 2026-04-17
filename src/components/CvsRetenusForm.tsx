@@ -395,7 +395,7 @@ export function CvsRetenusForm() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.docx,.doc"
+            accept=".pdf,.docx,.doc,image/*,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff,.heic"
             multiple
             className="hidden"
             onChange={e => e.target.files && handleUploadAndAnalyze(e.target.files)}
