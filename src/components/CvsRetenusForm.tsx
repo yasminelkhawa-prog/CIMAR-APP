@@ -629,7 +629,16 @@ export function CvsRetenusForm() {
             return (
               <div
                 key={cv.id}
-                className={`group relative overflow-hidden rounded-2xl border ${palette.border} bg-white shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-[0_10px_30px_rgb(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-0.5`}
+                role="button"
+                tabIndex={0}
+                onClick={() => setOpenCandidate(cv)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setOpenCandidate(cv);
+                  }
+                }}
+                className={`group relative overflow-hidden rounded-2xl border ${palette.border} bg-white shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-[0_10px_30px_rgb(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-0.5 cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-primary/40`}
               >
                 <div className={`absolute top-0 left-0 right-0 h-1 ${palette.accent}`} />
 
@@ -713,10 +722,10 @@ export function CvsRetenusForm() {
                   <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                     {cv.cv_file_path && (
                       <>
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewCV(cv.cv_file_path)}>
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); handleViewCV(cv.cv_file_path); }}>
                           <Eye className="h-3 w-3 mr-1" /> Voir CV
                         </Button>
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleDownloadCV(cv)}>
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); handleDownloadCV(cv); }}>
                           <Download className="h-3 w-3 mr-1" /> Télécharger CV
                         </Button>
                       </>
@@ -725,7 +734,7 @@ export function CvsRetenusForm() {
                       variant="ghost"
                       size="sm"
                       className="h-7 text-xs ml-auto text-muted-foreground hover:text-destructive"
-                      onClick={() => handleDeleteCard(cv.id)}
+                      onClick={(e) => { e.stopPropagation(); handleDeleteCard(cv.id); }}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
