@@ -98,7 +98,8 @@ export function EvaluationsList({ evaluations, jobRoles, onDelete, onSelect }: P
                 title="Export Word"
                 onClick={(e) => {
                   e.stopPropagation();
-                  exportEvaluationDocx(ev, profile?.full_name);
+                  const r = jobRoles.find(jr => jr.id === ev.jobRoleConfigId);
+                  exportEvaluationDocx(ev, r, profile?.full_name);
                 }}
               >
                 <FileType className="h-4 w-4" />
