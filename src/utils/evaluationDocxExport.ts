@@ -118,68 +118,63 @@ export async function exportEvaluationDocx(
   const interviewerName = evaluation.interviewerName || interviewerFallback || '';
   const signatureBuf = signatureUrl ? await fetchImageBuf(signatureUrl) : null;
 
-  // ===== Header info table (2 rows × 4 cols of label/value pairs) =====
-  const headerColW = CONTENT_W / 8; // 8 sub-cols
+  // ===== Header info table: 4 cols, label row above value row =====
+  const headerColW = Math.floor(CONTENT_W / 4);
   const labelShade = GREEN;
   const valueShade = WHITE;
 
-  const headerRow = (
-    pairs: Array<{ label: string; value: string }>,
-  ) =>
+  const labelRow = (labels: string[]) =>
     new TableRow({
-      height: { value: 320, rule: HeightRule.ATLEAST },
-      children: pairs.flatMap((pair) => [
+      tableHeader: true,
+      height: { value: 280, rule: HeightRule.ATLEAST },
+      children: labels.map((label) =>
         cell({
           width: headerColW,
           shade: labelShade,
           children: [
-            p([txt(pair.label, { bold: true, color: WHITE, size: 14 })]),
+            p([txt(label, { bold: true, color: WHITE, size: 13 })], {
+              align: AlignmentType.CENTER,
+            }),
           ],
         }),
+      ),
+    });
+
+  const valueRow = (values: string[]) =>
+    new TableRow({
+      height: { value: 360, rule: HeightRule.ATLEAST },
+      children: values.map((value) =>
         cell({
           width: headerColW,
           shade: valueShade,
-          children: [p([txt(pair.value, { size: 14 })])],
+          children: [
+            p([txt(value, { size: 14 })], { align: AlignmentType.CENTER }),
+          ],
         }),
-      ]),
+      ),
     });
 
   const headerTable = new Table({
     width: { size: CONTENT_W, type: WidthType.DXA },
-    columnWidths: Array(8).fill(headerColW),
+    columnWidths: Array(4).fill(headerColW),
     rows: [
-      headerRow([
-        { label: 'Date', value: dateStr },
-        { label: 'Lieu', value: evaluation.location || '' },
-        { label: 'Nom & prénom du candidat', value: evaluation.candidateName || '' },
-        {
-          label: "Nom de l'intervieweur",
-          value: evaluation.interviewerName || interviewerFallback || '',
-        },
+      labelRow(['Date', 'Lieu', 'Nom & prénom du candidat', "Nom de l'intervieweur"]),
+      valueRow([
+        dateStr,
+        evaluation.location || '',
+        evaluation.candidateName || '',
+        interviewerName,
       ]),
-      headerRow([
-        {
-          label: 'Statut',
-          value: evaluation.candidateSource === 'internal' ? 'BC' : 'WC',
-        },
-        {
-          label: 'Source de CV',
-          value: evaluation.candidateSource === 'internal' ? 'Interne' : 'Externe',
-        },
-        {
-          label: 'Motif de recrutement',
-          value:
-            evaluation.recruitmentReason === 'replacement'
-              ? 'Remplacement'
-              : evaluation.recruitmentReason === 'creation'
-                ? 'Création de poste'
-                : 'Autre',
-        },
-        {
-          label: 'Type de recrutement',
-          value:
-            evaluation.recruitmentType === 'budgeted' ? 'Budgété' : 'Non budgété',
-        },
+      labelRow(['Statut', 'Source de CV', 'Motif de recrutement', 'Type de recrutement']),
+      valueRow([
+        evaluation.candidateSource === 'internal' ? 'BC' : 'WC',
+        evaluation.candidateSource === 'internal' ? 'Interne' : 'Externe',
+        evaluation.recruitmentReason === 'replacement'
+          ? 'Remplacement'
+          : evaluation.recruitmentReason === 'creation'
+            ? 'Création de poste'
+            : 'Autre',
+        evaluation.recruitmentType === 'budgeted' ? 'Budgété' : 'Non budgété',
       ]),
     ],
   });
