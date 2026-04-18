@@ -1,10 +1,9 @@
 import {
-  ClipboardList, FileText, Briefcase, CalendarCheck, Users, Settings2, Brain, UserCircle, Calendar, Sparkles
+  ClipboardList, FileText, Briefcase, CalendarCheck, Users, Settings2, Brain, UserCircle, Calendar
 } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -58,8 +57,8 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
         tooltip={title}
         className={
           activeSection === id
-            ? 'bg-gradient-to-r from-primary to-[hsl(var(--primary-glow))] !text-primary-foreground shadow-lg shadow-primary/30 hover:from-primary hover:to-[hsl(var(--primary-glow))] hover:!text-primary-foreground rounded-xl h-10 font-medium'
-            : 'text-foreground/70 hover:bg-accent hover:text-foreground rounded-xl h-10 transition-colors'
+            ? 'bg-gradient-to-r from-primary to-[hsl(var(--primary-glow))] !text-white shadow-lg shadow-primary/30 hover:from-primary hover:to-[hsl(var(--primary-glow))] hover:!text-white rounded-xl h-10 font-medium'
+            : '!text-white/85 hover:bg-white/10 hover:!text-white rounded-xl h-10 transition-colors'
         }
       >
         <Icon className="h-[18px] w-[18px]" />
@@ -72,13 +71,11 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
     <Sidebar collapsible="icon" variant="floating" className="border-none">
       <SidebarHeader className="px-3 pt-4 pb-2">
         <div className="flex items-center gap-2.5 px-2">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[hsl(var(--primary-glow))] shadow-md shadow-primary/30">
-            <img src={logoImg} alt="CIMAR" className="h-6 w-6 object-contain brightness-0 invert" />
-          </span>
+          <img src={logoImg} alt="Ciments du Maroc" className="h-10 w-auto object-contain shrink-0" />
           {!collapsed && (
             <div className="leading-tight">
-              <p className="text-sm font-bold gradient-text-primary">CIMAR</p>
-              <p className="text-[10px] text-muted-foreground">HR Suite</p>
+              <p className="text-sm font-bold text-white">CIMAR</p>
+              <p className="text-[10px] text-white/60">HR Suite</p>
             </div>
           )}
         </div>
@@ -87,7 +84,7 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
       <SidebarContent className="px-2">
         <SidebarGroup>
           {!collapsed && (
-            <SidebarGroupLabel className="text-foreground/40 uppercase tracking-[0.12em] text-[10px] px-3">
+            <SidebarGroupLabel className="text-white/40 uppercase tracking-[0.12em] text-[10px] px-3">
               Menu
             </SidebarGroupLabel>
           )}
@@ -100,7 +97,7 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
 
         <SidebarGroup>
           {!collapsed && (
-            <SidebarGroupLabel className="text-foreground/40 uppercase tracking-[0.12em] text-[10px] px-3">
+            <SidebarGroupLabel className="text-white/40 uppercase tracking-[0.12em] text-[10px] px-3">
               {t('configuration')}
             </SidebarGroupLabel>
           )}
@@ -113,25 +110,6 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
         </SidebarGroup>
       </SidebarContent>
 
-      {!collapsed && (
-        <SidebarFooter className="p-3">
-          <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br from-[hsl(158_45%_12%)] to-[hsl(150_55%_22%)] text-white shadow-xl">
-            <div className="absolute inset-0 dotted-bg-on-primary opacity-60" />
-            <div className="relative">
-              <div className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 backdrop-blur mb-2">
-                <Sparkles className="h-4 w-4" />
-              </div>
-              <p className="text-sm font-semibold leading-tight">Assistant IA</p>
-              <p className="text-[11px] text-white/70 mt-0.5 mb-2.5">
-                Disponible sur chaque module
-              </p>
-              <div className="text-[10px] uppercase tracking-wider text-white/60">
-                Powered by Lovable AI
-              </div>
-            </div>
-          </div>
-        </SidebarFooter>
-      )}
     </Sidebar>
   );
 }
