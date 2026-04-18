@@ -8,10 +8,10 @@ const corsHeaders = {
 };
 
 const SYSTEM_PROMPT = 'You are an ultra-fast ATS data parser. You must return ONLY a valid, minified JSON object (no markdown, no prose). You receive a CV and a LIST of available target positions. You MUST pick the SINGLE position from the provided list that best matches the candidate (verbatim copy of one item from the list, never invent, never combine multiple). Use this exact structure: { "candidate_name": "", "first_name": "", "last_name": "", "email": "", "phone": "", "education_institution": "", "education_field": "", "current_position": "", "current_company": "", "current_position_start_date": "", "years_of_experience": 0, "top_3_skills": [], "matching_score_estimate": 0, "best_matching_position": "", "red_flags_or_gaps": "", "2_quick_interview_questions": [] }';
-const AI_TIMEOUT_MS = 15_000;
-const AI_MAX_TOKENS = 300;
+const AI_TIMEOUT_MS = 25_000;
+const AI_MAX_TOKENS = 700;
 const AI_MODEL = "google/gemini-2.5-flash";
-const CV_TEXT_LIMIT = 4000;
+const CV_TEXT_LIMIT = 6000;
 
 const RequestSchema = z.object({
   cvTexts: z.array(z.object({
