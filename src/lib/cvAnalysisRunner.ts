@@ -7,6 +7,7 @@
 // without re-uploading.
 
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 type Listener = (state: RunnerState) => void;
 
@@ -129,9 +130,17 @@ async function runQueue(
     if (res.ok) {
       succeeded += 1;
       setState({ succeeded });
+      toast.success(`✓ ${name}`, {
+        description: `Analysé (${i + 1}/${total})`,
+        duration: 2500,
+      });
     } else {
       failed.push({ ...cv, reason: res.reason || 'Échec' });
       setState({ failed: [...failed] });
+      toast.error(`✗ ${name}`, {
+        description: `Échec: ${res.reason || 'Erreur'} (${i + 1}/${total})`,
+        duration: 3500,
+      });
     }
   }
 
