@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { PlanIntegrationData, DEFAULT_PLAN_INTEGRATION, IntegrationEntry } from '@/types/planIntegration';
-import { Plus, Trash2, Save, Pencil, ArrowLeft, Download } from 'lucide-react';
+import { Plus, Trash2, Save, Pencil, ArrowLeft, Download, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,6 +18,7 @@ import { exportPlanIntegrationDocx } from '@/utils/documentExports';
 import { FormAssistant } from '@/components/FormAssistant';
 import { RequestSignatureDialog } from '@/components/RequestSignatureDialog';
 import { fetchAcceptedSignatures } from '@/hooks/useSignatureRequests';
+import { useDocumentLock } from '@/hooks/useDocumentLock';
 
 interface ListItem {
   id: string;
