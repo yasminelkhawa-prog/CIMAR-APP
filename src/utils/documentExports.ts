@@ -242,6 +242,7 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
   });
 
   const signaturePara = await buildSignatureParagraphs(signer, AlignmentType.RIGHT);
+  const extrasTable = await buildExtraSignaturesTable(extraSignatures, fullW, HEADER_FILL, TITLE_COLOR);
 
   // CIMAR logo header
   const logoBuf = await fetch(logoUrl).then(r => r.arrayBuffer());
@@ -275,6 +276,7 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
         categorizedTable('5. Profil du poste', 'Critère', 'Exigence', data.profil),
         new Paragraph({ children: [new TextRun({ text: '' })] }),
         ...signaturePara,
+        ...(extrasTable ? [new Paragraph({ children: [new TextRun({ text: '' })] }), extrasTable] : []),
       ],
     }],
   });
@@ -285,7 +287,7 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
 
 // ─────────────────────── Plan d'Intégration (DOCX) ───────────────────────
 
-export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signer: SignerInfo) {
+export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signer: SignerInfo, extraSignatures: ExtraSignature[] = []) {
   const HEADER_FILL = 'B5D8E5';   // Light teal/blue (matches template)
   // Landscape A4: long edge = 16838, with 720 DXA margins (0.5in) → content = 15398
   const fullW = 15398;
