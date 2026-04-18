@@ -39,11 +39,11 @@ const cellBorders = {
   right: thinBorder,
 };
 
-// Landscape A4: 16838 x 11906 DXA. With 0.4" margins (576 DXA) → content width ≈ 15686
-const PAGE_W = 16838;
-const PAGE_H = 11906;
-const MARGIN = 432; // 0.3"
-const CONTENT_W = PAGE_W - MARGIN * 2; // ≈ 15974
+// A4 portrait: 11906 x 16838 DXA. With 0.4" margins (576 DXA)
+const PAGE_W = 11906;
+const PAGE_H = 16838;
+const MARGIN = 576; // 0.4"
+const CONTENT_W = PAGE_W - MARGIN * 2; // ≈ 10754
 
 function txt(
   text: string,
