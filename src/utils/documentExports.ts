@@ -111,7 +111,7 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
     width: { size: fullW, type: WidthType.DXA },
     columnWidths: [2200, 2300, 2200, 2300],
     rows: [
-      new TableRow({ children: [cell('1. Informations générales', { bold: true, shade: HEADER_FILL, colSpan: 4, italic: true })] }),
+      new TableRow({ children: [cell('1. Informations générales', { bold: true, shade: HEADER_FILL, colSpan: 4, italic: true, color: TITLE_COLOR })] }),
       new TableRow({ children: [
         cell('Poste :'),
         cell(data.poste || '-', { bold: true }),
