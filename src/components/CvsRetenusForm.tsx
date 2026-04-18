@@ -11,6 +11,7 @@ import {
   Upload, FileText, Trash2, RefreshCw, Eye, Sparkles, Download, Plus, X, Users,
   ChevronRight, MapPin, GraduationCap, Briefcase, Building2, Calendar, Clock,
   Mail, Phone, Trophy, Award, TrendingUp, User as UserIcon, Crown, ArrowLeft,
+  FileUp, Check,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
@@ -123,8 +124,13 @@ export function CvsRetenusForm() {
   const [targetPositions, setTargetPositions] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('cv-target-positions') || '[]'); } catch { return []; }
   });
+  const [jobDescriptions, setJobDescriptions] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem('cv-job-descriptions') || '{}'); } catch { return {}; }
+  });
   const [newPosition, setNewPosition] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const jdInputRef = useRef<HTMLInputElement>(null);
+  const jdTargetPositionRef = useRef<string | null>(null);
   const uploadTargetsRef = useRef<string[] | null>(null);
   const [openPoste, setOpenPoste] = useState<string | null>(null);
   const [openCandidate, setOpenCandidate] = useState<CvAnalysis | null>(null);
@@ -163,6 +169,11 @@ export function CvsRetenusForm() {
     localStorage.setItem('cv-target-positions', JSON.stringify(targetPositions));
   }, [targetPositions]);
 
+  // Persist job descriptions
+  useEffect(() => {
+    localStorage.setItem('cv-job-descriptions', JSON.stringify(jobDescriptions));
+  }, [jobDescriptions]);
+
   const loadAnalyses = async () => {
     const { data } = await supabase
       .from('cv_analyses')
@@ -186,8 +197,71 @@ export function CvsRetenusForm() {
   };
 
   const removePosition = (index: number) => {
+    const removed = targetPositions[index];
     setTargetPositions(prev => prev.filter((_, i) => i !== index));
+    if (removed) {
+      setJobDescriptions(prev => {
+        const next = { ...prev };
+        delete next[removed];
+        return next;
+      });
+    }
   };
+
+  const openJobDescriptionPicker = (position: string) => {
+    jdTargetPositionRef.current = position;
+    jdInputRef.current?.click();
+  };
+
+  const handleJobDescriptionUpload = async (file: File) => {
+    const position = jdTargetPositionRef.current;
+    jdTargetPositionRef.current = null;
+    if (!position) return;
+    try {
+      let text = '';
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith('.txt')) {
+        text = await file.text();
+      } else if (lower.endsWith('.docx') || lower.endsWith('.doc')) {
+        text = await extractTextFromWord(file);
+      } else if (lower.endsWith('.pdf')) {
+        text = await extractTextFromPdf(file);
+        if (text.length < DIRECT_TEXT_MIN_LENGTH) {
+          toast.info('PDF scanné détecté, OCR en cours...');
+          text = await extractTextFromPdfWithOcr(file);
+        }
+      } else if (file.type.startsWith('image/')) {
+        text = await extractTextFromImage(file);
+      } else {
+        toast.error('Format non supporté (PDF, DOCX, TXT, image)');
+        return;
+      }
+      const cleaned = normalizeText(text);
+      if (cleaned.length < 30) {
+        toast.error('Description trop courte ou illisible');
+        return;
+      }
+      setJobDescriptions(prev => ({ ...prev, [position]: cleaned }));
+      toast.success(`Description chargée pour « ${position} »`);
+    } catch (e) {
+      console.error('JD upload failed', e);
+      toast.error('Erreur lors de la lecture du document');
+    }
+  };
+
+  const removeJobDescription = (position: string) => {
+    setJobDescriptions(prev => {
+      const next = { ...prev };
+      delete next[position];
+      return next;
+    });
+    toast.success('Description supprimée');
+  };
+
+  const buildJobDescriptionsPayload = (positions: string[]) =>
+    positions
+      .filter(p => jobDescriptions[p]?.trim())
+      .map(p => ({ position: p, description: jobDescriptions[p] }));
 
   const extractTextFromPdf = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
@@ -395,6 +469,7 @@ export function CvsRetenusForm() {
       cvTexts,
       sessionId,
       targetPositions: positions,
+      jobDescriptions: buildJobDescriptionsPayload(positions),
       onError: (msg) => toast.error(msg),
       onSuccess: (count, total, failed) => {
         if (failed > 0) {
@@ -496,6 +571,7 @@ export function CvsRetenusForm() {
       cvTexts: payload,
       sessionId: crypto.randomUUID(),
       targetPositions,
+      jobDescriptions: buildJobDescriptionsPayload(targetPositions),
       onError: (msg) => toast.error(msg),
       onSuccess: async (count, total, failed) => {
         if (oldIds.length > 0) {
@@ -1064,6 +1140,9 @@ export function CvsRetenusForm() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">{t('targetPositionsTitle')}</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Astuce : ajoutez optionnellement une description de poste (PDF, DOCX, TXT) pour améliorer le score de matching. L'analyse fonctionne aussi sans description.
+          </p>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 mb-3">
@@ -1081,17 +1160,74 @@ export function CvsRetenusForm() {
           {targetPositions.length === 0 ? (
             <p className="text-sm text-muted-foreground italic">{t('noPositionsDefined')}</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {targetPositions.map((pos, i) => (
-                <Badge key={i} variant="secondary" className="text-sm px-3 py-1 flex items-center gap-1">
-                  {pos}
-                  <button onClick={() => removePosition(i)} className="ml-1 hover:text-destructive">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
+            <div className="flex flex-col gap-2">
+              {targetPositions.map((pos, i) => {
+                const hasJd = !!jobDescriptions[pos];
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 p-2 rounded-lg border border-border bg-muted/30"
+                  >
+                    <Badge variant="secondary" className="text-sm px-3 py-1 shrink-0">
+                      {pos}
+                    </Badge>
+                    {hasJd ? (
+                      <div className="flex items-center gap-1 flex-1 min-w-0 text-xs text-emerald-700">
+                        <Check className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
+                          Description chargée ({Math.round((jobDescriptions[pos]?.length || 0) / 100) / 10}k caractères)
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="flex-1 text-xs text-muted-foreground italic truncate">
+                        Aucune description (analyse standard)
+                      </span>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 gap-1 text-xs"
+                      onClick={() => openJobDescriptionPicker(pos)}
+                      title="Importer la description du poste (PDF, DOCX, TXT, image)"
+                    >
+                      <FileUp className="h-3.5 w-3.5" />
+                      {hasJd ? 'Remplacer' : 'Description'}
+                    </Button>
+                    {hasJd && (
+                      <button
+                        type="button"
+                        onClick={() => removeJobDescription(pos)}
+                        className="text-muted-foreground hover:text-destructive p-1"
+                        title="Retirer la description"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removePosition(i)}
+                      className="text-muted-foreground hover:text-destructive p-1"
+                      title="Supprimer ce poste"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
+          <input
+            ref={jdInputRef}
+            type="file"
+            accept=".pdf,.docx,.doc,.txt,image/*"
+            className="hidden"
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) handleJobDescriptionUpload(file);
+              e.currentTarget.value = '';
+            }}
+          />
         </CardContent>
       </Card>
 

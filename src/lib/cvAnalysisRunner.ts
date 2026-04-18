@@ -70,7 +70,8 @@ function prettyName(filePath: string) {
 async function analyzeOne(
   cv: CvPayload,
   sessionId: string,
-  targetPositions: string[]
+  targetPositions: string[],
+  jobDescriptions: JobDescriptionPayload[]
 ): Promise<{ ok: boolean; reason?: string }> {
   try {
     const data = await new Promise<any>(async (resolve, reject) => {
@@ -82,6 +83,7 @@ async function analyzeOne(
             cvTexts: [cv],
             sessionId,
             targetPositions,
+            jobDescriptions,
           },
         });
 
@@ -118,6 +120,7 @@ async function processBatch(
   cvs: CvPayload[],
   sessionId: string,
   targetPositions: string[],
+  jobDescriptions: JobDescriptionPayload[],
   startIndex: number,
   totalOverride: number,
   isRetryPass: boolean
@@ -133,7 +136,7 @@ async function processBatch(
       currentName: name,
       message: `${display}/${totalOverride} — ${name}${isRetryPass ? ' (retry)' : ''}`,
     });
-    const res = await analyzeOne(cv, sessionId, targetPositions);
+    const res = await analyzeOne(cv, sessionId, targetPositions, jobDescriptions);
     if (res.ok) {
       succeeded += 1;
       toast.success(`✓ ${name}`, {
@@ -155,6 +158,7 @@ async function runQueue(
   cvs: CvPayload[],
   sessionId: string,
   targetPositions: string[],
+  jobDescriptions: JobDescriptionPayload[],
   callbacks: {
     onError?: (msg: string) => void;
     onSuccess?: (count: number, total: number, failed: number) => void;
@@ -171,12 +175,13 @@ async function runQueue(
     failed: [],
     sessionId,
     targetPositions,
+    jobDescriptions,
     message: `Analyse IA de ${total} CV en cours...`,
     currentName: '',
   });
 
   // Pass 1
-  const pass1 = await processBatch(cvs, sessionId, targetPositions, 0, total, false);
+  const pass1 = await processBatch(cvs, sessionId, targetPositions, jobDescriptions, 0, total, false);
   let totalSucceeded = pass1.succeeded;
   let stillFailed = pass1.failed;
   setState({ succeeded: totalSucceeded, failed: [...stillFailed] });
@@ -189,7 +194,7 @@ async function runQueue(
       total: total + stillFailed.length,
     });
     const retryCvs = stillFailed.map(({ text, filePath }) => ({ text, filePath }));
-    const pass2 = await processBatch(retryCvs, sessionId, targetPositions, total, total + retryCvs.length, true);
+    const pass2 = await processBatch(retryCvs, sessionId, targetPositions, jobDescriptions, total, total + retryCvs.length, true);
     totalSucceeded += pass2.succeeded;
     stillFailed = pass2.failed;
     setState({ succeeded: totalSucceeded, failed: [...stillFailed] });
@@ -226,12 +231,13 @@ export const cvAnalysisRunner = {
     cvTexts: CvPayload[];
     sessionId: string;
     targetPositions: string[];
+    jobDescriptions?: JobDescriptionPayload[];
     onComplete?: () => void;
     onError?: (msg: string) => void;
     onSuccess?: (count: number, total: number, failed: number) => void;
   }) {
     if (state.isAnalyzing && state.stage === 'analyzing') return;
-    await runQueue(params.cvTexts, params.sessionId, params.targetPositions, params);
+    await runQueue(params.cvTexts, params.sessionId, params.targetPositions, params.jobDescriptions || [], params);
   },
 
   async retryFailed(callbacks: {
@@ -248,7 +254,7 @@ export const cvAnalysisRunner = {
       callbacks.onError?.('Aucun poste cible défini');
       return;
     }
-    await runQueue(toRetry, sessionId, targets, callbacks);
+    await runQueue(toRetry, sessionId, targets, state.jobDescriptions || [], callbacks);
   },
 
   clearFailed() {
