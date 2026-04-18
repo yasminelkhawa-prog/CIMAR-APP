@@ -593,9 +593,14 @@ export function CvsRetenusForm() {
               </p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => handleDownloadPosteReport(openPoste, candidates)}>
-            <Download className="h-4 w-4 mr-1" /> Export Excel
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => openUploadPicker([openPoste])}>
+              <Upload className="h-4 w-4 mr-1" /> Ajouter CV
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleDownloadPosteReport(openPoste, candidates)}>
+              <Download className="h-4 w-4 mr-1" /> Export Excel
+            </Button>
+          </div>
         </div>
 
         <div className={`h-1.5 rounded-full ${palette.accent}`} />
@@ -689,9 +694,14 @@ export function CvsRetenusForm() {
 
                   <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                     {cv.cv_file_path && (
-                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewCV(cv.cv_file_path)}>
-                        <Eye className="h-3 w-3 mr-1" /> Voir CV
-                      </Button>
+                      <>
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewCV(cv.cv_file_path)}>
+                          <Eye className="h-3 w-3 mr-1" /> Voir CV
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleDownloadCV(cv)}>
+                          <Download className="h-3 w-3 mr-1" /> Télécharger CV
+                        </Button>
+                      </>
                     )}
                     <Button
                       variant="ghost"
@@ -752,7 +762,7 @@ export function CvsRetenusForm() {
             </>
           )}
           <Button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => openUploadPicker()}
             disabled={showRunningBar || targetPositions.length === 0}
             size="sm"
           >
@@ -768,7 +778,13 @@ export function CvsRetenusForm() {
             accept=".pdf,.docx,.doc,image/*,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff,.heic"
             multiple
             className="hidden"
-            onChange={e => e.target.files && handleUploadAndAnalyze(e.target.files)}
+            onChange={e => {
+              const files = e.target.files;
+              const forcedPositions = uploadTargetsRef.current ?? undefined;
+              uploadTargetsRef.current = null;
+              if (files) handleUploadAndAnalyze(files, forcedPositions);
+              e.currentTarget.value = '';
+            }}
           />
         </div>
       </div>
@@ -863,7 +879,7 @@ export function CvsRetenusForm() {
             <h3 className="text-lg font-medium mb-2">{t('noCvsAnalyzed')}</h3>
             <p className="text-sm text-muted-foreground mb-4">{t('noCvsAnalyzedDesc')}</p>
             {targetPositions.length > 0 && (
-              <Button onClick={() => fileInputRef.current?.click()}>
+              <Button onClick={() => openUploadPicker()}>
                 <Upload className="h-4 w-4 mr-2" /> {t('uploadCVs')}
               </Button>
             )}
