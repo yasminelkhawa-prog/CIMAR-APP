@@ -47,6 +47,10 @@ const RequestSchema = z.object({
   })).min(1),
   sessionId: z.string().uuid().optional(),
   targetPositions: z.array(z.string().trim().min(1)).min(1),
+  jobDescriptions: z.array(z.object({
+    position: z.string().trim().min(1),
+    description: z.string().trim().min(1),
+  })).optional().default([]),
 });
 
 function jsonResponse(body: unknown, status = 200) {
