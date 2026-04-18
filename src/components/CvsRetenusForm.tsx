@@ -780,53 +780,50 @@ export function CvsRetenusForm() {
             const topScore = candidates[0]?.matching_score || 0;
             const tone = getScoreTone(topScore);
             const top = candidates[0];
-            const accent = accentFor(poste);
+            const palette = paletteFor(poste);
+            const accent = palette.grad;
             return (
-              <Card
+              <button
                 key={poste}
-                className="group relative overflow-hidden cursor-pointer hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-border/60"
+                type="button"
                 onClick={() => setOpenPoste(poste)}
+                className={`group relative overflow-hidden text-left rounded-2xl border ${palette.border} ${palette.soft} cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1`}
               >
-                {/* Decorative accent bar */}
                 <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${accent}`} />
-                {/* Decorative blob */}
-                <div className={`absolute -top-16 -right-16 w-40 h-40 rounded-full bg-gradient-to-br ${accent} opacity-10 blur-2xl group-hover:opacity-20 transition-opacity`} />
+                <div className={`absolute -top-16 -right-16 w-40 h-40 rounded-full bg-gradient-to-br ${accent} opacity-40 blur-2xl group-hover:opacity-60 transition-opacity`} />
 
-                <CardHeader className="pb-2 pt-5">
+                <div className="relative p-5 space-y-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+                      <p className={`text-[11px] uppercase tracking-wider ${palette.text} font-semibold mb-1`}>
                         Poste
                       </p>
-                      <h3 className="font-bold text-base truncate" title={poste}>{poste}</h3>
+                      <h3 className="font-bold text-base truncate text-foreground" title={poste}>{poste}</h3>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1" />
+                    <ChevronRight className={`h-5 w-5 ${palette.text} opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1`} />
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Stats row */}
+
                   <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded-lg bg-muted/50 p-2 text-center">
-                      <Users className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-1" />
-                      <p className="text-base font-bold">{candidates.length}</p>
+                    <div className="rounded-xl bg-white/70 backdrop-blur-sm p-2 text-center border border-white">
+                      <Users className={`h-3.5 w-3.5 mx-auto ${palette.text} mb-1`} />
+                      <p className="text-base font-bold text-foreground">{candidates.length}</p>
                       <p className="text-[10px] text-muted-foreground uppercase">CVs</p>
                     </div>
-                    <div className={`rounded-lg ${tone.soft} p-2 text-center`}>
+                    <div className="rounded-xl bg-white/70 backdrop-blur-sm p-2 text-center border border-white">
                       <Trophy className={`h-3.5 w-3.5 mx-auto ${tone.text} mb-1`} />
                       <p className={`text-base font-bold ${tone.text}`}>{topScore}%</p>
                       <p className="text-[10px] text-muted-foreground uppercase">Top</p>
                     </div>
-                    <div className="rounded-lg bg-muted/50 p-2 text-center">
-                      <TrendingUp className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-1" />
-                      <p className="text-base font-bold">{avgScore}%</p>
+                    <div className="rounded-xl bg-white/70 backdrop-blur-sm p-2 text-center border border-white">
+                      <TrendingUp className={`h-3.5 w-3.5 mx-auto ${palette.text} mb-1`} />
+                      <p className="text-base font-bold text-foreground">{avgScore}%</p>
                       <p className="text-[10px] text-muted-foreground uppercase">Moy.</p>
                     </div>
                   </div>
 
-                  {/* Top candidate preview */}
                   {top && (
-                    <div className="flex items-center gap-3 p-2.5 rounded-lg border border-border/60 bg-card">
-                      <div className={`flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br ${accent} flex items-center justify-center text-white text-xs font-bold shadow-sm`}>
+                    <div className="flex items-center gap-3 p-2.5 rounded-xl border border-white bg-white/80 backdrop-blur-sm">
+                      <div className={`flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br ${accent} flex items-center justify-center text-white text-xs font-bold shadow-sm ring-2 ring-white`}>
                         {getInitials(top.candidate_details?.prenom, top.candidate_details?.nom, top.nom_candidat)}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -836,15 +833,15 @@ export function CvsRetenusForm() {
                             Meilleur candidat
                           </p>
                         </div>
-                        <p className="text-sm font-semibold truncate">
+                        <p className="text-sm font-semibold truncate text-foreground">
                           {top.candidate_details?.prenom || ''}{' '}
                           {top.candidate_details?.nom || top.nom_candidat}
                         </p>
                       </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </button>
             );
           })}
         </div>
