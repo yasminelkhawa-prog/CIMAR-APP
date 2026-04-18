@@ -2,9 +2,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { EvaluationForm, JobRoleConfig } from '@/types/evaluation';
-import { Trash2, FileText, CheckCircle2, XCircle, Download, FileType } from 'lucide-react';
+import { Trash2, FileText, CheckCircle2, XCircle, FileType } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
-import { generateEvaluationPdf } from '@/utils/pdfExport';
 import { exportEvaluationDocx } from '@/utils/evaluationDocxExport';
 import { useAuth } from '@/hooks/useAuth';
 
