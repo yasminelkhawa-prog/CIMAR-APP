@@ -157,25 +157,57 @@ function inferCurrentPosition(rawText: string, aiValue: string): string {
   return "";
 }
 
+const STOP_WORDS = new Set([
+  "de", "du", "des", "le", "la", "les", "un", "une", "et", "en", "the", "of", "and", "for", "with",
+  "ingenieur", "engineer", "manager", "responsable", "chef", "junior", "senior", "specialiste",
+  "specialist", "agent", "assistant", "officer", "operateur", "technicien", "technician",
+]);
+
+function tokenizePosition(position: string): string[] {
+  return normalizeForCompare(position)
+    .split(" ")
+    .filter((word) => word.length >= 3 && !STOP_WORDS.has(word));
+}
+
 function scorePositionAgainstText(position: string, rawText: string): number {
-  const positionWords = normalizeForCompare(position).split(" ").filter((word) => word.length >= 3);
+  const tokens = tokenizePosition(position);
   const text = normalizeForCompare(rawText);
-  if (positionWords.length === 0) return 0;
-  const hits = positionWords.filter((word) => text.includes(word)).length;
-  const ratio = hits / positionWords.length;
-  if (ratio >= 1) return 92;
-  if (ratio >= 0.66) return 78;
-  if (ratio >= 0.4) return 60;
-  if (ratio > 0) return 35;
+  if (tokens.length === 0) {
+    // fallback: all words including stop words
+    const all = normalizeForCompare(position).split(" ").filter((w) => w.length >= 3);
+    if (all.length === 0) return 0;
+    const h = all.filter((w) => text.includes(w)).length;
+    return Math.round((h / all.length) * 70);
+  }
+  const hits = tokens.filter((word) => text.includes(word)).length;
+  const ratio = hits / tokens.length;
+  if (ratio >= 1) return 95;
+  if (ratio >= 0.75) return 85;
+  if (ratio >= 0.5) return 72;
+  if (ratio >= 0.34) return 58;
+  if (ratio > 0) return 42;
   return 0;
+}
+
+function pickBestPositionByHeuristic(targetPositions: string[], rawText: string): { position: string; score: number } {
+  let best = { position: targetPositions[0] || "", score: -1 };
+  for (const p of targetPositions) {
+    const s = scorePositionAgainstText(p, rawText);
+    if (s > best.score) best = { position: p, score: s };
+  }
+  return best;
 }
 
 function normalizeMatchingScore(rawScore: unknown, assignedPosition: string, rawText: string): number {
   const aiScore = normalizeScore(rawScore);
   const heuristicScore = scorePositionAgainstText(assignedPosition, rawText);
-  if (heuristicScore >= 78 && aiScore < 30) return heuristicScore;
-  if (heuristicScore >= 60 && aiScore < 20) return Math.max(aiScore, heuristicScore);
-  if (heuristicScore === 0 && aiScore > 95) return 95;
+  // Severe AI under-scoring: trust heuristic
+  if (heuristicScore >= 72 && aiScore < 40) return heuristicScore;
+  if (heuristicScore >= 50 && aiScore < 25) return Math.max(aiScore, heuristicScore);
+  // Suspicious AI over-score with zero keyword overlap
+  if (heuristicScore === 0 && aiScore > 90) return 70;
+  // Floor: if any meaningful overlap, never report < 25%
+  if (heuristicScore > 0 && aiScore < 25) return Math.max(25, heuristicScore);
   return Math.max(aiScore, heuristicScore);
 }
 
@@ -264,7 +296,13 @@ function mapAnalysisToRecord(parsed: Record<string, unknown>, sessionId: string,
   const lastName = pickStr(parsed.last_name) || nameParts.slice(1).join(" ");
   const skills = normalizeStringArray(parsed.top_3_skills, 3);
   const quickQuestions = normalizeStringArray(parsed["2_quick_interview_questions"], 2);
-  const assignedPosition = pickAssignedPosition(parsed, targetPositions);
+  const aiAssigned = pickAssignedPosition(parsed, targetPositions);
+  const heuristicBest = pickBestPositionByHeuristic(targetPositions, rawText);
+  const aiAssignedHeuristic = scorePositionAgainstText(aiAssigned, rawText);
+  // If the AI's pick has poor keyword overlap but another target clearly fits better, override.
+  const assignedPosition = (heuristicBest.score >= 72 && heuristicBest.score - aiAssignedHeuristic >= 25)
+    ? heuristicBest.position
+    : aiAssigned;
   const now = new Date().toISOString();
   const normalizedCurrentPosition = inferCurrentPosition(rawText, pickStr(parsed.current_position, 200));
   const normalizedEmail = pickStr(parsed.email, 150) || extractEmail(rawText);

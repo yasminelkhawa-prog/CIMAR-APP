@@ -44,6 +44,7 @@ interface CvAnalysis {
   competences_cles: string[];
   synthese_ia: string;
   cv_file_path: string;
+  cv_raw_text?: string;
   created_at: string;
   candidate_details: CandidateDetails;
 }
@@ -415,6 +416,48 @@ export function CvsRetenusForm() {
     setAnalyses(prev => prev.filter(a => a.id !== id));
   };
 
+  /** Re-run extraction + scoring on already-stored CVs (no re-upload). */
+  const reanalyzeExisting = async (cvs: CvAnalysis[], label: string) => {
+    if (targetPositions.length === 0) {
+      toast.error('Ajoutez au moins un poste cible avant de relancer.');
+      return;
+    }
+    const usable = cvs.filter(c => (c.cv_raw_text && c.cv_raw_text.trim().length > 20));
+    if (usable.length === 0) {
+      toast.error("Aucun texte de CV stocké pour relancer l'analyse.");
+      return;
+    }
+    if (usable.length < cvs.length) {
+      toast.warning(`${cvs.length - usable.length} CV ignoré(s) — texte manquant en base.`);
+    }
+    const oldIds = usable.map(c => c.id);
+    const payload = usable.map(c => ({
+      text: c.cv_raw_text || '',
+      filePath: c.cv_file_path || '',
+    }));
+    toast.info(`Relance de ${usable.length} CV — ${label}`);
+    cvAnalysisRunner.run({
+      cvTexts: payload,
+      sessionId: crypto.randomUUID(),
+      targetPositions,
+      onError: (msg) => toast.error(msg),
+      onSuccess: async (count, total, failed) => {
+        // Remove old analyses now that new ones have been inserted
+        if (oldIds.length > 0) {
+          await supabase.from('cv_analyses').delete().in('id', oldIds);
+        }
+        if (failed > 0) toast.warning(`${count}/${total} relancés. ${failed} échec(s).`);
+        else toast.success(`${count} CV ré-analysés !`);
+        loadAnalyses();
+      },
+    });
+  };
+
+  const handleReanalyzeOne = (cv: CvAnalysis) => reanalyzeExisting([cv], cv.nom_candidat || 'candidat');
+  const handleReanalyzeAllForPoste = (poste: string, cvs: CvAnalysis[]) =>
+    reanalyzeExisting(cvs, poste);
+  const handleReanalyzeAll = () => reanalyzeExisting(analyses, 'tous les CV');
+
   const getCvUrl = async (filePath: string) => {
     if (!filePath) {
       toast.error('Aucun fichier CV stocké pour ce candidat');
@@ -615,6 +658,15 @@ export function CvsRetenusForm() {
             <Button variant="outline" size="sm" onClick={() => openUploadPicker([openPoste])}>
               <Upload className="h-4 w-4 mr-1" /> Ajouter CV
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleReanalyzeAllForPoste(openPoste, candidates)}
+              disabled={runnerState.isAnalyzing}
+              title="Recalculer extraction et score pour tous les CV de ce poste, sans ré-uploader"
+            >
+              <Sparkles className="h-4 w-4 mr-1" /> Re-analyser tout
+            </Button>
             <Button variant="outline" size="sm" onClick={() => handleDownloadPosteReport(openPoste, candidates)}>
               <Download className="h-4 w-4 mr-1" /> Export Excel
             </Button>
@@ -730,6 +782,16 @@ export function CvsRetenusForm() {
                         </Button>
                       </>
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={runnerState.isAnalyzing || !cv.cv_raw_text}
+                      title={!cv.cv_raw_text ? 'Texte du CV non disponible — ré-uploadez le CV' : 'Recalculer extraction et score'}
+                      onClick={(e) => { e.stopPropagation(); handleReanalyzeOne(cv); }}
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1" /> Re-analyser
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
