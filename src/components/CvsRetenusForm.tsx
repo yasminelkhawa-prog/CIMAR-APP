@@ -898,10 +898,17 @@ export function CvsRetenusForm() {
             const top = candidates[0];
             const palette = paletteFor(poste);
             return (
-              <button
+              <div
                 key={poste}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => setOpenPoste(poste)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setOpenPoste(poste);
+                  }
+                }}
                 className={`group relative overflow-hidden text-left rounded-2xl border ${palette.border} bg-white cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1`}
               >
                 <div className={`absolute top-0 left-0 right-0 h-1.5 ${palette.accent}`} />
@@ -914,7 +921,20 @@ export function CvsRetenusForm() {
                       </p>
                       <h3 className="font-bold text-base truncate text-foreground" title={poste}>{poste}</h3>
                     </div>
-                    <ChevronRight className={`h-5 w-5 ${palette.text} opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1`} />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openUploadPicker([poste]);
+                        }}
+                      >
+                        <Upload className="h-3.5 w-3.5 mr-1" /> Ajouter CV
+                      </Button>
+                      <ChevronRight className={`h-5 w-5 ${palette.text} opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1`} />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2">
@@ -955,7 +975,7 @@ export function CvsRetenusForm() {
                     </div>
                   )}
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
