@@ -142,10 +142,13 @@ export function FichePosteForm() {
         <Button variant="ghost" size="sm" onClick={() => { setShowNew(false); setSelected(null); }}>
           <ArrowLeft className="h-4 w-4 mr-1" /> {t('backToList')}
         </Button>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-start">
           <Button onClick={handleDownload} size="sm" variant="outline">
             <Download className="h-4 w-4 mr-1" /> Télécharger
           </Button>
+          {selected && (
+            <RequestSignatureDialog docType="fiche_poste" docId={selected.id} docTitle={formData.poste || 'Fiche de poste'} />
+          )}
           {readOnly && (
             <Button onClick={() => setEditMode(true)} size="sm" variant="outline">
               <Pencil className="h-4 w-4 mr-1" /> {t('modify')}

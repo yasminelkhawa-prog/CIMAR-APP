@@ -16,6 +16,8 @@ import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { exportPlanIntegrationDocx } from '@/utils/documentExports';
 import { FormAssistant } from '@/components/FormAssistant';
+import { RequestSignatureDialog } from '@/components/RequestSignatureDialog';
+import { fetchAcceptedSignatures } from '@/hooks/useSignatureRequests';
 
 interface ListItem {
   id: string;
@@ -47,11 +49,16 @@ export function PlanIntegrationForm() {
 
   const handleDownload = async () => {
     try {
+      const extras = selected
+        ? (await fetchAcceptedSignatures('plan_integration', selected.id)).map(s => ({
+            fullName: s.recipient_name, title: s.recipient_title, signatureUrl: s.signature_url, signedAt: s.responded_at,
+          }))
+        : [];
       await exportPlanIntegrationDocx(formData, {
         fullName: profile?.full_name,
         title: profile?.title,
         signatureUrl: profile?.signature_url,
-      });
+      }, extras);
       toast.success('Document téléchargé');
     } catch (e) {
       console.error(e);
@@ -135,10 +142,13 @@ export function PlanIntegrationForm() {
         <Button variant="ghost" size="sm" onClick={() => { setShowNew(false); setSelected(null); }}>
           <ArrowLeft className="h-4 w-4 mr-1" /> {t('backToList')}
         </Button>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-start">
           <Button onClick={handleDownload} size="sm" variant="outline">
             <Download className="h-4 w-4 mr-1" /> Télécharger
           </Button>
+          {selected && (
+            <RequestSignatureDialog docType="plan_integration" docId={selected.id} docTitle={formData.nomPrenom || "Plan d'intégration"} />
+          )}
           {readOnly && (
             <Button onClick={() => setEditMode(true)} size="sm" variant="outline">
               <Pencil className="h-4 w-4 mr-1" /> {t('modify')}

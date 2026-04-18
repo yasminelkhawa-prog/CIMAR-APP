@@ -15,6 +15,8 @@ import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { exportFicheEmbaucheXlsx } from '@/utils/documentExports';
 import { FormAssistant } from '@/components/FormAssistant';
+import { RequestSignatureDialog } from '@/components/RequestSignatureDialog';
+import { fetchAcceptedSignatures } from '@/hooks/useSignatureRequests';
 
 interface ListItem {
   id: string;
@@ -53,11 +55,16 @@ export function FicheEmbaucheForm() {
 
   const handleDownload = async () => {
     try {
+      const extras = selected
+        ? (await fetchAcceptedSignatures('fiche_embauche', selected.id)).map(s => ({
+            fullName: s.recipient_name, title: s.recipient_title, signatureUrl: s.signature_url, signedAt: s.responded_at,
+          }))
+        : [];
       await exportFicheEmbaucheXlsx(formData, {
         fullName: profile?.full_name,
         title: profile?.title,
         signatureUrl: profile?.signature_url,
-      });
+      }, extras);
       toast.success('Document téléchargé');
     } catch (e) {
       console.error(e);
