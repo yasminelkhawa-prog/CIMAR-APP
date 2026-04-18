@@ -176,7 +176,7 @@ export function PlanIntegrationForm() {
             <CardTitle className="text-lg">Planning</CardTitle>
             {!readOnly && (
               <Button variant="outline" size="sm" onClick={() => update({
-                entries: [...formData.entries, { id: crypto.randomUUID(), date: '', horaire: '', direction: '', responsable: '', objectifs: '', visaResponsable: '', visaRecrue: '' }]
+                entries: [...formData.entries, { id: crypto.randomUUID(), activityType: 'planning', date: '', horaire: '', direction: '', responsable: '', objectifs: '', visaResponsable: '', visaRecrue: '' }]
               })}>
                 <Plus className="h-4 w-4 mr-1" /> {t('add')}
               </Button>
@@ -188,6 +188,7 @@ export function PlanIntegrationForm() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
+                  <th className="text-left py-2 px-1 w-28">Type</th>
                   <th className="text-left py-2 px-1">{t('date')}</th>
                   <th className="text-left py-2 px-1">{t('horaire')}</th>
                   <th className="text-left py-2 px-1">{t('direction')}</th>
@@ -198,7 +199,20 @@ export function PlanIntegrationForm() {
               </thead>
               <tbody>
                 {formData.entries.map((entry, i) => (
-                  <tr key={entry.id} className="border-b">
+                  <tr key={entry.id} className={`border-b ${entry.activityType === 'formation' ? 'bg-accent/30' : ''}`}>
+                    <td className="py-1 px-1">
+                      <Select
+                        value={entry.activityType || 'planning'}
+                        onValueChange={(v) => updateEntry(i, { activityType: v as 'planning' | 'formation' })}
+                        disabled={!!readOnly}
+                      >
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="planning">Planning</SelectItem>
+                          <SelectItem value="formation">Formation</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
                     <td className="py-1 px-1"><Input type="date" value={entry.date} onChange={e => updateEntry(i, { date: e.target.value })} disabled={!!readOnly} className="h-8" /></td>
                     <td className="py-1 px-1"><Input value={entry.horaire} onChange={e => updateEntry(i, { horaire: e.target.value })} disabled={!!readOnly} className="h-8" placeholder="09h00-10h00" /></td>
                     <td className="py-1 px-1"><Input value={entry.direction} onChange={e => updateEntry(i, { direction: e.target.value })} disabled={!!readOnly} className="h-8" /></td>
