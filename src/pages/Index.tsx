@@ -11,6 +11,9 @@ import { CvsRetenusForm } from '@/components/CvsRetenusForm';
 import { BigFiveAssessment } from '@/components/BigFiveAssessment';
 import { ChatBot } from '@/components/ChatBot';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { ProfileSettings } from '@/components/ProfileSettings';
+import { useAuth } from '@/hooks/useAuth';
+import { LogOut } from 'lucide-react';
 import { useEvaluationStore } from '@/hooks/useEvaluationStore';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { EvaluationForm } from '@/types/evaluation';
@@ -26,6 +29,7 @@ export default function Index() {
   const [showNewEval, setShowNewEval] = useState(false);
   const [viewingEvaluation, setViewingEvaluation] = useState<EvaluationForm | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const { user, signOut } = useAuth();
 
   const handleSave = (evaluation: Parameters<typeof store.saveEvaluation>[0]) => {
     store.saveEvaluation(evaluation);
@@ -102,6 +106,8 @@ export default function Index() {
         return <CvsRetenusForm />;
       case 'big-five':
         return <BigFiveAssessment />;
+      case 'profile':
+        return <ProfileSettings />;
       case 'config':
         return (
           <ConfigPanel
@@ -133,8 +139,13 @@ export default function Index() {
                   <p className="text-[10px] text-muted-foreground">{t('appSubtitle')}</p>
                 </div>
               </div>
-              <LanguageToggle />
-            </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>
+                <LanguageToggle />
+                <Button size="sm" variant="ghost" onClick={signOut} className="gap-1">
+                  <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Sign out</span>
+                </Button>
+              </div>
           </header>
 
           <main className="flex-1 p-6 max-w-5xl mx-auto w-full">

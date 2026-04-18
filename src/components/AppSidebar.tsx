@@ -1,5 +1,5 @@
 import {
-  ClipboardList, FileText, Briefcase, CalendarCheck, Users, Settings2, Brain
+  ClipboardList, FileText, Briefcase, CalendarCheck, Users, Settings2, Brain, UserCircle
 } from 'lucide-react';
 import {
   Sidebar,
@@ -21,6 +21,7 @@ export type SidebarSection =
   | 'plan-integration'
   | 'cvs-retenus'
   | 'big-five'
+  | 'profile'
   | 'config';
 
 interface Props {
@@ -69,6 +70,16 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
           <SidebarGroupLabel>{t('configuration')}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => onSectionChange('profile')}
+                  isActive={activeSection === 'profile'}
+                  tooltip="Profile"
+                >
+                  <UserCircle className="h-4 w-4" />
+                  {!collapsed && <span>Profile & Signature</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => onSectionChange('config')}
