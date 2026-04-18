@@ -103,6 +103,63 @@ export type Database = {
           },
         ]
       }
+      calendar_events: {
+        Row: {
+          all_day: boolean
+          candidate_name: string | null
+          color: string | null
+          created_at: string
+          description: string | null
+          end_at: string
+          id: string
+          is_shared: boolean
+          kind: Database["public"]["Enums"]["calendar_event_kind"]
+          owner_id: string
+          plan_entry_id: string | null
+          plan_integration_id: string | null
+          source: string
+          start_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          all_day?: boolean
+          candidate_name?: string | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          end_at: string
+          id?: string
+          is_shared?: boolean
+          kind?: Database["public"]["Enums"]["calendar_event_kind"]
+          owner_id: string
+          plan_entry_id?: string | null
+          plan_integration_id?: string | null
+          source?: string
+          start_at: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          all_day?: boolean
+          candidate_name?: string | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          end_at?: string
+          id?: string
+          is_shared?: boolean
+          kind?: Database["public"]["Enums"]["calendar_event_kind"]
+          owner_id?: string
+          plan_entry_id?: string | null
+          plan_integration_id?: string | null
+          source?: string
+          start_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cv_analyses: {
         Row: {
           candidate_details: Json
@@ -434,6 +491,13 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user"
       assessment_status: "pending" | "completed" | "analyzed"
+      calendar_event_kind:
+        | "meeting"
+        | "interview"
+        | "onboarding"
+        | "task"
+        | "reminder"
+        | "other"
       signature_doc_type:
         | "evaluation"
         | "fiche_embauche"
@@ -569,6 +633,14 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user"],
       assessment_status: ["pending", "completed", "analyzed"],
+      calendar_event_kind: [
+        "meeting",
+        "interview",
+        "onboarding",
+        "task",
+        "reminder",
+        "other",
+      ],
       signature_doc_type: [
         "evaluation",
         "fiche_embauche",
