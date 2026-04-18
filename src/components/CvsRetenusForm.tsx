@@ -387,8 +387,16 @@ export function CvsRetenusForm() {
   };
 
   const handleViewCV = async (filePath: string) => {
+    if (!filePath) {
+      toast.error('Aucun fichier CV stocké pour ce candidat');
+      return;
+    }
     const { data } = supabase.storage.from('cv-uploads').getPublicUrl(filePath);
-    if (data?.publicUrl) window.open(data.publicUrl, '_blank');
+    if (data?.publicUrl) {
+      window.open(data.publicUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      toast.error('Impossible d\'ouvrir le CV');
+    }
   };
 
   const handleDownloadReport = () => {
