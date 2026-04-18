@@ -72,9 +72,9 @@ const buildLimitedAnalysisFallback = (fileName: string, text: string, reason?: s
 );
 
 function getScoreTone(score: number) {
-  if (score >= 75) return { ring: 'ring-emerald-500/40', text: 'text-emerald-600', bg: 'bg-emerald-500', soft: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-500', label: 'Excellent' };
-  if (score >= 50) return { ring: 'ring-amber-500/40', text: 'text-amber-600', bg: 'bg-amber-500', soft: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-500', label: 'Bon' };
-  return { ring: 'ring-rose-500/40', text: 'text-rose-600', bg: 'bg-rose-500', soft: 'bg-rose-50 dark:bg-rose-950/30', border: 'border-rose-500', label: 'Faible' };
+  if (score >= 75) return { ring: 'ring-emerald-200', text: 'text-emerald-700', bg: 'bg-emerald-400', soft: 'bg-emerald-50', border: 'border-emerald-200', label: 'Excellent' };
+  if (score >= 50) return { ring: 'ring-amber-200', text: 'text-amber-700', bg: 'bg-amber-400', soft: 'bg-amber-50', border: 'border-amber-200', label: 'Bon' };
+  return { ring: 'ring-rose-200', text: 'text-rose-700', bg: 'bg-rose-400', soft: 'bg-rose-50', border: 'border-rose-200', label: 'Faible' };
 }
 
 function getInitials(prenom?: string, nom?: string, fallback = '') {
