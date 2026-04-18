@@ -114,8 +114,7 @@ export function FormAssistant({
       <Button
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 right-6 h-14 rounded-full z-50 gap-2 px-5 ai-launcher-glow
-          bg-gradient-to-r from-primary to-[hsl(265_80%_55%)]
-          text-primary-foreground hover:opacity-95 hover:scale-105 transition-transform"
+          gradient-primary text-primary-foreground hover:scale-105 transition-transform"
         size="lg"
       >
         <Sparkles className="h-5 w-5" />
