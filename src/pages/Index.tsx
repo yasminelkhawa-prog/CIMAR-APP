@@ -146,6 +146,7 @@ export default function Index() {
                   <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Sign out</span>
                 </Button>
               </div>
+            </div>
           </header>
 
           <main className="flex-1 p-6 max-w-5xl mx-auto w-full">
