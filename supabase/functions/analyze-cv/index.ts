@@ -263,6 +263,19 @@ function scorePositionWithJobDescription(position: string, rawText: string, jobD
   return Math.round(positionScore * 0.45 + descriptionScore * 0.55);
 }
 
+function scoreCurrentRoleAlignment(rawText: string, assignedPosition: string): number {
+  const inferredCurrentRole = inferCurrentPosition(rawText, "");
+  if (!inferredCurrentRole) return 0;
+  return scorePositionAgainstText(assignedPosition, inferredCurrentRole);
+}
+
+function hasStrongDescriptionSignal(rawText: string, assignedPosition: string, jobDescriptions: Map<string, string>): boolean {
+  const description = jobDescriptions.get(assignedPosition);
+  if (!description) return false;
+  const weightedScore = scoreTokensAgainstText(Array.from(buildJobDescriptionWeights(description).keys()), rawText, buildJobDescriptionWeights(description));
+  return weightedScore >= 55;
+}
+
 function pickBestPositionByHeuristic(
   targetPositions: string[],
   rawText: string,
@@ -284,12 +297,21 @@ function normalizeMatchingScore(
 ): number {
   const aiScore = normalizeScore(rawScore);
   const heuristicScore = scorePositionWithJobDescription(assignedPosition, rawText, jobDescriptions.get(assignedPosition));
-  if (heuristicScore >= 80 && aiScore < 45) return heuristicScore;
-  if (heuristicScore >= 60 && aiScore < 30) return heuristicScore;
-  if (heuristicScore >= 45 && aiScore < 20) return heuristicScore;
-  if (heuristicScore === 0 && aiScore > 90) return 70;
-  if (heuristicScore > 0 && aiScore < 25) return Math.max(25, heuristicScore);
-  return Math.max(aiScore, heuristicScore);
+  const roleAlignment = scoreCurrentRoleAlignment(rawText, assignedPosition);
+  const strongDescriptionSignal = hasStrongDescriptionSignal(rawText, assignedPosition, jobDescriptions);
+  const baseScore = Math.max(heuristicScore, roleAlignment > 0 ? Math.round(roleAlignment * 0.7 + heuristicScore * 0.3) : heuristicScore);
+
+  if (baseScore <= 10 && aiScore >= 85) return 24;
+  if (baseScore < 25 && aiScore >= 70) return Math.max(baseScore, 28);
+  if (!strongDescriptionSignal && baseScore < 40 && aiScore > 80) return Math.max(baseScore, 42);
+  if (baseScore >= 80 && aiScore < 45) return baseScore;
+  if (baseScore >= 60 && aiScore < 30) return baseScore;
+  if (baseScore >= 45 && aiScore < 20) return baseScore;
+  if (baseScore === 0 && aiScore > 90) return 18;
+  if (baseScore > 0 && aiScore < 25) return Math.max(25, baseScore);
+
+  const blended = Math.round(aiScore * 0.45 + baseScore * 0.55);
+  return Math.max(0, Math.min(100, blended));
 }
 
 function buildLowScoreComment(score: number, rawText: string, assignedPosition: string, aiComment: string): string {
