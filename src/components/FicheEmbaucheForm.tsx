@@ -30,11 +30,20 @@ export function FicheEmbaucheForm() {
   const [showNew, setShowNew] = useState(false);
   const [formData, setFormData] = useState<FicheEmbaucheData>(DEFAULT_FICHE_EMBAUCHE);
 
-  // Auto-fill the signed-in user's name into the RH field if empty
+  // Auto-fill the signed-in user's name into the RH field AND interview panel if empty
   useEffect(() => {
-    if (profile?.full_name && !formData.directionRHName) {
-      setFormData(prev => prev.directionRHName ? prev : { ...prev, directionRHName: profile.full_name });
-    }
+    if (!profile?.full_name) return;
+    setFormData(prev => {
+      let next = prev;
+      if (!prev.directionRHName) next = { ...next, directionRHName: profile.full_name };
+      // Pre-fill first interviewer slot if it's empty
+      if (next.interviewPanel?.length > 0 && !next.interviewPanel[0].name) {
+        const panel = [...next.interviewPanel];
+        panel[0] = { ...panel[0], name: profile.full_name };
+        next = { ...next, interviewPanel: panel };
+      }
+      return next;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.full_name, showNew, selected?.id]);
 

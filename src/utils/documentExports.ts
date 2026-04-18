@@ -13,6 +13,7 @@ import {
 } from 'docx';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import type { FicheEmbaucheData } from '@/types/ficheEmbauche';
 import { calculateSalary } from '@/types/ficheEmbauche';
 import type { FichePosteData } from '@/types/fichePoste';
@@ -342,12 +343,10 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
   saveAs(blob, `Plan_integration_${(data.nomPrenom || 'document').replace(/\s+/g, '_')}.docx`);
 }
 
-// ─────────────────────── Fiche d'Embauche (XLSX) ───────────────────────
+// ─────────────────────── Fiche d'Embauche (XLSX with embedded signature) ───────────────────────
 
 export async function exportFicheEmbaucheXlsx(data: FicheEmbaucheData, signer: SignerInfo) {
-  const wb = XLSX.utils.book_new();
   const salary = calculateSalary(data);
-
   const fmt = (n: number) => Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
   const dateStr = data.date ? new Date(data.date).toLocaleDateString('fr-FR') : '';
   const entreeStr = data.entreeEnvisagee ? new Date(data.entreeEnvisagee).toLocaleDateString('fr-FR') : '';
@@ -355,165 +354,221 @@ export async function exportFicheEmbaucheXlsx(data: FicheEmbaucheData, signer: S
   const interviewers = data.interviewPanel || [];
   const selectedSite = data.sites.find(s => s.selected);
 
-  // Build the AoA matrix matching the original template structure
-  const aoa: any[][] = [];
+  const wb = new ExcelJS.Workbook();
+  wb.creator = signer.fullName || 'CIMAR HR';
+  wb.created = new Date();
 
-  // Header rows
-  aoa.push(['', '', '', "FICHE DE VALIDATION D'EMBAUCHE"]);
-  aoa.push([dateStr]);
-  aoa.push([]);
-  aoa.push(['Direction Demandeuse', '', 'Direction RH', '', '', 'Direction Générale']);
-  aoa.push([data.directionDemandeuseName || '', '', data.directionRHName || '', '', '', data.directionGeneraleName || '']);
-  aoa.push([]);
-
-  // Fonction
-  aoa.push(['Fonction']);
-  aoa.push(['Titre de poste:', '', data.titrePoste || '']);
-  aoa.push(['Direction/ Département:', '', data.directionDepartement || '']);
-  aoa.push(['Rattachement Hiérarchique:', '', data.rattachementHierarchique || '']);
-  aoa.push(['Motif de recrutement:', '', data.motifRecrutement || '']);
-  aoa.push([]);
-
-  // Candidate
-  aoa.push(['Nom & Prénom du candidat retenu:', '', data.nomPrenom || '']);
-  aoa.push([]);
-
-  // Interview panel
-  aoa.push(['REÇU EN ENTRETIEN PAR :']);
-  interviewers.forEach(p => {
-    aoa.push(['', p.name || '', '', p.avis || '']);
-  });
-  aoa.push([]);
-
-  // Entrée en fonction
-  aoa.push(['Entrée en fonction:']);
-  aoa.push(['', 'Durée de préavis:', '', data.dureePreavis || '']);
-  aoa.push(['', 'Entrée envisagée le:', '', entreeStr]);
-  aoa.push(['', 'Statut:', '', data.statut || '']);
-  aoa.push(['', 'Type de contrat:', '', data.typeContrat || '']);
-  aoa.push(['', "Durée de période d'essai:", '', data.dureePeriodeEssai || '']);
-  aoa.push(['', 'Voiture liée au poste:', '', data.voitureLieePoste ? 'Oui' : 'Non']);
-  aoa.push([]);
-
-  // Indemnités kilométriques
-  aoa.push(['Indemnités Kilométriques']);
-  aoa.push(['', 'Cadre :', '91', 'Dh/jour fixe']);
-  data.sites.forEach(s => {
-    aoa.push(['', `${s.name} :`, s.distance, s.unit, s.selected ? 'X' : '']);
-  });
-  aoa.push(['', 'Nombre de jours travaillés', data.nombreJoursTravailles, 'jours', fmt(salary.ikTotal), 'Dhs']);
-  aoa.push(['', 'Site sélectionné', selectedSite?.name || '-']);
-  aoa.push([]);
-
-  // Situation actuelle vs Offre
-  aoa.push(['Situation Actuelle', '', '', '', 'Offre Ciments du Maroc']);
-  aoa.push(['Salaire de base:', fmt(data.salaireBaseActuel), '', '', 'Salaire de base', fmt(data.salaireBase), 'Dhs brut sur 13,3 mois']);
-  aoa.push(['Prime de chantier', fmt(data.primeChantierActuel), '', '', 'Prime de logement', fmt(data.primeLogement), 'Dhs brut sur 12 mois']);
-  aoa.push(['Indemnité de panier', fmt(data.indPanierActuel), '', '', 'Prime de site', fmt(data.primeSite), 'Dhs brut sur 12 mois']);
-  aoa.push(['Indemnité de transport', fmt(data.indTransportActuel), '', '', 'Indemnité de transport', fmt(data.indTransport), 'Dhs net sur 12 mois']);
-  aoa.push(['Salaire Net:', fmt(data.salaireNetActuel), '', '', 'Prime de représentation', fmt(data.primeRepresentation), 'Dhs brut sur 12 mois']);
-  aoa.push([]);
-
-  // Récapitulatif salaire calculé
-  aoa.push(['Récapitulatif (Calculé)']);
-  aoa.push(['Salaire annuel brut', fmt(salary.salaireAnnuelBrut), 'Dhs']);
-  aoa.push(['MBO', fmt(data.mbo), 'Dhs']);
-  aoa.push(['Salaire net mensuel', fmt(salary.netAPayer), 'Dhs']);
-  aoa.push(['Net mensuel + IK', fmt(salary.netMensuelPlusIK), 'Dhs']);
-  aoa.push(['IK total', fmt(salary.ikTotal), 'Dhs']);
-  aoa.push([]);
-
-  // Détail du calcul
-  aoa.push(['Détail du calcul']);
-  aoa.push(['Nombre de personnes à charge', data.nbPersonnesCharge]);
-  aoa.push(['Salaire brut de base', fmt(data.salaireBase)]);
-  aoa.push(['Taux Ancienneté', `${data.tauxAnciennete}%`]);
-  aoa.push(['Taux CIMR', `${data.tauxCIMR}%`]);
-  aoa.push(['Indemnité imposable', fmt(data.indemniteImposable)]);
-  aoa.push(['RMA', fmt(data.rma)]);
-  aoa.push(['Brut imposable', fmt(salary.brutImposable)]);
-  aoa.push(['Indemnité Transport', fmt(data.indTransport)]);
-  aoa.push(['Revenu brut global', fmt(salary.revenuBrutGlobal)]);
-  aoa.push(['Intérêts prêt immobilier', fmt(data.interetsPretImmobilier)]);
-  aoa.push(['Montant du revenu brut imposable', fmt(salary.montantRevenuBrutImposable)]);
-  aoa.push([]);
-  aoa.push(['Frais professionnels', fmt(salary.fraisPro)]);
-  aoa.push(['CNSS', fmt(salary.cnss)]);
-  aoa.push(['CIMR', fmt(salary.cimr)]);
-  aoa.push(['Mutuelle', fmt(salary.mutuelle)]);
-  aoa.push(['Salaire Brut Imposable', fmt(salary.salaireBrutImposable)]);
-  aoa.push(['IGR Brut', fmt(salary.igrBrut)]);
-  aoa.push(['Charges familiales', fmt(salary.chargesFamiliales)]);
-  aoa.push(['IGR Net', fmt(salary.igrNet)]);
-  aoa.push(['Net à payer', fmt(salary.netAPayer)]);
-  aoa.push([]);
-
-  // Comparatif interne
-  aoa.push(['Comparatif Interne']);
-  aoa.push(['Nom et prénom', 'Intitulé du poste', "Site d'affectation", 'Salaire Brut', 'Prime de logement', 'Prime de site', 'Prime de représentation', 'Ancienneté CIMAR', 'Expérience avant CIMAR']);
-  data.comparatifInterne.forEach(c => {
-    aoa.push([c.nom, c.poste, c.site, fmt(c.salaireBrut), fmt(c.primeLogement), fmt(c.primeSite), fmt(c.primeRepresentation), c.ancienneteCimar, c.experienceAvant]);
-  });
-  aoa.push([]);
-
-  // Avantages
-  aoa.push(['Avantages']);
-  aoa.push(['CIMR', `${data.tauxCIMR}%`]);
-  aoa.push(['Mutuelle maladie WafaAssurances', `${data.mutuellePercent}%`]);
-  aoa.push(["Prime de l'aïd", data.primeAid, 'Dhs bruts']);
-  aoa.push(['Avance aïd', data.avanceAid, 'Dhs nets sur 10 mois']);
-  aoa.push(['Avance sociale', data.avanceSociale, 'Dhs nets sur 12 mois']);
-  aoa.push(['Bonus (MBO)', fmt(data.mbo), 'Dhs bruts pour 100%']);
-  aoa.push([]);
-
-  // Signature block (placeholder rows; the signature image is added below as anchored image is tricky in XLSX, so we add a labeled cell)
-  aoa.push(['Validation']);
-  aoa.push(['Préparé par :', signer.fullName || '']);
-  aoa.push(['Fonction :', signer.title || '']);
-  aoa.push(['Date :', today]);
-  aoa.push(['Signature :', signer.signatureUrl ? '(voir image insérée)' : '']);
-
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-  // Column widths to match original layout
-  ws['!cols'] = [
-    { wch: 30 }, { wch: 22 }, { wch: 28 }, { wch: 14 },
-    { wch: 28 }, { wch: 14 }, { wch: 24 }, { wch: 12 }, { wch: 26 },
+  const ws = wb.addWorksheet("Fiche d'Embauche");
+  ws.columns = [
+    { width: 30 }, { width: 22 }, { width: 28 }, { width: 14 },
+    { width: 28 }, { width: 14 }, { width: 24 }, { width: 12 }, { width: 26 },
   ];
 
-  // Bold header style on title row
-  const setBold = (addr: string) => {
-    if (ws[addr]) {
-      ws[addr].s = { font: { bold: true, sz: 14 }, alignment: { horizontal: 'center' } };
-    }
+  const HEADER_FILL = 'FFD9E2F3';
+  const SECTION_FILL = 'FFB4C7E7';
+  const thinBorder: Partial<ExcelJS.Borders> = {
+    top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+    left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+    bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+    right: { style: 'thin', color: { argb: 'FFCCCCCC' } },
   };
-  setBold('D1');
 
-  XLSX.utils.book_append_sheet(wb, ws, "Fiche d'Embauche");
+  const addRow = (values: any[]) => ws.addRow(values);
+  const sectionRow = (label: string) => {
+    const r = ws.addRow([label]);
+    ws.mergeCells(r.number, 1, r.number, 9);
+    r.getCell(1).font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+    r.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SECTION_FILL } };
+    r.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+    r.height = 22;
+  };
+  const headerRow = (label: string, span = 2) => {
+    const r = ws.addRow([label]);
+    if (span > 1) ws.mergeCells(r.number, 1, r.number, span);
+    r.getCell(1).font = { bold: true, color: { argb: 'FF1F3864' } };
+    r.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } };
+  };
 
-  // Détail page (Barème IGR + paramètres)
-  const aoa2: any[][] = [
-    ['Barème IGR 2010'],
-    ['Tranche', 'Taux', 'Somme à déduire'],
+  // Title
+  const titleRow = ws.addRow(['', '', '', "FICHE DE VALIDATION D'EMBAUCHE"]);
+  ws.mergeCells(titleRow.number, 1, titleRow.number, 9);
+  titleRow.getCell(1).value = "FICHE DE VALIDATION D'EMBAUCHE";
+  titleRow.getCell(1).font = { bold: true, size: 16, color: { argb: 'FF1F3864' } };
+  titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+  titleRow.height = 30;
+
+  ws.addRow([`Date: ${dateStr}`]);
+  ws.addRow([]);
+
+  // Validation
+  const validationHeader = ws.addRow(['Direction Demandeuse', '', 'Direction RH', '', '', 'Direction Générale']);
+  [1, 3, 6].forEach(c => {
+    validationHeader.getCell(c).font = { bold: true };
+    validationHeader.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } };
+  });
+  ws.addRow([data.directionDemandeuseName || '', '', data.directionRHName || '', '', '', data.directionGeneraleName || '']);
+  ws.addRow([]);
+
+  // Fonction
+  sectionRow('Fonction');
+  addRow(['Titre de poste:', '', data.titrePoste || '']);
+  addRow(['Direction/Département:', '', data.directionDepartement || '']);
+  addRow(['Rattachement Hiérarchique:', '', data.rattachementHierarchique || '']);
+  addRow(['Motif de recrutement:', '', data.motifRecrutement || '']);
+  ws.addRow([]);
+
+  // Candidate
+  addRow(['Nom & Prénom du candidat retenu:', '', data.nomPrenom || '']);
+  ws.addRow([]);
+
+  // Interview panel
+  sectionRow('REÇU EN ENTRETIEN PAR :');
+  interviewers.forEach(p => addRow(['', p.name || '', '', p.avis || '']));
+  ws.addRow([]);
+
+  // Entrée en fonction
+  sectionRow('Entrée en fonction');
+  addRow(['', 'Durée de préavis:', '', data.dureePreavis || '']);
+  addRow(['', 'Entrée envisagée le:', '', entreeStr]);
+  addRow(['', 'Statut:', '', data.statut || '']);
+  addRow(['', 'Type de contrat:', '', data.typeContrat || '']);
+  addRow(['', "Durée de période d'essai:", '', data.dureePeriodeEssai || '']);
+  addRow(['', 'Voiture liée au poste:', '', data.voitureLieePoste ? 'Oui' : 'Non']);
+  ws.addRow([]);
+
+  // IK
+  sectionRow('Indemnités Kilométriques');
+  addRow(['', 'Cadre :', 91, 'Dh/jour fixe']);
+  data.sites.forEach(s => addRow(['', `${s.name} :`, s.distance, s.unit, s.selected ? 'X' : '']));
+  addRow(['', 'Nombre de jours travaillés', data.nombreJoursTravailles, 'jours', fmt(salary.ikTotal), 'Dhs']);
+  addRow(['', 'Site sélectionné', selectedSite?.name || '-']);
+  ws.addRow([]);
+
+  // Situation vs Offre
+  const cmpHeader = ws.addRow(['Situation Actuelle', '', '', '', 'Offre Ciments du Maroc']);
+  [1, 5].forEach(c => {
+    cmpHeader.getCell(c).font = { bold: true };
+    cmpHeader.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } };
+  });
+  addRow(['Salaire de base:', fmt(data.salaireBaseActuel), '', '', 'Salaire de base', fmt(data.salaireBase), 'Dhs brut sur 13,3 mois']);
+  addRow(['Prime de chantier', fmt(data.primeChantierActuel), '', '', 'Prime de logement', fmt(data.primeLogement), 'Dhs brut sur 12 mois']);
+  addRow(['Indemnité de panier', fmt(data.indPanierActuel), '', '', 'Prime de site', fmt(data.primeSite), 'Dhs brut sur 12 mois']);
+  addRow(['Indemnité de transport', fmt(data.indTransportActuel), '', '', 'Indemnité de transport', fmt(data.indTransport), 'Dhs net sur 12 mois']);
+  addRow(['Salaire Net:', fmt(data.salaireNetActuel), '', '', 'Prime de représentation', fmt(data.primeRepresentation), 'Dhs brut sur 12 mois']);
+  ws.addRow([]);
+
+  // Récapitulatif
+  sectionRow('Récapitulatif (Calculé)');
+  addRow(['Salaire annuel brut', fmt(salary.salaireAnnuelBrut), 'Dhs']);
+  addRow(['MBO', fmt(data.mbo), 'Dhs']);
+  addRow(['Salaire net mensuel', fmt(salary.netAPayer), 'Dhs']);
+  addRow(['Net mensuel + IK', fmt(salary.netMensuelPlusIK), 'Dhs']);
+  addRow(['IK total', fmt(salary.ikTotal), 'Dhs']);
+  ws.addRow([]);
+
+  // Détail
+  sectionRow('Détail du calcul');
+  addRow(['Nombre de personnes à charge', data.nbPersonnesCharge]);
+  addRow(['Salaire brut de base', fmt(data.salaireBase)]);
+  addRow(['Taux Ancienneté', `${data.tauxAnciennete}%`]);
+  addRow(['Taux CIMR', `${data.tauxCIMR}%`]);
+  addRow(['Indemnité imposable', fmt(data.indemniteImposable)]);
+  addRow(['RMA', fmt(data.rma)]);
+  addRow(['Brut imposable', fmt(salary.brutImposable)]);
+  addRow(['Indemnité Transport', fmt(data.indTransport)]);
+  addRow(['Revenu brut global', fmt(salary.revenuBrutGlobal)]);
+  addRow(['Intérêts prêt immobilier', fmt(data.interetsPretImmobilier)]);
+  addRow(['Montant du revenu brut imposable', fmt(salary.montantRevenuBrutImposable)]);
+  ws.addRow([]);
+  addRow(['Frais professionnels', fmt(salary.fraisPro)]);
+  addRow(['CNSS', fmt(salary.cnss)]);
+  addRow(['CIMR', fmt(salary.cimr)]);
+  addRow(['Mutuelle', fmt(salary.mutuelle)]);
+  addRow(['Salaire Brut Imposable', fmt(salary.salaireBrutImposable)]);
+  addRow(['IGR Brut', fmt(salary.igrBrut)]);
+  addRow(['Charges familiales', fmt(salary.chargesFamiliales)]);
+  addRow(['IGR Net', fmt(salary.igrNet)]);
+  addRow(['Net à payer', fmt(salary.netAPayer)]);
+  ws.addRow([]);
+
+  // Comparatif Interne
+  sectionRow('Comparatif Interne');
+  const compHead = ws.addRow(['Nom et prénom', 'Intitulé du poste', "Site d'affectation", 'Salaire Brut', 'Prime de logement', 'Prime de site', 'Prime de représentation', 'Ancienneté CIMAR', 'Expérience avant CIMAR']);
+  compHead.eachCell(c => {
+    c.font = { bold: true };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } };
+    c.alignment = { wrapText: true, horizontal: 'center', vertical: 'middle' };
+    c.border = thinBorder;
+  });
+  data.comparatifInterne.forEach(c => addRow([c.nom, c.poste, c.site, fmt(c.salaireBrut), fmt(c.primeLogement), fmt(c.primeSite), fmt(c.primeRepresentation), c.ancienneteCimar, c.experienceAvant]));
+  ws.addRow([]);
+
+  // Avantages
+  sectionRow('Avantages');
+  addRow(['CIMR', `${data.tauxCIMR}%`]);
+  addRow(['Mutuelle maladie WafaAssurances', `${data.mutuellePercent}%`]);
+  addRow(["Prime de l'aïd", data.primeAid, 'Dhs bruts']);
+  addRow(['Avance aïd', data.avanceAid, 'Dhs nets sur 10 mois']);
+  addRow(['Avance sociale', data.avanceSociale, 'Dhs nets sur 12 mois']);
+  addRow(['Bonus (MBO)', fmt(data.mbo), 'Dhs bruts pour 100%']);
+  ws.addRow([]);
+
+  // Signature
+  sectionRow('Validation & Signature');
+  addRow(['Préparé par :', signer.fullName || '']);
+  addRow(['Fonction :', signer.title || '']);
+  addRow(['Date :', today]);
+  const sigLabelRow = ws.addRow(['Signature :']);
+
+  // Embed signature image if available
+  if (signer.signatureUrl) {
+    try {
+      const res = await fetch(signer.signatureUrl);
+      if (res.ok) {
+        const buf = await res.arrayBuffer();
+        const ext = /\.jpe?g(\?|$)/i.test(signer.signatureUrl) ? 'jpeg' : 'png';
+        const imageId = wb.addImage({ buffer: buf as any, extension: ext });
+        const startRow = sigLabelRow.number; // 0-indexed: startRow - 1
+        // Anchor image to columns 2..5, ~3 rows tall
+        ws.addImage(imageId, {
+          tl: { col: 1, row: startRow - 1 } as any,
+          ext: { width: 200, height: 80 },
+        } as any);
+        // Reserve a few empty rows so the image has space
+        for (let i = 0; i < 4; i++) ws.addRow([]);
+      }
+    } catch (e) {
+      console.warn('Signature embed failed:', e);
+    }
+  }
+
+  // Add IGR detail sheet
+  const ws2 = wb.addWorksheet('Détail IGR');
+  ws2.columns = [{ width: 28 }, { width: 14 }, { width: 18 }];
+  ws2.addRow(['Barème IGR 2010']).getCell(1).font = { bold: true, size: 13 };
+  ws2.addRow(['Tranche', 'Taux', 'Somme à déduire']).eachCell(c => { c.font = { bold: true }; });
+  ws2.addRows([
     ['[0-3333]', '0%', 0],
     ['[3334-5000]', '10%', 333.33],
     ['[5001-6667]', '20%', 833.33],
     ['[6668-8333]', '30%', 1500],
     ['[8334-15000]', '34%', 1833.33],
     ['15001 et plus', '37%', 2283.33],
-    [],
-    ['Taux appliqués'],
-    ['Rubrique', 'Taux', 'Plafond'],
+  ]);
+  ws2.addRow([]);
+  ws2.addRow(['Taux appliqués']).getCell(1).font = { bold: true, size: 13 };
+  ws2.addRow(['Rubrique', 'Taux', 'Plafond']).eachCell(c => { c.font = { bold: true }; });
+  ws2.addRows([
     ['Frais professionnels', '25%', 2916.67],
     ['CNSS', '4.48%', 6000],
     ['CIMR', `${data.tauxCIMR}%`, 2000000],
     ['Retraite Complémentaire', '0%', 'N/A'],
     ['Mutuelle', '3.41%', 'N/A'],
     ['Charges familiales', 41.66, 3],
-  ];
-  const ws2 = XLSX.utils.aoa_to_sheet(aoa2);
-  ws2['!cols'] = [{ wch: 28 }, { wch: 14 }, { wch: 18 }];
-  XLSX.utils.book_append_sheet(wb, ws2, 'Détail');
+  ]);
 
-  XLSX.writeFile(wb, `Fiche_embauche_${(data.nomPrenom || data.titrePoste || 'document').replace(/\s+/g, '_')}.xlsx`);
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  saveAs(blob, `Fiche_embauche_${(data.nomPrenom || data.titrePoste || 'document').replace(/\s+/g, '_')}.xlsx`);
 }
+

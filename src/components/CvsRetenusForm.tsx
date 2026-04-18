@@ -300,8 +300,12 @@ export function CvsRetenusForm() {
       sessionId,
       targetPositions,
       onError: (msg) => toast.error(msg),
-      onSuccess: (count) => {
-        toast.success(`${count} CV analysés avec succès !`);
+      onSuccess: (count, total, failed) => {
+        if (failed > 0) {
+          toast.warning(`${count}/${total} CV analysés. ${failed} échec(s) — relancez si nécessaire.`);
+        } else {
+          toast.success(`${count} CV analysés avec succès !`);
+        }
         loadAnalyses();
       },
     });
@@ -374,9 +378,9 @@ export function CvsRetenusForm() {
     return acc;
   }, {});
 
+  // Sort all candidates per poste by score; show ALL (no cap)
   Object.keys(grouped).forEach(key => {
     grouped[key].sort((a, b) => b.matching_score - a.matching_score);
-    grouped[key] = grouped[key].slice(0, 6);
   });
 
   const posteAccents: Record<string, string> = {
