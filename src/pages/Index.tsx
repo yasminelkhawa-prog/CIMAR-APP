@@ -11,6 +11,7 @@ import { CvsRetenusForm } from '@/components/CvsRetenusForm';
 import { BigFiveAssessment } from '@/components/BigFiveAssessment';
 import { ChatBot } from '@/components/ChatBot';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { NotificationsBell } from '@/components/NotificationsBell';
 import { ProfileSettings } from '@/components/ProfileSettings';
 import { useAuth } from '@/hooks/useAuth';
 import { LogOut } from 'lucide-react';
@@ -144,6 +145,7 @@ export default function Index() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>
+                <NotificationsBell />
                 <LanguageToggle />
                 <Button size="sm" variant="ghost" onClick={signOut} className="gap-1">
                   <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Sign out</span>

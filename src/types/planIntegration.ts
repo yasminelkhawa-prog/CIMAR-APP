@@ -1,5 +1,8 @@
+export type ActivityType = 'planning' | 'formation';
+
 export interface IntegrationEntry {
   id: string;
+  activityType: ActivityType;
   date: string;
   horaire: string;
   direction: string;
@@ -27,6 +30,7 @@ export const DEFAULT_PLAN_INTEGRATION: PlanIntegrationData = {
   type: 'nouvelle_recrue',
   entries: [{
     id: crypto.randomUUID(),
+    activityType: 'planning',
     date: '',
     horaire: '',
     direction: '',
@@ -39,3 +43,4 @@ export const DEFAULT_PLAN_INTEGRATION: PlanIntegrationData = {
   avisHierarchie: '',
   appreciation: '',
 };
+

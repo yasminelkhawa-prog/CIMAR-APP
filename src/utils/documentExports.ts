@@ -28,6 +28,14 @@ interface SignerInfo {
   signatureUrl?: string | null;
 }
 
+/** Additional countersignatures fetched from accepted signature_requests. */
+export interface ExtraSignature {
+  fullName: string;
+  title?: string;
+  signatureUrl: string;
+  signedAt?: string | null;
+}
+
 // ─────────────────────────── Helpers ───────────────────────────
 
 async function fetchSignatureBytes(url?: string | null): Promise<Uint8Array | null> {
@@ -102,9 +110,54 @@ async function buildSignatureParagraphs(signer: SignerInfo, alignment: any = Ali
   return paras;
 }
 
+async function buildExtraSignaturesTable(extras: ExtraSignature[], fullW: number, headerFill: string, titleColor: string): Promise<Table | null> {
+  if (!extras || extras.length === 0) return null;
+  const cellsForSig = await Promise.all(extras.map(async (s) => {
+    const sigBytes = await fetchSignatureBytes(s.signatureUrl);
+    const children: Paragraph[] = [];
+    if (sigBytes) {
+      children.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new ImageRun({
+          type: signatureImageType(s.signatureUrl),
+          data: sigBytes,
+          transformation: { width: 130, height: 55 },
+          altText: { title: 'Signature', description: 'Co-signer signature', name: 'co-signature' },
+        })],
+      }));
+    }
+    children.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: s.fullName, bold: true, font: 'Calibri', size: 20 })],
+    }));
+    if (s.title) {
+      children.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: s.title, italics: true, font: 'Calibri', size: 18 })],
+      }));
+    }
+    if (s.signedAt) {
+      children.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: `Signé le ${new Date(s.signedAt).toLocaleDateString('fr-FR')}`, font: 'Calibri', size: 16, color: '666666' })],
+      }));
+    }
+    return cell(children, { width: Math.floor(fullW / extras.length) });
+  }));
+
+  return new Table({
+    width: { size: fullW, type: WidthType.DXA },
+    columnWidths: extras.map(() => Math.floor(fullW / extras.length)),
+    rows: [
+      new TableRow({ children: [cell('Visas et signatures', { bold: true, shade: headerFill, colSpan: extras.length, italic: true, color: titleColor, align: AlignmentType.CENTER })] }),
+      new TableRow({ children: cellsForSig }),
+    ],
+  });
+}
+
 // ─────────────────────── Fiche de Poste (DOCX) ───────────────────────
 
-export async function exportFichePosteDocx(data: FichePosteData, signer: SignerInfo) {
+export async function exportFichePosteDocx(data: FichePosteData, signer: SignerInfo, extraSignatures: ExtraSignature[] = []) {
   const HEADER_FILL = 'B9DCCB';
   const TITLE_COLOR = '044C2A';
   const fullW = 9000;
@@ -189,6 +242,7 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
   });
 
   const signaturePara = await buildSignatureParagraphs(signer, AlignmentType.RIGHT);
+  const extrasTable = await buildExtraSignaturesTable(extraSignatures, fullW, HEADER_FILL, TITLE_COLOR);
 
   // CIMAR logo header
   const logoBuf = await fetch(logoUrl).then(r => r.arrayBuffer());
@@ -222,6 +276,7 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
         categorizedTable('5. Profil du poste', 'Critère', 'Exigence', data.profil),
         new Paragraph({ children: [new TextRun({ text: '' })] }),
         ...signaturePara,
+        ...(extrasTable ? [new Paragraph({ children: [new TextRun({ text: '' })] }), extrasTable] : []),
       ],
     }],
   });
@@ -232,7 +287,7 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
 
 // ─────────────────────── Plan d'Intégration (DOCX) ───────────────────────
 
-export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signer: SignerInfo) {
+export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signer: SignerInfo, extraSignatures: ExtraSignature[] = []) {
   const HEADER_FILL = 'B5D8E5';   // Light teal/blue (matches template)
   // Landscape A4: long edge = 16838, with 720 DXA margins (0.5in) → content = 15398
   const fullW = 15398;
@@ -323,12 +378,15 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
     ],
   });
 
-  // Split entries: planning (non-formation) vs formations rows.
-  // Heuristic: entries flagged with direction containing keywords like Sécurité, Formation,
-  // Workday, Recrutement go to formations; otherwise stay in planning.
+  // Split entries by explicit activityType field. Backward-compat: legacy entries
+  // without an activityType fall back to keyword detection.
   const formationKeywords = /(formation|workday|sécurit|securit|recrutement|développement rh|developpement rh)/i;
-  const planningEntries = data.entries.filter(e => !formationKeywords.test(`${e.direction} ${e.objectifs}`));
-  const formationEntries = data.entries.filter(e => formationKeywords.test(`${e.direction} ${e.objectifs}`));
+  const isFormation = (e: typeof data.entries[number]) => {
+    if (e.activityType) return e.activityType === 'formation';
+    return formationKeywords.test(`${e.direction} ${e.objectifs}`);
+  };
+  const planningEntries = data.entries.filter(e => !isFormation(e));
+  const formationEntries = data.entries.filter(e => isFormation(e));
 
   const planningTable = new Table({
     width: { size: fullW, type: WidthType.DXA },
@@ -487,6 +545,12 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
         appreciationTable,
         new Paragraph({ children: [new TextRun({ text: '' })] }),
         avisTable,
+        ...(extraSignatures.length > 0
+          ? [
+              new Paragraph({ children: [new TextRun({ text: '' })] }),
+              (await buildExtraSignaturesTable(extraSignatures, fullW, HEADER_FILL, '044C2A'))!,
+            ]
+          : []),
       ],
     }],
   });
@@ -502,7 +566,7 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
  * {placeholder} tokens with form values, and embeds the user's signature image.
  * Preserves merged cells, formulas, fonts, column widths, and borders exactly.
  */
-export async function exportFicheEmbaucheXlsx(data: FicheEmbaucheData, signer: SignerInfo) {
+export async function exportFicheEmbaucheXlsx(data: FicheEmbaucheData, signer: SignerInfo, extraSignatures: ExtraSignature[] = []) {
   const salary = calculateSalary(data);
   const fmt = (n: number | undefined) => Number.isFinite(n) ? Number((n as number).toFixed(2)) : 0;
   const today = new Date().toLocaleDateString('fr-FR');
@@ -635,6 +699,30 @@ export async function exportFicheEmbaucheXlsx(data: FicheEmbaucheData, signer: S
       }
     } catch (e) {
       console.warn('Signature embed failed:', e);
+    }
+  }
+
+  // Append extra signatures on a new sheet so we don't disturb the template layout
+  if (extraSignatures.length > 0) {
+    const extraWs = wb.addWorksheet('Visas');
+    extraWs.getCell('A1').value = 'Visas et signatures complémentaires';
+    extraWs.getCell('A1').font = { bold: true, size: 14 };
+    let row = 3;
+    for (const s of extraSignatures) {
+      extraWs.getCell(`A${row}`).value = s.fullName;
+      extraWs.getCell(`A${row}`).font = { bold: true };
+      if (s.title) extraWs.getCell(`B${row}`).value = s.title;
+      if (s.signedAt) extraWs.getCell(`C${row}`).value = `Signé le ${new Date(s.signedAt).toLocaleDateString('fr-FR')}`;
+      try {
+        const r = await fetch(s.signatureUrl);
+        if (r.ok) {
+          const b = await r.arrayBuffer();
+          const ext = /\.jpe?g(\?|$)/i.test(s.signatureUrl) ? 'jpeg' : 'png';
+          const id = wb.addImage({ buffer: b as any, extension: ext });
+          extraWs.addImage(id, { tl: { col: 3, row: row - 1 } as any, ext: { width: 160, height: 60 } } as any);
+        }
+      } catch { /* ignore */ }
+      row += 5;
     }
   }
 

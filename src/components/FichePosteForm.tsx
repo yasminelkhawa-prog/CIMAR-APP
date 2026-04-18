@@ -14,6 +14,8 @@ import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { exportFichePosteDocx } from '@/utils/documentExports';
 import { FormAssistant } from '@/components/FormAssistant';
+import { RequestSignatureDialog } from '@/components/RequestSignatureDialog';
+import { fetchAcceptedSignatures } from '@/hooks/useSignatureRequests';
 
 interface ListItem {
   id: string;
@@ -34,11 +36,16 @@ export function FichePosteForm() {
 
   const handleDownload = async () => {
     try {
+      const extras = selected
+        ? (await fetchAcceptedSignatures('fiche_poste', selected.id)).map(s => ({
+            fullName: s.recipient_name, title: s.recipient_title, signatureUrl: s.signature_url, signedAt: s.responded_at,
+          }))
+        : [];
       await exportFichePosteDocx(formData, {
         fullName: profile?.full_name,
         title: profile?.title,
         signatureUrl: profile?.signature_url,
-      });
+      }, extras);
       toast.success('Document téléchargé');
     } catch (e) {
       console.error(e);
@@ -135,10 +142,13 @@ export function FichePosteForm() {
         <Button variant="ghost" size="sm" onClick={() => { setShowNew(false); setSelected(null); }}>
           <ArrowLeft className="h-4 w-4 mr-1" /> {t('backToList')}
         </Button>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-start">
           <Button onClick={handleDownload} size="sm" variant="outline">
             <Download className="h-4 w-4 mr-1" /> Télécharger
           </Button>
+          {selected && (
+            <RequestSignatureDialog docType="fiche_poste" docId={selected.id} docTitle={formData.poste || 'Fiche de poste'} />
+          )}
           {readOnly && (
             <Button onClick={() => setEditMode(true)} size="sm" variant="outline">
               <Pencil className="h-4 w-4 mr-1" /> {t('modify')}

@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { PlanIntegrationData, DEFAULT_PLAN_INTEGRATION, IntegrationEntry } from '@/types/planIntegration';
@@ -15,6 +16,8 @@ import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { exportPlanIntegrationDocx } from '@/utils/documentExports';
 import { FormAssistant } from '@/components/FormAssistant';
+import { RequestSignatureDialog } from '@/components/RequestSignatureDialog';
+import { fetchAcceptedSignatures } from '@/hooks/useSignatureRequests';
 
 interface ListItem {
   id: string;
@@ -46,11 +49,16 @@ export function PlanIntegrationForm() {
 
   const handleDownload = async () => {
     try {
+      const extras = selected
+        ? (await fetchAcceptedSignatures('plan_integration', selected.id)).map(s => ({
+            fullName: s.recipient_name, title: s.recipient_title, signatureUrl: s.signature_url, signedAt: s.responded_at,
+          }))
+        : [];
       await exportPlanIntegrationDocx(formData, {
         fullName: profile?.full_name,
         title: profile?.title,
         signatureUrl: profile?.signature_url,
-      });
+      }, extras);
       toast.success('Document téléchargé');
     } catch (e) {
       console.error(e);
@@ -134,10 +142,13 @@ export function PlanIntegrationForm() {
         <Button variant="ghost" size="sm" onClick={() => { setShowNew(false); setSelected(null); }}>
           <ArrowLeft className="h-4 w-4 mr-1" /> {t('backToList')}
         </Button>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-start">
           <Button onClick={handleDownload} size="sm" variant="outline">
             <Download className="h-4 w-4 mr-1" /> Télécharger
           </Button>
+          {selected && (
+            <RequestSignatureDialog docType="plan_integration" docId={selected.id} docTitle={formData.nomPrenom || "Plan d'intégration"} />
+          )}
           {readOnly && (
             <Button onClick={() => setEditMode(true)} size="sm" variant="outline">
               <Pencil className="h-4 w-4 mr-1" /> {t('modify')}
@@ -176,7 +187,7 @@ export function PlanIntegrationForm() {
             <CardTitle className="text-lg">Planning</CardTitle>
             {!readOnly && (
               <Button variant="outline" size="sm" onClick={() => update({
-                entries: [...formData.entries, { id: crypto.randomUUID(), date: '', horaire: '', direction: '', responsable: '', objectifs: '', visaResponsable: '', visaRecrue: '' }]
+                entries: [...formData.entries, { id: crypto.randomUUID(), activityType: 'planning', date: '', horaire: '', direction: '', responsable: '', objectifs: '', visaResponsable: '', visaRecrue: '' }]
               })}>
                 <Plus className="h-4 w-4 mr-1" /> {t('add')}
               </Button>
@@ -188,6 +199,7 @@ export function PlanIntegrationForm() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
+                  <th className="text-left py-2 px-1 w-28">Type</th>
                   <th className="text-left py-2 px-1">{t('date')}</th>
                   <th className="text-left py-2 px-1">{t('horaire')}</th>
                   <th className="text-left py-2 px-1">{t('direction')}</th>
@@ -198,7 +210,20 @@ export function PlanIntegrationForm() {
               </thead>
               <tbody>
                 {formData.entries.map((entry, i) => (
-                  <tr key={entry.id} className="border-b">
+                  <tr key={entry.id} className={`border-b ${entry.activityType === 'formation' ? 'bg-accent/30' : ''}`}>
+                    <td className="py-1 px-1">
+                      <Select
+                        value={entry.activityType || 'planning'}
+                        onValueChange={(v) => updateEntry(i, { activityType: v as 'planning' | 'formation' })}
+                        disabled={!!readOnly}
+                      >
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="planning">Planning</SelectItem>
+                          <SelectItem value="formation">Formation</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
                     <td className="py-1 px-1"><Input type="date" value={entry.date} onChange={e => updateEntry(i, { date: e.target.value })} disabled={!!readOnly} className="h-8" /></td>
                     <td className="py-1 px-1"><Input value={entry.horaire} onChange={e => updateEntry(i, { horaire: e.target.value })} disabled={!!readOnly} className="h-8" placeholder="09h00-10h00" /></td>
                     <td className="py-1 px-1"><Input value={entry.direction} onChange={e => updateEntry(i, { direction: e.target.value })} disabled={!!readOnly} className="h-8" /></td>
@@ -258,6 +283,7 @@ export function PlanIntegrationForm() {
             if (Array.isArray(s.entries) && s.entries.length > 0) {
               const newEntries: IntegrationEntry[] = (s.entries as Array<Partial<IntegrationEntry>>).map(e => ({
                 id: crypto.randomUUID(),
+                activityType: (e.activityType === 'formation' ? 'formation' : 'planning'),
                 date: e.date || '',
                 horaire: e.horaire || '',
                 direction: e.direction || '',
