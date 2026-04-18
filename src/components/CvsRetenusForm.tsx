@@ -121,6 +121,7 @@ export function CvsRetenusForm() {
   });
   const [newPosition, setNewPosition] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetsRef = useRef<string[] | null>(null);
   const [openPoste, setOpenPoste] = useState<string | null>(null);
 
   useEffect(() => { loadAnalyses(); }, []);
@@ -277,9 +278,15 @@ export function CvsRetenusForm() {
     return cleanupOcrText(normalizeText([directText, ocrText].filter(Boolean).join(' ')));
   };
 
-  const handleUploadAndAnalyze = async (files: FileList) => {
+  const openUploadPicker = (positions?: string[]) => {
+    uploadTargetsRef.current = positions?.length ? positions : null;
+    fileInputRef.current?.click();
+  };
+
+  const handleUploadAndAnalyze = async (files: FileList, forcedTargetPositions?: string[]) => {
+    const positions = forcedTargetPositions?.length ? forcedTargetPositions : targetPositions;
     if (files.length === 0) return;
-    if (targetPositions.length === 0) {
+    if (positions.length === 0) {
       toast.error(t('addPositionsFirst'));
       return;
     }
@@ -356,13 +363,17 @@ export function CvsRetenusForm() {
       toast.info(`${skipped.length} CV envoyé(s) en analyse limitée (OCR échoué).`);
     }
 
-    toast.info(`Analyse IA de ${cvTexts.length} CV en cours... Vous pouvez naviguer librement.`);
+    toast.info(
+      positions.length === 1
+        ? `Analyse IA de ${cvTexts.length} CV pour « ${positions[0]} » en cours...`
+        : `Analyse IA de ${cvTexts.length} CV en cours... Vous pouvez naviguer librement.`
+    );
 
     // Fire and forget — runner is a singleton so it survives unmount
     cvAnalysisRunner.run({
       cvTexts,
       sessionId,
-      targetPositions,
+      targetPositions: positions,
       onError: (msg) => toast.error(msg),
       onSuccess: (count, total, failed) => {
         if (failed > 0) {
@@ -386,44 +397,64 @@ export function CvsRetenusForm() {
     setAnalyses(prev => prev.filter(a => a.id !== id));
   };
 
-  const handleViewCV = async (filePath: string) => {
+  const getCvUrl = async (filePath: string) => {
     if (!filePath) {
       toast.error('Aucun fichier CV stocké pour ce candidat');
-      return;
+      return null;
     }
-    try {
-      // Try a signed URL first (works for both public & private buckets, and properly encodes paths with spaces/special chars)
-      const { data: signed, error: signedErr } = await supabase
-        .storage
-        .from('cv-uploads')
-        .createSignedUrl(filePath, 3600);
+    // Try a signed URL first (works for both public & private buckets, and properly encodes paths with spaces/special chars)
+    const { data: signed, error: signedErr } = await supabase
+      .storage
+      .from('cv-uploads')
+      .createSignedUrl(filePath, 3600);
 
-      let url = signed?.signedUrl;
+    let url = signed?.signedUrl;
 
-      if (!url) {
-        // Fallback: build a public URL with each path segment properly encoded
-        const { data: pub } = supabase.storage.from('cv-uploads').getPublicUrl(filePath);
-        if (pub?.publicUrl) {
-          // Re-encode the object path portion to handle spaces and special chars
-          const marker = '/object/public/cv-uploads/';
-          const idx = pub.publicUrl.indexOf(marker);
-          if (idx >= 0) {
-            const base = pub.publicUrl.slice(0, idx + marker.length);
-            const path = pub.publicUrl.slice(idx + marker.length);
-            url = base + path.split('/').map(encodeURIComponent).join('/');
-          } else {
-            url = pub.publicUrl;
-          }
+    if (!url) {
+      // Fallback: build a public URL with each path segment properly encoded
+      const { data: pub } = supabase.storage.from('cv-uploads').getPublicUrl(filePath);
+      if (pub?.publicUrl) {
+        const marker = '/object/public/cv-uploads/';
+        const idx = pub.publicUrl.indexOf(marker);
+        if (idx >= 0) {
+          const base = pub.publicUrl.slice(0, idx + marker.length);
+          const path = pub.publicUrl.slice(idx + marker.length);
+          url = base + path.split('/').map(encodeURIComponent).join('/');
+        } else {
+          url = pub.publicUrl;
         }
       }
+    }
 
-      if (!url) {
-        console.error('CV view error:', signedErr);
-        toast.error("Impossible d'ouvrir le CV");
-        return;
-      }
+    if (!url) {
+      console.error('CV file URL error:', signedErr);
+      toast.error("Impossible d'accéder au CV");
+      return null;
+    }
 
-      // Use an anchor element to reliably open in a new tab without same-tab fallback issues
+    return url;
+  };
+
+  const buildCandidateFileName = (cv: CvAnalysis) => {
+    const rawName = [cv.candidate_details?.prenom, cv.candidate_details?.nom]
+      .filter(Boolean)
+      .join(' ')
+      || cv.nom_candidat
+      || 'candidat';
+    const safeName = rawName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .toLowerCase();
+    const extension = cv.cv_file_path?.split('.').pop()?.trim() || 'pdf';
+    return `${safeName || 'candidat'}_cv.${extension}`;
+  };
+
+  const handleViewCV = async (filePath: string) => {
+    try {
+      const url = await getCvUrl(filePath);
+      if (!url) return;
       const a = document.createElement('a');
       a.href = url;
       a.target = '_blank';
@@ -434,6 +465,32 @@ export function CvsRetenusForm() {
     } catch (e) {
       console.error('CV view exception:', e);
       toast.error("Erreur lors de l'ouverture du CV");
+    }
+  };
+
+  const handleDownloadCV = async (cv: CvAnalysis) => {
+    if (!cv.cv_file_path) {
+      toast.error('Aucun fichier CV stocké pour ce candidat');
+      return;
+    }
+    try {
+      const url = await getCvUrl(cv.cv_file_path);
+      if (!url) return;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Download failed (${response.status})`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = buildCandidateFileName(cv);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+      toast.success('CV téléchargé');
+    } catch (e) {
+      console.error('CV download exception:', e);
+      toast.error('Erreur lors du téléchargement du CV');
     }
   };
 
