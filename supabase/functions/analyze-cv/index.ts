@@ -393,26 +393,36 @@ function pickAssignedPosition(parsed: Record<string, unknown>, targetPositions: 
   return fuzzy || targetPositions[0] || candidate;
 }
 
-function mapAnalysisToRecord(parsed: Record<string, unknown>, sessionId: string, filePath: string, rawText: string, targetPositions: string[]) {
+function mapAnalysisToRecord(
+  parsed: Record<string, unknown>,
+  sessionId: string,
+  filePath: string,
+  rawText: string,
+  targetPositions: string[],
+  jobDescriptions: Map<string, string>
+) {
+  const validation = validateExtraction(parsed, rawText);
   const detectedName = extractNameFromText(rawText);
-  const candidateName = pickStr(parsed.candidate_name) || detectedName || "Inconnu";
+  const safeParsedName = validation.valid ? pickStr(parsed.candidate_name) : "";
+  const candidateName = safeParsedName || detectedName || "Inconnu";
   const nameParts = candidateName.split(/\s+/).filter(Boolean);
   const firstName = pickStr(parsed.first_name) || nameParts[0] || "";
   const lastName = pickStr(parsed.last_name) || nameParts.slice(1).join(" ");
   const skills = normalizeStringArray(parsed.top_3_skills, 3);
   const quickQuestions = normalizeStringArray(parsed["2_quick_interview_questions"], 2);
   const aiAssigned = pickAssignedPosition(parsed, targetPositions);
-  const heuristicBest = pickBestPositionByHeuristic(targetPositions, rawText);
-  const aiAssignedHeuristic = scorePositionAgainstText(aiAssigned, rawText);
-  // If the AI's pick has poor keyword overlap but another target clearly fits better, override.
-  const assignedPosition = (heuristicBest.score >= 72 && heuristicBest.score - aiAssignedHeuristic >= 25)
+  const heuristicBest = pickBestPositionByHeuristic(targetPositions, rawText, jobDescriptions);
+  const aiAssignedHeuristic = scorePositionWithJobDescription(aiAssigned, rawText, jobDescriptions.get(aiAssigned));
+  const assignedPosition = (heuristicBest.score >= 72 && heuristicBest.score - aiAssignedHeuristic >= 20)
     ? heuristicBest.position
     : aiAssigned;
   const now = new Date().toISOString();
   const normalizedCurrentPosition = inferCurrentPosition(rawText, pickStr(parsed.current_position, 200));
   const normalizedEmail = pickStr(parsed.email, 150) || extractEmail(rawText);
   const normalizedPhone = pickStr(parsed.phone, 50) || extractPhone(rawText);
-  const normalizedScore = normalizeMatchingScore(parsed.matching_score_estimate, assignedPosition, rawText);
+  const normalizedScore = normalizeMatchingScore(parsed.matching_score_estimate, assignedPosition, rawText, jobDescriptions);
+  const aiComment = pickStr(parsed.red_flags_or_gaps, 300);
+  const finalComment = buildLowScoreComment(normalizedScore, rawText, assignedPosition, aiComment || validation.reason || "");
 
   return {
     session_id: sessionId,
@@ -421,7 +431,7 @@ function mapAnalysisToRecord(parsed: Record<string, unknown>, sessionId: string,
     poste_assigne: assignedPosition,
     matching_score: normalizedScore,
     competences_cles: skills,
-    synthese_ia: pickStr(parsed.red_flags_or_gaps, 300),
+    synthese_ia: finalComment,
     cv_file_path: filePath,
     cv_raw_text: rawText.slice(0, 5000),
     candidate_details: {
@@ -430,11 +440,11 @@ function mapAnalysisToRecord(parsed: Record<string, unknown>, sessionId: string,
       region: "",
       etablissement_formation: pickStr(parsed.education_institution, 200),
       formation: pickStr(parsed.education_field, 200),
-       poste_actuel: normalizedCurrentPosition,
+      poste_actuel: normalizedCurrentPosition,
       entreprise_actuelle: pickStr(parsed.current_company, 200),
       date_debut_poste: pickStr(parsed.current_position_start_date, 50),
       annees_experience: normalizeYears(parsed.years_of_experience),
-       telephone: normalizedPhone,
+      telephone: normalizedPhone,
       quick_interview_questions: quickQuestions,
     },
     status: "completed",
