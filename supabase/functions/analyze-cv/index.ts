@@ -74,7 +74,7 @@ ${text.substring(0, 8000)}`;
 
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 45000);
+        const timeout = setTimeout(() => controller.abort(), 90000);
 
         const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -94,7 +94,7 @@ ${text.substring(0, 8000)}`;
         clearTimeout(timeout);
 
         if (response.status === 429 || response.status === 503) {
-          if (attempt < 3) {
+          if (attempt < 4) {
             await sleep(2000 * attempt);
             return analyzeOne(cv, attempt + 1);
           }
@@ -105,7 +105,7 @@ ${text.substring(0, 8000)}`;
         if (!response.ok) {
           const body = await response.text().catch(() => "");
           console.error(`AI HTTP ${response.status} for ${filePath}: ${body.substring(0, 200)}`);
-          if (attempt < 3) {
+          if (attempt < 4) {
             await sleep(1500 * attempt);
             return analyzeOne(cv, attempt + 1);
           }
@@ -152,7 +152,7 @@ ${text.substring(0, 8000)}`;
         return inserted;
       } catch (e: any) {
         console.error(`Error analyzing ${filePath} (attempt ${attempt}):`, e?.message || e);
-        if (attempt < 3) {
+        if (attempt < 4) {
           await sleep(2000 * attempt);
           return analyzeOne(cv, attempt + 1);
         }
