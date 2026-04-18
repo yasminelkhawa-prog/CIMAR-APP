@@ -415,7 +415,7 @@ export async function exportFicheEmbaucheXlsx(data: FicheEmbaucheData, signer: S
         // Special: signature placeholder
         if (text.includes('{signaturePlaceholder}')) {
           c.value = '';
-          signatureAnchor = { ws, row: c.row as number, col: (c.col as number) + 1 };
+          signatureAnchor = { ws, row: Number(c.row), col: Number(c.col) + 1 };
           return;
         }
 
