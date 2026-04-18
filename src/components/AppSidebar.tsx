@@ -48,10 +48,12 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
   ];
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="glass-sidebar border-r border-sidebar-border/60">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>{t('appTitle').split('—')[0].trim()}</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/70 uppercase tracking-wider text-[10px]">
+            {t('appTitle').split('—')[0].trim()}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
@@ -60,6 +62,11 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
                     onClick={() => onSectionChange(item.id)}
                     isActive={activeSection === item.id}
                     tooltip={item.title}
+                    className={
+                      activeSection === item.id
+                        ? 'bg-gradient-to-r from-sidebar-primary/25 via-sidebar-primary/10 to-transparent text-sidebar-primary-foreground shadow-[inset_2px_0_0_hsl(var(--sidebar-primary))] hover:from-sidebar-primary/30'
+                        : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors'
+                    }
                   >
                     <item.icon className="h-4 w-4" />
                     {!collapsed && <span>{item.title}</span>}
@@ -71,7 +78,9 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>{t('configuration')}</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/70 uppercase tracking-wider text-[10px]">
+            {t('configuration')}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -79,6 +88,11 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
                   onClick={() => onSectionChange('profile')}
                   isActive={activeSection === 'profile'}
                   tooltip="Profile"
+                  className={
+                    activeSection === 'profile'
+                      ? 'bg-gradient-to-r from-sidebar-primary/25 via-sidebar-primary/10 to-transparent text-sidebar-primary-foreground shadow-[inset_2px_0_0_hsl(var(--sidebar-primary))]'
+                      : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
+                  }
                 >
                   <UserCircle className="h-4 w-4" />
                   {!collapsed && <span>Profile & Signature</span>}
@@ -89,6 +103,11 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
                   onClick={() => onSectionChange('config')}
                   isActive={activeSection === 'config'}
                   tooltip={t('configuration')}
+                  className={
+                    activeSection === 'config'
+                      ? 'bg-gradient-to-r from-sidebar-primary/25 via-sidebar-primary/10 to-transparent text-sidebar-primary-foreground shadow-[inset_2px_0_0_hsl(var(--sidebar-primary))]'
+                      : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
+                  }
                 >
                   <Settings2 className="h-4 w-4" />
                   {!collapsed && <span>{t('configuration')}</span>}
