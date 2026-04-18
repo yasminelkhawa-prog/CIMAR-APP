@@ -36,43 +36,31 @@ serve(async (req) => {
 
     const positionsList = targetPositions.join(", ");
 
-    const SYSTEM_PROMPT = `Tu es un expert RH spécialisé dans l'analyse de CV. Postes recherchés: ${positionsList}.
+    const SYSTEM_PROMPT = `Role: You are an ultra-efficient, lightning-fast ATS (Applicant Tracking System) data parser. Your only job is to extract and analyze key information from the provided text.
 
-IMPORTANT - Le texte du CV peut contenir des erreurs OCR (0 vs O, 1 vs I/l, etc.). Corrige intelligemment.
+Strict Constraints (CRITICAL):
 
-Pour chaque CV:
-1. Détermine le poste le plus adapté UNIQUEMENT parmi: ${positionsList}. Sinon utilise "Non pertinent".
-2. Score de matching sur 100.
-3. 3 compétences clés.
-4. Synthèse de 20 mots max.
-5. Détails: prénom, nom, email, téléphone, région, établissement, formation, poste actuel, entreprise, date début, années d'expérience.
+Speed over depth: Do not over-analyze. Extract the obvious facts.
 
-Réponds UNIQUEMENT en JSON, sans texte autour.`;
+No conversational text: Do not say "Here is the analysis" or "Based on the CV".
+
+Output Format: You MUST return ONLY a valid, minified JSON object. Absolutely no markdown formatting or text outside the JSON brackets.
+
+Word Limits: Keep all summary text under 50 words.
+
+Required JSON Structure: { "candidate_name": "Name or null", "years_of_experience": "Integer or null", "top_3_skills": ["Skill 1", "Skill 2", "Skill 3"], "matching_score_estimate": "Integer between 0-100", "red_flags_or_gaps": "Brief 1-sentence summary of any missing critical requirements or null", "2_quick_interview_questions": ["Question 1", "Question 2"] }
+
+Input Text to Analyze: [INSERT PLAIN TEXT CV HERE] [INSERT JOB REQUIREMENT SUMMARY HERE]`;
 
     // Analyze a single CV with retries
     const analyzeOne = async (cv: { text: string; filePath: string }, attempt = 1): Promise<any | null> => {
       const { text, filePath } = cv;
-      const userPrompt = `Analyse ce CV pour: ${positionsList}.
+      const userPrompt = `Input Text to Analyze:
+[INSERT PLAIN TEXT CV HERE]
+${text.substring(0, 4000)}
 
-Retourne UNIQUEMENT un JSON:
-{
-  "nom_candidat": "Prénom Nom",
-  "email": "email@exemple.com",
-  "poste_assigne": "un des postes ou Non pertinent",
-  "matching_score": 85,
-  "competences_cles": ["C1", "C2", "C3"],
-  "synthese_ia": "Texte court",
-  "candidate_details": {
-    "prenom": "", "nom": "", "region": "", "etablissement_formation": "",
-    "formation": "", "poste_actuel": "", "entreprise_actuelle": "",
-    "date_debut_poste": "", "annees_experience": "", "telephone": ""
-  }
-}
-
-Si info absente, mets "".
-
-CV:
-${text.substring(0, 8000)}`;
+[INSERT JOB REQUIREMENT SUMMARY HERE]
+${positionsList}`;
 
       try {
         const controller = new AbortController();
@@ -87,6 +75,8 @@ ${text.substring(0, 8000)}`;
           },
           body: JSON.stringify({
             model: "google/gemini-2.5-flash",
+            temperature: 0,
+            max_tokens: 300,
             messages: [
               { role: "system", content: SYSTEM_PROMPT },
               { role: "user", content: userPrompt },
@@ -132,17 +122,43 @@ ${text.substring(0, 8000)}`;
           return null;
         }
 
+        const candidateName = typeof parsed.candidate_name === "string" && parsed.candidate_name.trim()
+          ? parsed.candidate_name.trim()
+          : "Inconnu";
+        const nameParts = candidateName.split(/\s+/).filter(Boolean);
+        const quickInterviewQuestions = Array.isArray(parsed["2_quick_interview_questions"])
+          ? parsed["2_quick_interview_questions"].filter((question: unknown) => typeof question === "string" && question.trim()).slice(0, 2)
+          : [];
+        const topSkills = Array.isArray(parsed.top_3_skills)
+          ? parsed.top_3_skills.filter((skill: unknown) => typeof skill === "string" && skill.trim()).slice(0, 3)
+          : [];
+        const yearsOfExperience = parsed.years_of_experience == null ? "" : String(parsed.years_of_experience);
+        const redFlagsOrGaps = typeof parsed.red_flags_or_gaps === "string" ? parsed.red_flags_or_gaps.trim() : "";
+        const matchingScore = Number(parsed.matching_score_estimate);
+
         const record = {
           session_id: sessionId,
-          nom_candidat: parsed.nom_candidat || "Inconnu",
-          email: parsed.email || "",
-          poste_assigne: parsed.poste_assigne || "Non pertinent",
-          matching_score: Math.min(100, Math.max(0, parsed.matching_score || 0)),
-          competences_cles: parsed.competences_cles || [],
-          synthese_ia: parsed.synthese_ia || "",
+          nom_candidat: candidateName,
+          email: "",
+          poste_assigne: positionsList,
+          matching_score: Number.isFinite(matchingScore) ? Math.min(100, Math.max(0, matchingScore)) : 0,
+          competences_cles: topSkills,
+          synthese_ia: redFlagsOrGaps || (quickInterviewQuestions[0] || ""),
           cv_file_path: filePath || "",
           cv_raw_text: text.substring(0, 5000),
-          candidate_details: parsed.candidate_details || {},
+          candidate_details: {
+            prenom: nameParts[0] || "",
+            nom: nameParts.slice(1).join(" "),
+            region: "",
+            etablissement_formation: "",
+            formation: "",
+            poste_actuel: "",
+            entreprise_actuelle: "",
+            date_debut_poste: "",
+            annees_experience: yearsOfExperience,
+            telephone: "",
+            quick_interview_questions: quickInterviewQuestions,
+          },
           status: "completed",
           started_at: new Date().toISOString(),
           completed_at: new Date().toISOString(),
