@@ -28,6 +28,14 @@ interface SignerInfo {
   signatureUrl?: string | null;
 }
 
+/** Additional countersignatures fetched from accepted signature_requests. */
+export interface ExtraSignature {
+  fullName: string;
+  title?: string;
+  signatureUrl: string;
+  signedAt?: string | null;
+}
+
 // ─────────────────────────── Helpers ───────────────────────────
 
 async function fetchSignatureBytes(url?: string | null): Promise<Uint8Array | null> {
@@ -102,9 +110,54 @@ async function buildSignatureParagraphs(signer: SignerInfo, alignment: any = Ali
   return paras;
 }
 
+async function buildExtraSignaturesTable(extras: ExtraSignature[], fullW: number, headerFill: string, titleColor: string): Promise<Table | null> {
+  if (!extras || extras.length === 0) return null;
+  const cellsForSig = await Promise.all(extras.map(async (s) => {
+    const sigBytes = await fetchSignatureBytes(s.signatureUrl);
+    const children: Paragraph[] = [];
+    if (sigBytes) {
+      children.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new ImageRun({
+          type: signatureImageType(s.signatureUrl),
+          data: sigBytes,
+          transformation: { width: 130, height: 55 },
+          altText: { title: 'Signature', description: 'Co-signer signature', name: 'co-signature' },
+        })],
+      }));
+    }
+    children.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: s.fullName, bold: true, font: 'Calibri', size: 20 })],
+    }));
+    if (s.title) {
+      children.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: s.title, italics: true, font: 'Calibri', size: 18 })],
+      }));
+    }
+    if (s.signedAt) {
+      children.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: `Signé le ${new Date(s.signedAt).toLocaleDateString('fr-FR')}`, font: 'Calibri', size: 16, color: '666666' })],
+      }));
+    }
+    return cell(children, { width: Math.floor(fullW / extras.length) });
+  }));
+
+  return new Table({
+    width: { size: fullW, type: WidthType.DXA },
+    columnWidths: extras.map(() => Math.floor(fullW / extras.length)),
+    rows: [
+      new TableRow({ children: [cell('Visas et signatures', { bold: true, shade: headerFill, colSpan: extras.length, italic: true, color: titleColor, align: AlignmentType.CENTER })] }),
+      new TableRow({ children: cellsForSig }),
+    ],
+  });
+}
+
 // ─────────────────────── Fiche de Poste (DOCX) ───────────────────────
 
-export async function exportFichePosteDocx(data: FichePosteData, signer: SignerInfo) {
+export async function exportFichePosteDocx(data: FichePosteData, signer: SignerInfo, extraSignatures: ExtraSignature[] = []) {
   const HEADER_FILL = 'B9DCCB';
   const TITLE_COLOR = '044C2A';
   const fullW = 9000;
