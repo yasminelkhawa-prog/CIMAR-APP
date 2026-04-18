@@ -590,7 +590,7 @@ export async function exportEvaluationDocx(
             },
           },
         },
-        children: [headerBlock, spacer, headerTable, spacer, gridTable, spacer, commentTable],
+        children: [headerBlock, spacer, headerTable, spacer, gridTable, spacer, commentTable, spacer, signatureTable],
       },
     ],
   });
