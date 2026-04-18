@@ -50,9 +50,18 @@ interface CvAnalysis {
 
 const DIRECT_TEXT_MIN_LENGTH = 24;
 const READABLE_TEXT_MIN_LENGTH = 10;
-const OCR_PAGE_LIMIT = 10;
+const OCR_PAGE_LIMIT = 6; // reduced from 10 to keep browser-side OCR responsive
+const OCR_FILE_TIMEOUT_MS = 90_000; // hard cap per scanned file so the queue can't hang forever
 
 const normalizeText = (value: string) => value.replace(/\s+/g, ' ').trim();
+
+/** Run a promise with a hard timeout. Rejects with a clear error if exceeded. */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`Timeout (${Math.round(ms / 1000)}s) — ${label}`)), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }).catch((e) => { clearTimeout(t); reject(e); });
+  });
+}
 
 function getScoreTone(score: number) {
   if (score >= 75) return { ring: 'ring-emerald-500/40', text: 'text-emerald-600', bg: 'bg-emerald-500', soft: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-500', label: 'Excellent' };
@@ -244,12 +253,20 @@ export function CvsRetenusForm() {
       /\.(jpe?g|png|webp|bmp|tiff?|heic)$/i.test(name);
     if (isWord) return await extractTextFromWord(file);
     if (isImage) {
-      const ocrText = await extractTextFromImage(file);
+      const ocrText = await withTimeout(extractTextFromImage(file), OCR_FILE_TIMEOUT_MS, `OCR ${file.name}`);
       return cleanupOcrText(ocrText);
     }
-    const directText = await extractTextFromPdf(file);
+    // Try direct text extraction first (fast path for digital PDFs)
+    let directText = '';
+    try { directText = await extractTextFromPdf(file); } catch (e) { console.warn('PDF text extract failed', file.name, e); }
     if (directText.length >= DIRECT_TEXT_MIN_LENGTH) return directText;
-    const ocrText = await extractTextFromPdfWithOcr(file);
+    // Scanned PDF → OCR with hard timeout
+    let ocrText = '';
+    try {
+      ocrText = await withTimeout(extractTextFromPdfWithOcr(file), OCR_FILE_TIMEOUT_MS, `OCR ${file.name}`);
+    } catch (e) {
+      console.warn('OCR failed/timed out for', file.name, e);
+    }
     return cleanupOcrText(normalizeText([directText, ocrText].filter(Boolean).join(' ')));
   };
 
@@ -267,31 +284,48 @@ export function CvsRetenusForm() {
     setExtractProgress({ current: 0, total: files.length, name: '' });
     const sessionId = crypto.randomUUID();
     const cvTexts: { text: string; filePath: string }[] = [];
+    const skipped: string[] = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      setExtractProgress({ current: i + 1, total: files.length, name: file.name });
-      cvAnalysisRunner.setExtractionProgress(i + 1, files.length, file.name);
-      try {
-        const text = await extractReadableCvText(file);
-        if (text.length < READABLE_TEXT_MIN_LENGTH) {
-          toast.error(`${file.name}: unreadable file`);
-          continue;
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setExtractProgress({ current: i + 1, total: files.length, name: file.name });
+        cvAnalysisRunner.setExtractionProgress(i + 1, files.length, file.name);
+        try {
+          const text = await extractReadableCvText(file);
+          // Always upload the file so the user can still preview it
+          const path = `${sessionId}/${file.name}`;
+          const { error: uploadError } = await supabase.storage.from('cv-uploads').upload(path, file);
+          if (uploadError) throw uploadError;
+
+          if (text.length < READABLE_TEXT_MIN_LENGTH) {
+            // Scanned/illisible: send filename + tiny hint so AI still produces a record
+            // (low score expected). This prevents the perpetual "pending" state.
+            skipped.push(file.name);
+            const fallback = `[CV scanné non lisible automatiquement] Nom du fichier: ${file.name}. Texte extrait: ${text || '(vide)'}`;
+            cvTexts.push({ text: fallback, filePath: path });
+            toast.warning(`${file.name}: peu lisible — analyse limitée`);
+          } else {
+            cvTexts.push({ text, filePath: path });
+          }
+        } catch (e) {
+          console.error('Error processing file:', file.name, e);
+          toast.error(`Unable to read ${file.name}`);
         }
-        const path = `${sessionId}/${file.name}`;
-        const { error: uploadError } = await supabase.storage.from('cv-uploads').upload(path, file);
-        if (uploadError) throw uploadError;
-        cvTexts.push({ text, filePath: path });
-      } catch (e) {
-        console.error('Error processing file:', file.name, e);
-        toast.error(`Unable to read ${file.name}`);
       }
+    } finally {
+      // Always release the extracting flag, even on uncaught errors
+      setIsExtracting(false);
     }
-    setIsExtracting(false);
 
     if (cvTexts.length === 0) {
-      toast.error('No readable CV found');
+      toast.error('Aucun CV lisible. Vérifiez la qualité des fichiers.');
+      // Reset runner so user is not stuck in "En cours..."
+      cvAnalysisRunner.reset();
       return;
+    }
+    if (skipped.length > 0) {
+      toast.info(`${skipped.length} CV envoyé(s) en analyse limitée (OCR échoué).`);
     }
 
     toast.info(`Analyse IA de ${cvTexts.length} CV en cours... Vous pouvez naviguer librement.`);
@@ -525,6 +559,20 @@ export function CvsRetenusForm() {
                   </div>
                 )}
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => {
+                  cvAnalysisRunner.reset();
+                  setIsExtracting(false);
+                  setExtractProgress({ current: 0, total: 0, name: '' });
+                  toast.info('Analyse annulée');
+                }}
+                title="Annuler l'analyse en cours"
+              >
+                <X className="h-4 w-4 mr-1" /> Annuler
+              </Button>
             </div>
           </CardContent>
         </Card>

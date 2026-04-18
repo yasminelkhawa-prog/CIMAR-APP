@@ -232,6 +232,12 @@ export const cvAnalysisRunner = {
     setState({ failed: [] });
   },
 
+  /** Force-reset the runner state (used when extraction is aborted or stuck). */
+  reset() {
+    state = { ...initialState };
+    listeners.forEach((l) => l(state));
+  },
+
   setExtractionProgress(current: number, total: number, fileName?: string) {
     setState({
       isAnalyzing: true,
