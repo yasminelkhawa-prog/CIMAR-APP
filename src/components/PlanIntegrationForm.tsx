@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { PlanIntegrationData, DEFAULT_PLAN_INTEGRATION, IntegrationEntry } from '@/types/planIntegration';
-import { Plus, Trash2, Save, Pencil, ArrowLeft, Download } from 'lucide-react';
+import { Plus, Trash2, Save, Pencil, ArrowLeft, Download, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,6 +18,7 @@ import { exportPlanIntegrationDocx } from '@/utils/documentExports';
 import { FormAssistant } from '@/components/FormAssistant';
 import { RequestSignatureDialog } from '@/components/RequestSignatureDialog';
 import { fetchAcceptedSignatures } from '@/hooks/useSignatureRequests';
+import { useDocumentLock } from '@/hooks/useDocumentLock';
 
 interface ListItem {
   id: string;
@@ -92,7 +93,8 @@ export function PlanIntegrationForm() {
     toast.success(t('deleted'));
   };
 
-  const readOnly = selected && !editMode;
+  const { locked } = useDocumentLock('plan_integration', selected?.id ?? null);
+  const readOnly = (selected && !editMode) || locked;
 
   if (!showNew && !selected) {
     return (
@@ -149,7 +151,12 @@ export function PlanIntegrationForm() {
           {selected && (
             <RequestSignatureDialog docType="plan_integration" docId={selected.id} docTitle={formData.nomPrenom || "Plan d'intégration"} />
           )}
-          {readOnly && (
+          {locked && (
+            <Badge variant="secondary" className="gap-1 self-center">
+              <Lock className="h-3 w-3" /> Verrouillé
+            </Badge>
+          )}
+          {readOnly && !locked && (
             <Button onClick={() => setEditMode(true)} size="sm" variant="outline">
               <Pencil className="h-4 w-4 mr-1" /> {t('modify')}
             </Button>

@@ -16,6 +16,8 @@ import { exportFichePosteDocx } from '@/utils/documentExports';
 import { FormAssistant } from '@/components/FormAssistant';
 import { RequestSignatureDialog } from '@/components/RequestSignatureDialog';
 import { fetchAcceptedSignatures } from '@/hooks/useSignatureRequests';
+import { useDocumentLock } from '@/hooks/useDocumentLock';
+import { Lock } from 'lucide-react';
 
 interface ListItem {
   id: string;
@@ -79,7 +81,8 @@ export function FichePosteForm() {
     toast.success(t('deleted'));
   };
 
-  const readOnly = selected && !editMode;
+  const { locked } = useDocumentLock('fiche_poste', selected?.id ?? null);
+  const readOnly = (selected && !editMode) || locked;
 
   if (!showNew && !selected) {
     return (
@@ -149,7 +152,12 @@ export function FichePosteForm() {
           {selected && (
             <RequestSignatureDialog docType="fiche_poste" docId={selected.id} docTitle={formData.poste || 'Fiche de poste'} />
           )}
-          {readOnly && (
+          {locked && (
+            <Badge variant="secondary" className="gap-1 self-center">
+              <Lock className="h-3 w-3" /> Verrouillé
+            </Badge>
+          )}
+          {readOnly && !locked && (
             <Button onClick={() => setEditMode(true)} size="sm" variant="outline">
               <Pencil className="h-4 w-4 mr-1" /> {t('modify')}
             </Button>

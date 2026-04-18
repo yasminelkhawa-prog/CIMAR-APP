@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { FicheEmbaucheData, DEFAULT_FICHE_EMBAUCHE, calculateSalary, DEFAULT_SITES } from '@/types/ficheEmbauche';
-import { Plus, Trash2, Save, Pencil, ArrowLeft, Download, FileText } from 'lucide-react';
+import { Plus, Trash2, Save, Pencil, ArrowLeft, Download, FileText, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,6 +17,7 @@ import { exportFicheEmbaucheXlsx } from '@/utils/documentExports';
 import { FormAssistant } from '@/components/FormAssistant';
 import { RequestSignatureDialog } from '@/components/RequestSignatureDialog';
 import { fetchAcceptedSignatures } from '@/hooks/useSignatureRequests';
+import { useDocumentLock } from '@/hooks/useDocumentLock';
 
 interface ListItem {
   id: string;
@@ -106,7 +107,8 @@ export function FicheEmbaucheForm() {
     toast.success(t('deleted'));
   };
 
-  const readOnly = selected && !editMode;
+  const { locked } = useDocumentLock('fiche_embauche', selected?.id ?? null);
+  const readOnly = (selected && !editMode) || locked;
 
   // List view
   if (!showNew && !selected) {
@@ -151,11 +153,19 @@ export function FicheEmbaucheForm() {
         <Button variant="ghost" size="sm" onClick={() => { setShowNew(false); setSelected(null); setEditMode(false); }}>
           <ArrowLeft className="h-4 w-4 mr-1" /> {t('backToList')}
         </Button>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-start">
           <Button onClick={handleDownload} size="sm" variant="outline">
             <Download className="h-4 w-4 mr-1" /> Télécharger
           </Button>
-          {readOnly && (
+          {selected && (
+            <RequestSignatureDialog docType="fiche_embauche" docId={selected.id} docTitle={formData.nomPrenom || formData.titrePoste || "Fiche d'embauche"} />
+          )}
+          {locked && (
+            <Badge variant="secondary" className="gap-1 self-center">
+              <Lock className="h-3 w-3" /> Verrouillé
+            </Badge>
+          )}
+          {readOnly && !locked && (
             <Button onClick={() => setEditMode(true)} size="sm" variant="outline">
               <Pencil className="h-4 w-4 mr-1" /> {t('modify')}
             </Button>
