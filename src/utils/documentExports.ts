@@ -1,23 +1,24 @@
 /**
  * Template-faithful exporters for HR documents.
- * - Fiche d'Embauche → .xlsx (matches the original Excel template)
- * - Fiche de Poste → .docx
- * - Plan d'Intégration → .docx
+ * - Fiche d'Embauche → loads the authored XLSX template, patches {placeholders}, embeds signature
+ * - Fiche de Poste → DOCX (code-generated, exact CIMAR layout)
+ * - Plan d'Intégration → DOCX (code-generated, exact CIMAR layout)
  *
- * Each export auto-fills the signed-in user's name and embeds their signature image.
+ * All exports auto-fill the signed-in user's name, title, and embed their signature image.
+ * The candidate/employee `nomPrenom` is propagated to every "Nom" field across all docs.
  */
 
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun,
-  AlignmentType, BorderStyle, WidthType, ShadingType, HeadingLevel, PageOrientation,
+  AlignmentType, BorderStyle, WidthType, ShadingType, PageOrientation,
 } from 'docx';
 import { saveAs } from 'file-saver';
-import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import type { FicheEmbaucheData } from '@/types/ficheEmbauche';
 import { calculateSalary } from '@/types/ficheEmbauche';
 import type { FichePosteData } from '@/types/fichePoste';
 import type { PlanIntegrationData } from '@/types/planIntegration';
+import templateUrl from '@/assets/templates/fiche_embauche_template.xlsx?url';
 
 interface SignerInfo {
   fullName?: string;
@@ -44,19 +45,12 @@ function signatureImageType(url?: string | null): 'png' | 'jpg' {
   return /\.jpe?g(\?|$)/i.test(url) ? 'jpg' : 'png';
 }
 
-function p(text: string, opts: { bold?: boolean; italic?: boolean; size?: number; align?: any; color?: string } = {}) {
-  return new Paragraph({
-    alignment: opts.align,
-    children: [new TextRun({ text, bold: opts.bold, italics: opts.italic, size: opts.size, color: opts.color, font: 'Calibri' })],
-  });
-}
-
-function cell(text: string | Paragraph[], opts: { bold?: boolean; shade?: string; width?: number; align?: any; colSpan?: number } = {}) {
+function cell(text: string | Paragraph[], opts: { bold?: boolean; shade?: string; width?: number; align?: any; colSpan?: number; italic?: boolean } = {}) {
   const children = Array.isArray(text)
     ? text
     : [new Paragraph({
         alignment: opts.align,
-        children: [new TextRun({ text, bold: opts.bold, font: 'Calibri', size: 20 })],
+        children: [new TextRun({ text, bold: opts.bold, italics: opts.italic, font: 'Calibri', size: 20 })],
       })];
   return new TableCell({
     children,
@@ -67,18 +61,17 @@ function cell(text: string | Paragraph[], opts: { bold?: boolean; shade?: string
   });
 }
 
-async function buildSignatureBlock(signer: SignerInfo): Promise<Paragraph[]> {
-  const blocks: Paragraph[] = [];
-  blocks.push(new Paragraph({ children: [new TextRun({ text: '' })] }));
-  blocks.push(new Paragraph({
-    alignment: AlignmentType.RIGHT,
+async function buildSignatureParagraphs(signer: SignerInfo, alignment: any = AlignmentType.RIGHT): Promise<Paragraph[]> {
+  const paras: Paragraph[] = [];
+  paras.push(new Paragraph({
+    alignment,
     children: [new TextRun({ text: 'Date et Visa', bold: true, font: 'Calibri', size: 20 })],
   }));
 
   const sigBytes = await fetchSignatureBytes(signer.signatureUrl);
   if (sigBytes) {
-    blocks.push(new Paragraph({
-      alignment: AlignmentType.RIGHT,
+    paras.push(new Paragraph({
+      alignment,
       children: [new ImageRun({
         type: signatureImageType(signer.signatureUrl),
         data: sigBytes,
@@ -89,22 +82,22 @@ async function buildSignatureBlock(signer: SignerInfo): Promise<Paragraph[]> {
   }
 
   if (signer.fullName) {
-    blocks.push(new Paragraph({
-      alignment: AlignmentType.RIGHT,
+    paras.push(new Paragraph({
+      alignment,
       children: [new TextRun({ text: signer.fullName, bold: true, font: 'Calibri', size: 20 })],
     }));
   }
   if (signer.title) {
-    blocks.push(new Paragraph({
-      alignment: AlignmentType.RIGHT,
+    paras.push(new Paragraph({
+      alignment,
       children: [new TextRun({ text: signer.title, italics: true, font: 'Calibri', size: 18 })],
     }));
   }
-  blocks.push(new Paragraph({
-    alignment: AlignmentType.RIGHT,
+  paras.push(new Paragraph({
+    alignment,
     children: [new TextRun({ text: new Date().toLocaleDateString('fr-FR'), font: 'Calibri', size: 18 })],
   }));
-  return blocks;
+  return paras;
 }
 
 // ─────────────────────── Fiche de Poste (DOCX) ───────────────────────
@@ -117,7 +110,7 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
     width: { size: fullW, type: WidthType.DXA },
     columnWidths: [2200, 2300, 2200, 2300],
     rows: [
-      new TableRow({ children: [cell('1. Informations générales', { bold: true, shade: HEADER_FILL, colSpan: 4, italic: true } as any)] }),
+      new TableRow({ children: [cell('1. Informations générales', { bold: true, shade: HEADER_FILL, colSpan: 4, italic: true })] }),
       new TableRow({ children: [
         cell('Poste :'),
         cell(data.poste || '-', { bold: true }),
@@ -171,7 +164,7 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
     ],
   });
 
-  const signature = await buildSignatureBlock(signer);
+  const signaturePara = await buildSignatureParagraphs(signer, AlignmentType.RIGHT);
 
   const doc = new Document({
     styles: { default: { document: { run: { font: 'Calibri', size: 22 } } } },
@@ -189,7 +182,8 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
         sectionTable('4. Compétences', data.competences),
         new Paragraph({ children: [new TextRun({ text: '' })] }),
         sectionTable('5. Profil du poste', data.profil),
-        ...signature,
+        new Paragraph({ children: [new TextRun({ text: '' })] }),
+        ...signaturePara,
       ],
     }],
   });
@@ -202,7 +196,6 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
 
 export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signer: SignerInfo) {
   const HEADER_FILL = 'D9E2F3';
-  // Landscape for the wide planning table — pass portrait dims, set orientation
   const fullW = 14400;
   const colWidths = [1700, 3000, 2500, 3500, 1850, 1850];
 
@@ -233,7 +226,7 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
         { width: colWidths[3] }
       ),
       cell(e.visaResponsable || '', { width: colWidths[4] }),
-      cell(e.visaRecrue || '', { width: colWidths[5] }),
+      cell(e.visaRecrue || data.nomPrenom || '', { width: colWidths[5] }),
     ],
   }));
 
@@ -252,26 +245,7 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
     ],
   });
 
-  const sigBytes = await fetchSignatureBytes(signer.signatureUrl);
-  const sigParas: Paragraph[] = [];
-  if (sigBytes) {
-    sigParas.push(new Paragraph({
-      alignment: AlignmentType.LEFT,
-      children: [new ImageRun({
-        type: signatureImageType(signer.signatureUrl),
-        data: sigBytes,
-        transformation: { width: 130, height: 55 },
-        altText: { title: 'Signature', description: 'Signature', name: 'sig' },
-      })],
-    }));
-  }
-  if (signer.fullName) {
-    sigParas.push(new Paragraph({ children: [new TextRun({ text: signer.fullName, bold: true, font: 'Calibri', size: 20 })] }));
-  }
-  if (signer.title) {
-    sigParas.push(new Paragraph({ children: [new TextRun({ text: signer.title, italics: true, font: 'Calibri', size: 18 })] }));
-  }
-  sigParas.push(new Paragraph({ children: [new TextRun({ text: new Date().toLocaleDateString('fr-FR'), font: 'Calibri', size: 18 })] }));
+  const sigParas = await buildSignatureParagraphs(signer, AlignmentType.LEFT);
 
   const avisTable = new Table({
     width: { size: fullW, type: WidthType.DXA },
@@ -281,7 +255,6 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
       new TableRow({ children: [cell([
         new Paragraph({ children: [new TextRun({ text: data.avisHierarchie || '', font: 'Calibri', size: 20 })] }),
         new Paragraph({ children: [new TextRun({ text: '' })] }),
-        new Paragraph({ children: [new TextRun({ text: 'Date et Visa', bold: true, font: 'Calibri', size: 20 })] }),
         ...sigParas,
       ])] }),
     ],
@@ -295,6 +268,7 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
       new TableRow({ children: [cell([
         new Paragraph({ children: [new TextRun({ text: data.appreciation || '', font: 'Calibri', size: 20 })] }),
         new Paragraph({ children: [new TextRun({ text: '' })] }),
+        new Paragraph({ children: [new TextRun({ text: `${data.nomPrenom || ''}`, bold: true, font: 'Calibri', size: 20 })] }),
         new Paragraph({ children: [new TextRun({ text: 'Date et Visa', bold: true, font: 'Calibri', size: 20 })] }),
       ])] }),
     ],
@@ -343,232 +317,150 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
   saveAs(blob, `Plan_integration_${(data.nomPrenom || 'document').replace(/\s+/g, '_')}.docx`);
 }
 
-// ─────────────────────── Fiche d'Embauche (XLSX with embedded signature) ───────────────────────
+// ─────────────────────── Fiche d'Embauche (template-fill XLSX) ───────────────────────
 
+/**
+ * Loads the authored Fiche d'Embauche template, walks every cell, replaces
+ * {placeholder} tokens with form values, and embeds the user's signature image.
+ * Preserves merged cells, formulas, fonts, column widths, and borders exactly.
+ */
 export async function exportFicheEmbaucheXlsx(data: FicheEmbaucheData, signer: SignerInfo) {
   const salary = calculateSalary(data);
-  const fmt = (n: number) => Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
-  const dateStr = data.date ? new Date(data.date).toLocaleDateString('fr-FR') : '';
-  const entreeStr = data.entreeEnvisagee ? new Date(data.entreeEnvisagee).toLocaleDateString('fr-FR') : '';
+  const fmt = (n: number | undefined) => Number.isFinite(n) ? Number((n as number).toFixed(2)) : 0;
   const today = new Date().toLocaleDateString('fr-FR');
+  const entreeStr = data.entreeEnvisagee ? new Date(data.entreeEnvisagee).toLocaleDateString('fr-FR') : '';
   const interviewers = data.interviewPanel || [];
-  const selectedSite = data.sites.find(s => s.selected);
+  const selectedSiteName = data.sites.find(s => s.selected)?.name || '';
+
+  // Build replacement map
+  const tokens: Record<string, any> = {
+    directionDemandeuseName: data.directionDemandeuseName || '',
+    directionRHName: data.directionRHName || signer.fullName || '',
+    directionGeneraleName: data.directionGeneraleName || '',
+    titrePoste: data.titrePoste || '',
+    directionDepartement: data.directionDepartement || '',
+    rattachementHierarchique: data.rattachementHierarchique || '',
+    motifRecrutement: data.motifRecrutement || '',
+    nomPrenom: data.nomPrenom || '',
+    interviewer1Name: interviewers[0]?.name || signer.fullName || '',
+    interviewer1Avis: interviewers[0]?.avis || '',
+    interviewer2Name: interviewers[1]?.name || '',
+    interviewer2Avis: interviewers[1]?.avis || '',
+    interviewer3Name: interviewers[2]?.name || '',
+    interviewer3Avis: interviewers[2]?.avis || '',
+    interviewer4Name: interviewers[3]?.name || '',
+    interviewer4Avis: interviewers[3]?.avis || '',
+    dureePreavis: data.dureePreavis || '',
+    entreeEnvisagee: entreeStr,
+    statut: data.statut || '',
+    typeContrat: data.typeContrat || '',
+    dureePeriodeEssai: data.dureePeriodeEssai || '',
+    voitureLieePoste: data.voitureLieePoste ? 'Oui' : 'Non',
+    ikCadreSelected: data.statut === 'Cadre' ? 1 : 0,
+    ikChefSelected: 0,
+    ikAitBahaSelected: selectedSiteName === 'Ait Baha' ? 1 : 0,
+    ikMarrakechSelected: selectedSiteName === 'Marrakech' ? 1 : 0,
+    ikSafiSelected: selectedSiteName === 'Safi' ? 1 : 0,
+    ikLaayouneSelected: selectedSiteName === 'Laâyoune' ? 1 : 0,
+    ikJorfSelected: selectedSiteName === 'Jorf Lasfar' ? 1 : 0,
+    ikCasablancaSelected: selectedSiteName === 'Casablanca' ? 1 : 0,
+    nombreJoursTravailles: data.nombreJoursTravailles || 22,
+    salaireBaseActuel: fmt(data.salaireBaseActuel),
+    primeChantierActuel: fmt(data.primeChantierActuel),
+    indPanierActuel: fmt(data.indPanierActuel),
+    indTransportActuel: fmt(data.indTransportActuel),
+    salaireNetActuel: fmt(data.salaireNetActuel),
+    salaireBase: fmt(data.salaireBase),
+    primeLogement: fmt(data.primeLogement),
+    primeSite: fmt(data.primeSite),
+    indTransport: fmt(data.indTransport),
+    primeRepresentation: fmt(data.primeRepresentation),
+    tauxCIMR: data.tauxCIMR / 100,
+    tauxCIMRDecimal: data.tauxCIMR / 100,
+    mutuellePercent: (data.mutuellePercent || 85) / 100,
+    primeAid: data.primeAid || 0,
+    avanceAid: data.avanceAid || 0,
+    avanceSociale: data.avanceSociale || 0,
+    nbPersonnesCharge: data.nbPersonnesCharge || 0,
+    tauxAnciennete: (data.tauxAnciennete || 0) / 100,
+    rma: fmt(data.rma),
+    interetsPretImmobilier: fmt(data.interetsPretImmobilier),
+    signerFullName: signer.fullName || '',
+    signerTitle: signer.title || '',
+    signerDate: today,
+    signaturePlaceholder: '',
+  };
+
+  // Load the authored template
+  const res = await fetch(templateUrl);
+  if (!res.ok) throw new Error('Failed to load Fiche d\'Embauche template');
+  const arrayBuffer = await res.arrayBuffer();
 
   const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(arrayBuffer);
   wb.creator = signer.fullName || 'CIMAR HR';
-  wb.created = new Date();
+  wb.modified = new Date();
 
-  const ws = wb.addWorksheet("Fiche d'Embauche");
-  ws.columns = [
-    { width: 30 }, { width: 22 }, { width: 28 }, { width: 14 },
-    { width: 28 }, { width: 14 }, { width: 24 }, { width: 12 }, { width: 26 },
-  ];
+  // Patch every cell that contains a {token}
+  const tokenRegex = /\{(\w+)\}/g;
+  let signatureAnchor: { ws: ExcelJS.Worksheet; row: number; col: number } | null = null;
 
-  const HEADER_FILL = 'FFD9E2F3';
-  const SECTION_FILL = 'FFB4C7E7';
-  const thinBorder: Partial<ExcelJS.Borders> = {
-    top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
-    left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
-    bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
-    right: { style: 'thin', color: { argb: 'FFCCCCCC' } },
-  };
+  wb.worksheets.forEach((ws) => {
+    ws.eachRow({ includeEmpty: false }, (row) => {
+      row.eachCell({ includeEmpty: false }, (c) => {
+        if (typeof c.value !== 'string') return;
+        const text = c.value as string;
+        if (!text.includes('{')) return;
 
-  const addRow = (values: any[]) => ws.addRow(values);
-  const sectionRow = (label: string) => {
-    const r = ws.addRow([label]);
-    ws.mergeCells(r.number, 1, r.number, 9);
-    r.getCell(1).font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
-    r.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SECTION_FILL } };
-    r.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-    r.height = 22;
-  };
-  const headerRow = (label: string, span = 2) => {
-    const r = ws.addRow([label]);
-    if (span > 1) ws.mergeCells(r.number, 1, r.number, span);
-    r.getCell(1).font = { bold: true, color: { argb: 'FF1F3864' } };
-    r.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } };
-  };
+        // Special: signature placeholder
+        if (text.includes('{signaturePlaceholder}')) {
+          c.value = '';
+          signatureAnchor = { ws, row: c.row as number, col: (c.col as number) + 1 };
+          return;
+        }
 
-  // Title
-  const titleRow = ws.addRow(['', '', '', "FICHE DE VALIDATION D'EMBAUCHE"]);
-  ws.mergeCells(titleRow.number, 1, titleRow.number, 9);
-  titleRow.getCell(1).value = "FICHE DE VALIDATION D'EMBAUCHE";
-  titleRow.getCell(1).font = { bold: true, size: 16, color: { argb: 'FF1F3864' } };
-  titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-  titleRow.height = 30;
+        // If the cell is exactly one token like "{tauxCIMR}" → use the raw value (preserves number type)
+        const exact = text.match(/^\{(\w+)\}$/);
+        if (exact) {
+          const key = exact[1];
+          if (key in tokens) {
+            c.value = tokens[key] as any;
+            return;
+          }
+        }
 
-  ws.addRow([`Date: ${dateStr}`]);
-  ws.addRow([]);
-
-  // Validation
-  const validationHeader = ws.addRow(['Direction Demandeuse', '', 'Direction RH', '', '', 'Direction Générale']);
-  [1, 3, 6].forEach(c => {
-    validationHeader.getCell(c).font = { bold: true };
-    validationHeader.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } };
+        // Otherwise interpolate as string
+        c.value = text.replace(tokenRegex, (m, k) => {
+          if (k in tokens) {
+            const v = tokens[k];
+            return v === null || v === undefined ? '' : String(v);
+          }
+          return m;
+        });
+      });
+    });
   });
-  ws.addRow([data.directionDemandeuseName || '', '', data.directionRHName || '', '', '', data.directionGeneraleName || '']);
-  ws.addRow([]);
 
-  // Fonction
-  sectionRow('Fonction');
-  addRow(['Titre de poste:', '', data.titrePoste || '']);
-  addRow(['Direction/Département:', '', data.directionDepartement || '']);
-  addRow(['Rattachement Hiérarchique:', '', data.rattachementHierarchique || '']);
-  addRow(['Motif de recrutement:', '', data.motifRecrutement || '']);
-  ws.addRow([]);
-
-  // Candidate
-  addRow(['Nom & Prénom du candidat retenu:', '', data.nomPrenom || '']);
-  ws.addRow([]);
-
-  // Interview panel
-  sectionRow('REÇU EN ENTRETIEN PAR :');
-  interviewers.forEach(p => addRow(['', p.name || '', '', p.avis || '']));
-  ws.addRow([]);
-
-  // Entrée en fonction
-  sectionRow('Entrée en fonction');
-  addRow(['', 'Durée de préavis:', '', data.dureePreavis || '']);
-  addRow(['', 'Entrée envisagée le:', '', entreeStr]);
-  addRow(['', 'Statut:', '', data.statut || '']);
-  addRow(['', 'Type de contrat:', '', data.typeContrat || '']);
-  addRow(['', "Durée de période d'essai:", '', data.dureePeriodeEssai || '']);
-  addRow(['', 'Voiture liée au poste:', '', data.voitureLieePoste ? 'Oui' : 'Non']);
-  ws.addRow([]);
-
-  // IK
-  sectionRow('Indemnités Kilométriques');
-  addRow(['', 'Cadre :', 91, 'Dh/jour fixe']);
-  data.sites.forEach(s => addRow(['', `${s.name} :`, s.distance, s.unit, s.selected ? 'X' : '']));
-  addRow(['', 'Nombre de jours travaillés', data.nombreJoursTravailles, 'jours', fmt(salary.ikTotal), 'Dhs']);
-  addRow(['', 'Site sélectionné', selectedSite?.name || '-']);
-  ws.addRow([]);
-
-  // Situation vs Offre
-  const cmpHeader = ws.addRow(['Situation Actuelle', '', '', '', 'Offre Ciments du Maroc']);
-  [1, 5].forEach(c => {
-    cmpHeader.getCell(c).font = { bold: true };
-    cmpHeader.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } };
-  });
-  addRow(['Salaire de base:', fmt(data.salaireBaseActuel), '', '', 'Salaire de base', fmt(data.salaireBase), 'Dhs brut sur 13,3 mois']);
-  addRow(['Prime de chantier', fmt(data.primeChantierActuel), '', '', 'Prime de logement', fmt(data.primeLogement), 'Dhs brut sur 12 mois']);
-  addRow(['Indemnité de panier', fmt(data.indPanierActuel), '', '', 'Prime de site', fmt(data.primeSite), 'Dhs brut sur 12 mois']);
-  addRow(['Indemnité de transport', fmt(data.indTransportActuel), '', '', 'Indemnité de transport', fmt(data.indTransport), 'Dhs net sur 12 mois']);
-  addRow(['Salaire Net:', fmt(data.salaireNetActuel), '', '', 'Prime de représentation', fmt(data.primeRepresentation), 'Dhs brut sur 12 mois']);
-  ws.addRow([]);
-
-  // Récapitulatif
-  sectionRow('Récapitulatif (Calculé)');
-  addRow(['Salaire annuel brut', fmt(salary.salaireAnnuelBrut), 'Dhs']);
-  addRow(['MBO', fmt(data.mbo), 'Dhs']);
-  addRow(['Salaire net mensuel', fmt(salary.netAPayer), 'Dhs']);
-  addRow(['Net mensuel + IK', fmt(salary.netMensuelPlusIK), 'Dhs']);
-  addRow(['IK total', fmt(salary.ikTotal), 'Dhs']);
-  ws.addRow([]);
-
-  // Détail
-  sectionRow('Détail du calcul');
-  addRow(['Nombre de personnes à charge', data.nbPersonnesCharge]);
-  addRow(['Salaire brut de base', fmt(data.salaireBase)]);
-  addRow(['Taux Ancienneté', `${data.tauxAnciennete}%`]);
-  addRow(['Taux CIMR', `${data.tauxCIMR}%`]);
-  addRow(['Indemnité imposable', fmt(data.indemniteImposable)]);
-  addRow(['RMA', fmt(data.rma)]);
-  addRow(['Brut imposable', fmt(salary.brutImposable)]);
-  addRow(['Indemnité Transport', fmt(data.indTransport)]);
-  addRow(['Revenu brut global', fmt(salary.revenuBrutGlobal)]);
-  addRow(['Intérêts prêt immobilier', fmt(data.interetsPretImmobilier)]);
-  addRow(['Montant du revenu brut imposable', fmt(salary.montantRevenuBrutImposable)]);
-  ws.addRow([]);
-  addRow(['Frais professionnels', fmt(salary.fraisPro)]);
-  addRow(['CNSS', fmt(salary.cnss)]);
-  addRow(['CIMR', fmt(salary.cimr)]);
-  addRow(['Mutuelle', fmt(salary.mutuelle)]);
-  addRow(['Salaire Brut Imposable', fmt(salary.salaireBrutImposable)]);
-  addRow(['IGR Brut', fmt(salary.igrBrut)]);
-  addRow(['Charges familiales', fmt(salary.chargesFamiliales)]);
-  addRow(['IGR Net', fmt(salary.igrNet)]);
-  addRow(['Net à payer', fmt(salary.netAPayer)]);
-  ws.addRow([]);
-
-  // Comparatif Interne
-  sectionRow('Comparatif Interne');
-  const compHead = ws.addRow(['Nom et prénom', 'Intitulé du poste', "Site d'affectation", 'Salaire Brut', 'Prime de logement', 'Prime de site', 'Prime de représentation', 'Ancienneté CIMAR', 'Expérience avant CIMAR']);
-  compHead.eachCell(c => {
-    c.font = { bold: true };
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL } };
-    c.alignment = { wrapText: true, horizontal: 'center', vertical: 'middle' };
-    c.border = thinBorder;
-  });
-  data.comparatifInterne.forEach(c => addRow([c.nom, c.poste, c.site, fmt(c.salaireBrut), fmt(c.primeLogement), fmt(c.primeSite), fmt(c.primeRepresentation), c.ancienneteCimar, c.experienceAvant]));
-  ws.addRow([]);
-
-  // Avantages
-  sectionRow('Avantages');
-  addRow(['CIMR', `${data.tauxCIMR}%`]);
-  addRow(['Mutuelle maladie WafaAssurances', `${data.mutuellePercent}%`]);
-  addRow(["Prime de l'aïd", data.primeAid, 'Dhs bruts']);
-  addRow(['Avance aïd', data.avanceAid, 'Dhs nets sur 10 mois']);
-  addRow(['Avance sociale', data.avanceSociale, 'Dhs nets sur 12 mois']);
-  addRow(['Bonus (MBO)', fmt(data.mbo), 'Dhs bruts pour 100%']);
-  ws.addRow([]);
-
-  // Signature
-  sectionRow('Validation & Signature');
-  addRow(['Préparé par :', signer.fullName || '']);
-  addRow(['Fonction :', signer.title || '']);
-  addRow(['Date :', today]);
-  const sigLabelRow = ws.addRow(['Signature :']);
-
-  // Embed signature image if available
-  if (signer.signatureUrl) {
+  // Embed signature image at the anchor
+  if (signer.signatureUrl && signatureAnchor) {
     try {
-      const res = await fetch(signer.signatureUrl);
-      if (res.ok) {
-        const buf = await res.arrayBuffer();
+      const sigRes = await fetch(signer.signatureUrl);
+      if (sigRes.ok) {
+        const buf = await sigRes.arrayBuffer();
         const ext = /\.jpe?g(\?|$)/i.test(signer.signatureUrl) ? 'jpeg' : 'png';
         const imageId = wb.addImage({ buffer: buf as any, extension: ext });
-        const startRow = sigLabelRow.number; // 0-indexed: startRow - 1
-        // Anchor image to columns 2..5, ~3 rows tall
+        const { ws, row, col } = signatureAnchor;
         ws.addImage(imageId, {
-          tl: { col: 1, row: startRow - 1 } as any,
+          tl: { col: col - 1, row: row - 1 } as any,
           ext: { width: 200, height: 80 },
         } as any);
-        // Reserve a few empty rows so the image has space
-        for (let i = 0; i < 4; i++) ws.addRow([]);
       }
     } catch (e) {
       console.warn('Signature embed failed:', e);
     }
   }
 
-  // Add IGR detail sheet
-  const ws2 = wb.addWorksheet('Détail IGR');
-  ws2.columns = [{ width: 28 }, { width: 14 }, { width: 18 }];
-  ws2.addRow(['Barème IGR 2010']).getCell(1).font = { bold: true, size: 13 };
-  ws2.addRow(['Tranche', 'Taux', 'Somme à déduire']).eachCell(c => { c.font = { bold: true }; });
-  ws2.addRows([
-    ['[0-3333]', '0%', 0],
-    ['[3334-5000]', '10%', 333.33],
-    ['[5001-6667]', '20%', 833.33],
-    ['[6668-8333]', '30%', 1500],
-    ['[8334-15000]', '34%', 1833.33],
-    ['15001 et plus', '37%', 2283.33],
-  ]);
-  ws2.addRow([]);
-  ws2.addRow(['Taux appliqués']).getCell(1).font = { bold: true, size: 13 };
-  ws2.addRow(['Rubrique', 'Taux', 'Plafond']).eachCell(c => { c.font = { bold: true }; });
-  ws2.addRows([
-    ['Frais professionnels', '25%', 2916.67],
-    ['CNSS', '4.48%', 6000],
-    ['CIMR', `${data.tauxCIMR}%`, 2000000],
-    ['Retraite Complémentaire', '0%', 'N/A'],
-    ['Mutuelle', '3.41%', 'N/A'],
-    ['Charges familiales', 41.66, 3],
-  ]);
-
   const buf = await wb.xlsx.writeBuffer();
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   saveAs(blob, `Fiche_embauche_${(data.nomPrenom || data.titrePoste || 'document').replace(/\s+/g, '_')}.xlsx`);
 }
-
