@@ -490,24 +490,24 @@ export function CvsRetenusForm() {
     grouped[key].sort((a, b) => b.matching_score - a.matching_score);
   });
 
-  // Soft pastel palette — minimalist & beautiful
+  // Soft pastel palette — matching reference swatches (rose, peach, sky, mint, lavender...)
+  // `icon` = darker pastel for icon backgrounds; `chip` = soft tint for badges; cards stay white.
   const pastelPalette = [
-    { grad: 'from-rose-200 to-pink-200', soft: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
-    { grad: 'from-sky-200 to-blue-200', soft: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200' },
-    { grad: 'from-violet-200 to-purple-200', soft: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
-    { grad: 'from-emerald-200 to-teal-200', soft: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-    { grad: 'from-amber-200 to-orange-200', soft: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-    { grad: 'from-fuchsia-200 to-pink-200', soft: 'bg-fuchsia-50', text: 'text-fuchsia-700', border: 'border-fuchsia-200' },
-    { grad: 'from-lime-200 to-green-200', soft: 'bg-lime-50', text: 'text-lime-700', border: 'border-lime-200' },
-    { grad: 'from-cyan-200 to-sky-200', soft: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' },
-    { grad: 'from-indigo-200 to-violet-200', soft: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
+    { icon: 'bg-rose-200', iconText: 'text-rose-700', chip: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200', accent: 'bg-rose-300' },
+    { icon: 'bg-orange-200', iconText: 'text-orange-700', chip: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200', accent: 'bg-orange-300' },
+    { icon: 'bg-blue-200', iconText: 'text-blue-700', chip: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200', accent: 'bg-blue-300' },
+    { icon: 'bg-green-200', iconText: 'text-green-700', chip: 'bg-green-100', text: 'text-green-700', border: 'border-green-200', accent: 'bg-green-300' },
+    { icon: 'bg-teal-200', iconText: 'text-teal-700', chip: 'bg-teal-100', text: 'text-teal-700', border: 'border-teal-200', accent: 'bg-teal-300' },
+    { icon: 'bg-slate-200', iconText: 'text-slate-700', chip: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200', accent: 'bg-slate-300' },
+    { icon: 'bg-indigo-200', iconText: 'text-indigo-700', chip: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-200', accent: 'bg-indigo-300' },
+    { icon: 'bg-purple-200', iconText: 'text-purple-700', chip: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200', accent: 'bg-purple-300' },
+    { icon: 'bg-emerald-200', iconText: 'text-emerald-700', chip: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', accent: 'bg-emerald-300' },
   ];
   const paletteFor = (poste: string) => {
     let hash = 0;
     for (let i = 0; i < poste.length; i++) hash = (hash * 31 + poste.charCodeAt(i)) & 0xffffffff;
     return pastelPalette[Math.abs(hash) % pastelPalette.length];
   };
-  const accentFor = (poste: string) => paletteFor(poste).grad;
 
   const showRunningBar = isExtracting || runnerState.isAnalyzing;
 
@@ -517,7 +517,6 @@ export function CvsRetenusForm() {
   if (openPoste && grouped[openPoste]) {
     const candidates = grouped[openPoste];
     const palette = paletteFor(openPoste);
-    const accent = palette.grad;
     return (
       <div className="space-y-5">
         {/* Sticky-ish header with back button */}
@@ -539,7 +538,7 @@ export function CvsRetenusForm() {
           </Button>
         </div>
 
-        <div className={`h-1.5 rounded-full bg-gradient-to-r ${accent}`} />
+        <div className={`h-1.5 rounded-full ${palette.accent}`} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {candidates.map((cv, index) => {
@@ -547,19 +546,17 @@ export function CvsRetenusForm() {
             return (
               <div
                 key={cv.id}
-                className={`group relative overflow-hidden rounded-2xl border ${palette.border} ${palette.soft} backdrop-blur-xl shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-[0_10px_30px_rgb(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-0.5`}
+                className={`group relative overflow-hidden rounded-2xl border ${palette.border} bg-white shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-[0_10px_30px_rgb(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-0.5`}
               >
-                <div className={`pointer-events-none absolute -top-20 -right-20 w-56 h-56 rounded-full bg-gradient-to-br ${accent} opacity-40 blur-3xl`} />
-                <div className={`pointer-events-none absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-gradient-to-tr ${accent} opacity-30 blur-3xl`} />
-                <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${accent}`} />
+                <div className={`absolute top-0 left-0 right-0 h-1 ${palette.accent}`} />
 
                 {/* Rank badge */}
                 <div className="absolute top-3 right-3 z-10">
-                  <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold backdrop-blur-md border ${
-                    index === 0 ? 'bg-amber-100/90 text-amber-800 border-amber-200'
-                    : index === 1 ? 'bg-slate-100/90 text-slate-700 border-slate-200'
-                    : index === 2 ? 'bg-orange-100/90 text-orange-800 border-orange-200'
-                    : 'bg-white/80 text-muted-foreground border-white'
+                  <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                    index === 0 ? 'bg-amber-100 text-amber-800 border-amber-200'
+                    : index === 1 ? 'bg-slate-100 text-slate-700 border-slate-200'
+                    : index === 2 ? 'bg-orange-100 text-orange-800 border-orange-200'
+                    : 'bg-white text-muted-foreground border-slate-200'
                   }`}>
                     {index === 0 ? <Crown className="h-2.5 w-2.5" /> : index < 3 ? <Trophy className="h-2.5 w-2.5" /> : null}
                     #{index + 1}
@@ -568,7 +565,7 @@ export function CvsRetenusForm() {
 
                 <div className="relative p-5">
                   <div className="flex items-start gap-3 mb-4">
-                    <div className={`flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br ${accent} flex items-center justify-center text-white text-base font-bold shadow-md ring-2 ring-white/70`}>
+                    <div className={`flex-shrink-0 w-14 h-14 rounded-2xl ${palette.icon} flex items-center justify-center ${palette.iconText} text-base font-bold shadow-sm ring-2 ring-white`}>
                       {getInitials(cv.candidate_details?.prenom, cv.candidate_details?.nom, cv.nom_candidat)}
                     </div>
                     <div className="min-w-0 flex-1 pr-12">
@@ -582,25 +579,25 @@ export function CvsRetenusForm() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${tone.bg} text-white shadow-md text-xs font-bold`}>
+                  <div className="flex items-center gap-2 mb-4 flex-wrap">
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${tone.soft} ${tone.text} border ${tone.border} text-xs font-bold`}>
                       <Sparkles className="h-3 w-3" />
                       {cv.matching_score}% — {tone.label}
                     </div>
-                    <div className={`px-2.5 py-1 rounded-full bg-white/80 backdrop-blur-sm border ${palette.border} text-[10px] font-semibold ${palette.text} uppercase tracking-wide`}>
+                    <div className={`px-2.5 py-1 rounded-full ${palette.chip} border ${palette.border} text-[10px] font-semibold ${palette.text} uppercase tracking-wide`}>
                       {openPoste}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-                    <GlassDetail icon={Briefcase} label="Poste actuel" value={cv.candidate_details?.poste_actuel} accent={accent} />
-                    <GlassDetail icon={Building2} label="Entreprise actuelle" value={cv.candidate_details?.entreprise_actuelle} accent={accent} />
-                    <GlassDetail icon={Calendar} label="Début poste actuel" value={cv.candidate_details?.date_debut_poste} accent={accent} />
-                    <GlassDetail icon={Clock} label="Années d'expérience" value={cv.candidate_details?.annees_experience} accent={accent} />
-                    <GlassDetail icon={GraduationCap} label="Établissement formation" value={cv.candidate_details?.etablissement_formation} accent={accent} />
-                    <GlassDetail icon={Award} label="Formation" value={cv.candidate_details?.formation} accent={accent} />
-                    <GlassDetail icon={Mail} label="Adresse e-mail" value={cv.email} accent={accent} />
-                    <GlassDetail icon={Phone} label="Téléphone" value={cv.candidate_details?.telephone} accent={accent} />
+                    <GlassDetail icon={Briefcase} label="Poste actuel" value={cv.candidate_details?.poste_actuel} palette={palette} />
+                    <GlassDetail icon={Building2} label="Entreprise actuelle" value={cv.candidate_details?.entreprise_actuelle} palette={palette} />
+                    <GlassDetail icon={Calendar} label="Début poste actuel" value={cv.candidate_details?.date_debut_poste} palette={palette} />
+                    <GlassDetail icon={Clock} label="Années d'expérience" value={cv.candidate_details?.annees_experience} palette={palette} />
+                    <GlassDetail icon={GraduationCap} label="Établissement formation" value={cv.candidate_details?.etablissement_formation} palette={palette} />
+                    <GlassDetail icon={Award} label="Formation" value={cv.candidate_details?.formation} palette={palette} />
+                    <GlassDetail icon={Mail} label="Adresse e-mail" value={cv.email} palette={palette} />
+                    <GlassDetail icon={Phone} label="Téléphone" value={cv.candidate_details?.telephone} palette={palette} />
                   </div>
 
                   {(cv.competences_cles || []).length > 0 && (
@@ -612,7 +609,7 @@ export function CvsRetenusForm() {
                         {cv.competences_cles.map((comp, i) => (
                           <span
                             key={i}
-                            className={`text-[11px] px-2.5 py-1 rounded-full bg-gradient-to-r ${accent} text-white font-medium shadow-sm`}
+                            className={`text-[11px] px-2.5 py-1 rounded-full ${palette.chip} ${palette.text} border ${palette.border} font-medium`}
                           >
                             {comp}
                           </span>
@@ -622,17 +619,17 @@ export function CvsRetenusForm() {
                   )}
 
                   {cv.synthese_ia && (
-                    <div className="p-3 rounded-xl bg-white/70 backdrop-blur-sm border border-white mb-3">
+                    <div className={`p-3 rounded-xl ${palette.chip} border ${palette.border} mb-3`}>
                       <div className="flex items-start gap-2">
-                        <Sparkles className={`h-3.5 w-3.5 ${tone.text} flex-shrink-0 mt-0.5`} />
+                        <Sparkles className={`h-3.5 w-3.5 ${palette.text} flex-shrink-0 mt-0.5`} />
                         <p className="text-xs italic leading-relaxed text-foreground/80">{cv.synthese_ia}</p>
                       </div>
                     </div>
                   )}
 
-                  <div className="flex items-center gap-2 pt-3 border-t border-white/60">
+                  <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                     {cv.cv_file_path && (
-                      <Button variant="outline" size="sm" className="h-7 text-xs bg-white/80 backdrop-blur-sm" onClick={() => handleViewCV(cv.cv_file_path)}>
+                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewCV(cv.cv_file_path)}>
                         <Eye className="h-3 w-3 mr-1" /> Voir CV
                       </Button>
                     )}
@@ -824,16 +821,14 @@ export function CvsRetenusForm() {
             const tone = getScoreTone(topScore);
             const top = candidates[0];
             const palette = paletteFor(poste);
-            const accent = palette.grad;
             return (
               <button
                 key={poste}
                 type="button"
                 onClick={() => setOpenPoste(poste)}
-                className={`group relative overflow-hidden text-left rounded-2xl border ${palette.border} ${palette.soft} cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1`}
+                className={`group relative overflow-hidden text-left rounded-2xl border ${palette.border} bg-white cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1`}
               >
-                <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${accent}`} />
-                <div className={`absolute -top-16 -right-16 w-40 h-40 rounded-full bg-gradient-to-br ${accent} opacity-40 blur-2xl group-hover:opacity-60 transition-opacity`} />
+                <div className={`absolute top-0 left-0 right-0 h-1.5 ${palette.accent}`} />
 
                 <div className="relative p-5 space-y-4">
                   <div className="flex items-start justify-between gap-2">
@@ -847,17 +842,17 @@ export function CvsRetenusForm() {
                   </div>
 
                   <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded-xl bg-white/70 backdrop-blur-sm p-2 text-center border border-white">
+                    <div className={`rounded-xl bg-white p-2 text-center border ${palette.border}`}>
                       <Users className={`h-3.5 w-3.5 mx-auto ${palette.text} mb-1`} />
                       <p className="text-base font-bold text-foreground">{candidates.length}</p>
                       <p className="text-[10px] text-muted-foreground uppercase">CVs</p>
                     </div>
-                    <div className="rounded-xl bg-white/70 backdrop-blur-sm p-2 text-center border border-white">
+                    <div className={`rounded-xl bg-white p-2 text-center border ${palette.border}`}>
                       <Trophy className={`h-3.5 w-3.5 mx-auto ${tone.text} mb-1`} />
                       <p className={`text-base font-bold ${tone.text}`}>{topScore}%</p>
                       <p className="text-[10px] text-muted-foreground uppercase">Top</p>
                     </div>
-                    <div className="rounded-xl bg-white/70 backdrop-blur-sm p-2 text-center border border-white">
+                    <div className={`rounded-xl bg-white p-2 text-center border ${palette.border}`}>
                       <TrendingUp className={`h-3.5 w-3.5 mx-auto ${palette.text} mb-1`} />
                       <p className="text-base font-bold text-foreground">{avgScore}%</p>
                       <p className="text-[10px] text-muted-foreground uppercase">Moy.</p>
@@ -865,8 +860,8 @@ export function CvsRetenusForm() {
                   </div>
 
                   {top && (
-                    <div className="flex items-center gap-3 p-2.5 rounded-xl border border-white bg-white/80 backdrop-blur-sm">
-                      <div className={`flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br ${accent} flex items-center justify-center text-white text-xs font-bold shadow-sm ring-2 ring-white`}>
+                    <div className={`flex items-center gap-3 p-2.5 rounded-xl border ${palette.border} bg-white`}>
+                      <div className={`flex-shrink-0 w-9 h-9 rounded-full ${palette.icon} flex items-center justify-center ${palette.iconText} text-xs font-bold ring-2 ring-white`}>
                         {getInitials(top.candidate_details?.prenom, top.candidate_details?.nom, top.nom_candidat)}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -920,18 +915,18 @@ function GlassDetail({
   icon: Icon,
   label,
   value,
-  accent,
+  palette,
 }: {
   icon: any;
   label: string;
   value?: string;
-  accent: string;
+  palette: { icon: string; iconText: string; border: string };
 }) {
   const hasValue = !!(value && value.trim());
   return (
-    <div className="flex items-start gap-2 p-2 rounded-lg bg-white/50 dark:bg-white/5 backdrop-blur-sm border border-white/40 dark:border-white/10 min-w-0">
-      <div className={`flex-shrink-0 w-6 h-6 rounded-md bg-gradient-to-br ${accent} flex items-center justify-center shadow-sm`}>
-        <Icon className="h-3 w-3 text-white" />
+    <div className={`flex items-start gap-2 p-2 rounded-lg bg-white border ${palette.border} min-w-0`}>
+      <div className={`flex-shrink-0 w-6 h-6 rounded-md ${palette.icon} flex items-center justify-center`}>
+        <Icon className={`h-3 w-3 ${palette.iconText}`} />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
