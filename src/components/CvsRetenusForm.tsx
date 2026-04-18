@@ -48,7 +48,7 @@ interface CvAnalysis {
 
 const DIRECT_TEXT_MIN_LENGTH = 24;
 const READABLE_TEXT_MIN_LENGTH = 10;
-const OCR_PAGE_LIMIT = 2;
+const OCR_PAGE_LIMIT = 10;
 
 const normalizeText = (value: string) => value.replace(/\s+/g, ' ').trim();
 

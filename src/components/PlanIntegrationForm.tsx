@@ -30,6 +30,17 @@ export function PlanIntegrationForm() {
   const [showNew, setShowNew] = useState(false);
   const [formData, setFormData] = useState<PlanIntegrationData>(DEFAULT_PLAN_INTEGRATION);
 
+  // Auto-fill signed-in user as default visa for entries
+  useEffect(() => {
+    if (!profile?.full_name) return;
+    setFormData(prev => {
+      const entries = prev.entries.map(e =>
+        e.visaResponsable ? e : { ...e, visaResponsable: profile.full_name }
+      );
+      return { ...prev, entries };
+    });
+  }, [profile?.full_name, showNew, selected?.id]);
+
   useEffect(() => { loadItems(); }, []);
 
   const handleDownload = async () => {
