@@ -52,6 +52,8 @@ const DIRECT_TEXT_MIN_LENGTH = 24;
 const READABLE_TEXT_MIN_LENGTH = 10;
 const OCR_PAGE_LIMIT = 6; // reduced from 10 to keep browser-side OCR responsive
 const OCR_FILE_TIMEOUT_MS = 90_000; // hard cap per scanned file so the queue can't hang forever
+const FILE_PROCESS_TIMEOUT_MS = 120_000;
+const STORAGE_UPLOAD_TIMEOUT_MS = 30_000;
 
 const normalizeText = (value: string) => value.replace(/\s+/g, ' ').trim();
 
@@ -62,6 +64,12 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
     p.then((v) => { clearTimeout(t); resolve(v); }).catch((e) => { clearTimeout(t); reject(e); });
   });
 }
+
+const buildLimitedAnalysisFallback = (fileName: string, text: string, reason?: string) => (
+  `[CV scanné non lisible automatiquement] Nom du fichier: ${fileName}. ` +
+  `Raison: ${reason || 'Texte insuffisant ou extraction interrompue'}. ` +
+  `Texte extrait: ${text || '(vide)'}`
+);
 
 function getScoreTone(score: number) {
   if (score >= 75) return { ring: 'ring-emerald-500/40', text: 'text-emerald-600', bg: 'bg-emerald-500', soft: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-500', label: 'Excellent' };
@@ -292,25 +300,46 @@ export function CvsRetenusForm() {
         setExtractProgress({ current: i + 1, total: files.length, name: file.name });
         cvAnalysisRunner.setExtractionProgress(i + 1, files.length, file.name);
         try {
-          const text = await extractReadableCvText(file);
-          // Always upload the file so the user can still preview it
-          const path = `${sessionId}/${file.name}`;
-          const { error: uploadError } = await supabase.storage.from('cv-uploads').upload(path, file);
+          const path = `${sessionId}/${crypto.randomUUID()}/${file.name}`;
+          let text = '';
+          let extractionReason = '';
+
+          try {
+            text = await withTimeout(
+              extractReadableCvText(file),
+              FILE_PROCESS_TIMEOUT_MS,
+              `lecture ${file.name}`,
+            );
+          } catch (e) {
+            extractionReason = e instanceof Error ? e.message : 'Extraction impossible';
+            console.error('Extraction failed for file:', file.name, e);
+          }
+
+          const { error: uploadError } = await withTimeout(
+            supabase.storage.from('cv-uploads').upload(path, file),
+            STORAGE_UPLOAD_TIMEOUT_MS,
+            `upload ${file.name}`,
+          );
           if (uploadError) throw uploadError;
 
-          if (text.length < READABLE_TEXT_MIN_LENGTH) {
-            // Scanned/illisible: send filename + tiny hint so AI still produces a record
-            // (low score expected). This prevents the perpetual "pending" state.
+          const cleanedText = normalizeText(text);
+          if (cleanedText.length < READABLE_TEXT_MIN_LENGTH || extractionReason) {
             skipped.push(file.name);
-            const fallback = `[CV scanné non lisible automatiquement] Nom du fichier: ${file.name}. Texte extrait: ${text || '(vide)'}`;
-            cvTexts.push({ text: fallback, filePath: path });
-            toast.warning(`${file.name}: peu lisible — analyse limitée`);
+            cvTexts.push({
+              text: buildLimitedAnalysisFallback(file.name, cleanedText, extractionReason),
+              filePath: path,
+            });
+            toast.warning(
+              extractionReason
+                ? `${file.name}: extraction interrompue — analyse limitée`
+                : `${file.name}: peu lisible — analyse limitée`
+            );
           } else {
-            cvTexts.push({ text, filePath: path });
+            cvTexts.push({ text: cleanedText, filePath: path });
           }
         } catch (e) {
           console.error('Error processing file:', file.name, e);
-          toast.error(`Unable to read ${file.name}`);
+          toast.error(`Impossible de traiter ${file.name}`);
         }
       }
     } finally {
