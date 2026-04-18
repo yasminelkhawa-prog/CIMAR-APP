@@ -19,6 +19,7 @@ import { FormAssistant } from '@/components/FormAssistant';
 import { RequestSignatureDialog } from '@/components/RequestSignatureDialog';
 import { fetchAcceptedSignatures } from '@/hooks/useSignatureRequests';
 import { useDocumentLock } from '@/hooks/useDocumentLock';
+import { useCalendar } from '@/hooks/useCalendar';
 
 interface ListItem {
   id: string;
