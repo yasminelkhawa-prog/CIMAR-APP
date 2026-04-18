@@ -11,6 +11,7 @@
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun,
   AlignmentType, BorderStyle, WidthType, ShadingType, PageOrientation,
+  Header, Footer, PageNumber, TabStopType, TabStopPosition,
 } from 'docx';
 import { saveAs } from 'file-saver';
 import ExcelJS from 'exceljs';
