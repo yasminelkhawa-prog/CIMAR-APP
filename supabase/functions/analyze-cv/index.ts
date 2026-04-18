@@ -143,6 +143,10 @@ ${text.substring(0, 8000)}`;
           cv_file_path: filePath || "",
           cv_raw_text: text.substring(0, 5000),
           candidate_details: parsed.candidate_details || {},
+          status: "completed",
+          started_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: null,
         };
 
         const { data: inserted, error } = await supabase
