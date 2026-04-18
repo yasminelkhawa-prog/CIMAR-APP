@@ -490,17 +490,18 @@ export function CvsRetenusForm() {
     grouped[key].sort((a, b) => b.matching_score - a.matching_score);
   });
 
-  // Soft pastel palette — minimalist & beautiful
+  // Soft pastel palette — matching reference swatches (rose, peach, sky, mint, lavender...)
+  // `icon` = darker pastel for icon backgrounds; `chip` = soft tint for badges; cards stay white.
   const pastelPalette = [
-    { grad: 'from-rose-200 to-pink-200', soft: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
-    { grad: 'from-sky-200 to-blue-200', soft: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200' },
-    { grad: 'from-violet-200 to-purple-200', soft: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
-    { grad: 'from-emerald-200 to-teal-200', soft: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-    { grad: 'from-amber-200 to-orange-200', soft: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-    { grad: 'from-fuchsia-200 to-pink-200', soft: 'bg-fuchsia-50', text: 'text-fuchsia-700', border: 'border-fuchsia-200' },
-    { grad: 'from-lime-200 to-green-200', soft: 'bg-lime-50', text: 'text-lime-700', border: 'border-lime-200' },
-    { grad: 'from-cyan-200 to-sky-200', soft: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' },
-    { grad: 'from-indigo-200 to-violet-200', soft: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
+    { icon: 'bg-rose-200', iconText: 'text-rose-700', chip: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200', accent: 'bg-rose-300' },
+    { icon: 'bg-orange-200', iconText: 'text-orange-700', chip: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200', accent: 'bg-orange-300' },
+    { icon: 'bg-blue-200', iconText: 'text-blue-700', chip: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200', accent: 'bg-blue-300' },
+    { icon: 'bg-green-200', iconText: 'text-green-700', chip: 'bg-green-100', text: 'text-green-700', border: 'border-green-200', accent: 'bg-green-300' },
+    { icon: 'bg-teal-200', iconText: 'text-teal-700', chip: 'bg-teal-100', text: 'text-teal-700', border: 'border-teal-200', accent: 'bg-teal-300' },
+    { icon: 'bg-slate-200', iconText: 'text-slate-700', chip: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200', accent: 'bg-slate-300' },
+    { icon: 'bg-indigo-200', iconText: 'text-indigo-700', chip: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-200', accent: 'bg-indigo-300' },
+    { icon: 'bg-purple-200', iconText: 'text-purple-700', chip: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200', accent: 'bg-purple-300' },
+    { icon: 'bg-emerald-200', iconText: 'text-emerald-700', chip: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', accent: 'bg-emerald-300' },
   ];
   const paletteFor = (poste: string) => {
     let hash = 0;
