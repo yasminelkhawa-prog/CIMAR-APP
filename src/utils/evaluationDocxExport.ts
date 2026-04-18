@@ -8,6 +8,7 @@ import {
   Packer,
   Paragraph,
   TextRun,
+  ImageRun,
   Table,
   TableRow,
   TableCell,
@@ -20,6 +21,7 @@ import {
   WidthType,
 } from 'docx';
 import { saveAs } from 'file-saver';
+import logoUrl from '@/assets/logo-cimar.png';
 import type { EvaluationForm, JobRoleConfig } from '@/types/evaluation';
 
 // CIMAR brand colors
