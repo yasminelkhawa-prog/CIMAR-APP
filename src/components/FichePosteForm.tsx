@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { FichePosteData, DEFAULT_FICHE_POSTE } from '@/types/fichePoste';
+import { FichePosteData, DEFAULT_FICHE_POSTE, CategorizedItem } from '@/types/fichePoste';
 import { Plus, Trash2, Save, Pencil, ArrowLeft, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
