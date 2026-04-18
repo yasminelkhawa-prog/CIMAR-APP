@@ -123,6 +123,11 @@ function normalizeStringArray(value: unknown, limit: number): string[] {
 }
 
 function normalizeScore(value: unknown): number {
+  if (typeof value === "string") {
+    const normalized = value.replace(/\s+/g, "").replace(/,/g, ".").replace(/[^0-9.\-]/g, "");
+    const parsed = Number(normalized);
+    if (Number.isFinite(parsed)) return Math.min(100, Math.max(0, Math.round(parsed)));
+  }
   const score = Number(value);
   if (!Number.isFinite(score)) return 0;
   return Math.min(100, Math.max(0, Math.round(score)));
