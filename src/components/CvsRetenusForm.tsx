@@ -121,6 +121,7 @@ export function CvsRetenusForm() {
   });
   const [newPosition, setNewPosition] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetsRef = useRef<string[] | null>(null);
   const [openPoste, setOpenPoste] = useState<string | null>(null);
 
   useEffect(() => { loadAnalyses(); }, []);
@@ -277,9 +278,15 @@ export function CvsRetenusForm() {
     return cleanupOcrText(normalizeText([directText, ocrText].filter(Boolean).join(' ')));
   };
 
-  const handleUploadAndAnalyze = async (files: FileList) => {
+  const openUploadPicker = (positions?: string[]) => {
+    uploadTargetsRef.current = positions?.length ? positions : null;
+    fileInputRef.current?.click();
+  };
+
+  const handleUploadAndAnalyze = async (files: FileList, forcedTargetPositions?: string[]) => {
+    const positions = forcedTargetPositions?.length ? forcedTargetPositions : targetPositions;
     if (files.length === 0) return;
-    if (targetPositions.length === 0) {
+    if (positions.length === 0) {
       toast.error(t('addPositionsFirst'));
       return;
     }
@@ -356,13 +363,17 @@ export function CvsRetenusForm() {
       toast.info(`${skipped.length} CV envoyé(s) en analyse limitée (OCR échoué).`);
     }
 
-    toast.info(`Analyse IA de ${cvTexts.length} CV en cours... Vous pouvez naviguer librement.`);
+    toast.info(
+      positions.length === 1
+        ? `Analyse IA de ${cvTexts.length} CV pour « ${positions[0]} » en cours...`
+        : `Analyse IA de ${cvTexts.length} CV en cours... Vous pouvez naviguer librement.`
+    );
 
     // Fire and forget — runner is a singleton so it survives unmount
     cvAnalysisRunner.run({
       cvTexts,
       sessionId,
-      targetPositions,
+      targetPositions: positions,
       onError: (msg) => toast.error(msg),
       onSuccess: (count, total, failed) => {
         if (failed > 0) {
@@ -386,44 +397,64 @@ export function CvsRetenusForm() {
     setAnalyses(prev => prev.filter(a => a.id !== id));
   };
 
-  const handleViewCV = async (filePath: string) => {
+  const getCvUrl = async (filePath: string) => {
     if (!filePath) {
       toast.error('Aucun fichier CV stocké pour ce candidat');
-      return;
+      return null;
     }
-    try {
-      // Try a signed URL first (works for both public & private buckets, and properly encodes paths with spaces/special chars)
-      const { data: signed, error: signedErr } = await supabase
-        .storage
-        .from('cv-uploads')
-        .createSignedUrl(filePath, 3600);
+    // Try a signed URL first (works for both public & private buckets, and properly encodes paths with spaces/special chars)
+    const { data: signed, error: signedErr } = await supabase
+      .storage
+      .from('cv-uploads')
+      .createSignedUrl(filePath, 3600);
 
-      let url = signed?.signedUrl;
+    let url = signed?.signedUrl;
 
-      if (!url) {
-        // Fallback: build a public URL with each path segment properly encoded
-        const { data: pub } = supabase.storage.from('cv-uploads').getPublicUrl(filePath);
-        if (pub?.publicUrl) {
-          // Re-encode the object path portion to handle spaces and special chars
-          const marker = '/object/public/cv-uploads/';
-          const idx = pub.publicUrl.indexOf(marker);
-          if (idx >= 0) {
-            const base = pub.publicUrl.slice(0, idx + marker.length);
-            const path = pub.publicUrl.slice(idx + marker.length);
-            url = base + path.split('/').map(encodeURIComponent).join('/');
-          } else {
-            url = pub.publicUrl;
-          }
+    if (!url) {
+      // Fallback: build a public URL with each path segment properly encoded
+      const { data: pub } = supabase.storage.from('cv-uploads').getPublicUrl(filePath);
+      if (pub?.publicUrl) {
+        const marker = '/object/public/cv-uploads/';
+        const idx = pub.publicUrl.indexOf(marker);
+        if (idx >= 0) {
+          const base = pub.publicUrl.slice(0, idx + marker.length);
+          const path = pub.publicUrl.slice(idx + marker.length);
+          url = base + path.split('/').map(encodeURIComponent).join('/');
+        } else {
+          url = pub.publicUrl;
         }
       }
+    }
 
-      if (!url) {
-        console.error('CV view error:', signedErr);
-        toast.error("Impossible d'ouvrir le CV");
-        return;
-      }
+    if (!url) {
+      console.error('CV file URL error:', signedErr);
+      toast.error("Impossible d'accéder au CV");
+      return null;
+    }
 
-      // Use an anchor element to reliably open in a new tab without same-tab fallback issues
+    return url;
+  };
+
+  const buildCandidateFileName = (cv: CvAnalysis) => {
+    const rawName = [cv.candidate_details?.prenom, cv.candidate_details?.nom]
+      .filter(Boolean)
+      .join(' ')
+      || cv.nom_candidat
+      || 'candidat';
+    const safeName = rawName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .toLowerCase();
+    const extension = cv.cv_file_path?.split('.').pop()?.trim() || 'pdf';
+    return `${safeName || 'candidat'}_cv.${extension}`;
+  };
+
+  const handleViewCV = async (filePath: string) => {
+    try {
+      const url = await getCvUrl(filePath);
+      if (!url) return;
       const a = document.createElement('a');
       a.href = url;
       a.target = '_blank';
@@ -434,6 +465,32 @@ export function CvsRetenusForm() {
     } catch (e) {
       console.error('CV view exception:', e);
       toast.error("Erreur lors de l'ouverture du CV");
+    }
+  };
+
+  const handleDownloadCV = async (cv: CvAnalysis) => {
+    if (!cv.cv_file_path) {
+      toast.error('Aucun fichier CV stocké pour ce candidat');
+      return;
+    }
+    try {
+      const url = await getCvUrl(cv.cv_file_path);
+      if (!url) return;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Download failed (${response.status})`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = buildCandidateFileName(cv);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+      toast.success('CV téléchargé');
+    } catch (e) {
+      console.error('CV download exception:', e);
+      toast.error('Erreur lors du téléchargement du CV');
     }
   };
 
@@ -536,9 +593,14 @@ export function CvsRetenusForm() {
               </p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => handleDownloadPosteReport(openPoste, candidates)}>
-            <Download className="h-4 w-4 mr-1" /> Export Excel
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => openUploadPicker([openPoste])}>
+              <Upload className="h-4 w-4 mr-1" /> Ajouter CV
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleDownloadPosteReport(openPoste, candidates)}>
+              <Download className="h-4 w-4 mr-1" /> Export Excel
+            </Button>
+          </div>
         </div>
 
         <div className={`h-1.5 rounded-full ${palette.accent}`} />
@@ -632,9 +694,14 @@ export function CvsRetenusForm() {
 
                   <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                     {cv.cv_file_path && (
-                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewCV(cv.cv_file_path)}>
-                        <Eye className="h-3 w-3 mr-1" /> Voir CV
-                      </Button>
+                      <>
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewCV(cv.cv_file_path)}>
+                          <Eye className="h-3 w-3 mr-1" /> Voir CV
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleDownloadCV(cv)}>
+                          <Download className="h-3 w-3 mr-1" /> Télécharger CV
+                        </Button>
+                      </>
                     )}
                     <Button
                       variant="ghost"
@@ -695,7 +762,7 @@ export function CvsRetenusForm() {
             </>
           )}
           <Button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => openUploadPicker()}
             disabled={showRunningBar || targetPositions.length === 0}
             size="sm"
           >
@@ -711,7 +778,13 @@ export function CvsRetenusForm() {
             accept=".pdf,.docx,.doc,image/*,.jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff,.heic"
             multiple
             className="hidden"
-            onChange={e => e.target.files && handleUploadAndAnalyze(e.target.files)}
+            onChange={e => {
+              const files = e.target.files;
+              const forcedPositions = uploadTargetsRef.current ?? undefined;
+              uploadTargetsRef.current = null;
+              if (files) handleUploadAndAnalyze(files, forcedPositions);
+              e.currentTarget.value = '';
+            }}
           />
         </div>
       </div>
@@ -806,7 +879,7 @@ export function CvsRetenusForm() {
             <h3 className="text-lg font-medium mb-2">{t('noCvsAnalyzed')}</h3>
             <p className="text-sm text-muted-foreground mb-4">{t('noCvsAnalyzedDesc')}</p>
             {targetPositions.length > 0 && (
-              <Button onClick={() => fileInputRef.current?.click()}>
+              <Button onClick={() => openUploadPicker()}>
                 <Upload className="h-4 w-4 mr-2" /> {t('uploadCVs')}
               </Button>
             )}
@@ -825,10 +898,17 @@ export function CvsRetenusForm() {
             const top = candidates[0];
             const palette = paletteFor(poste);
             return (
-              <button
+              <div
                 key={poste}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => setOpenPoste(poste)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setOpenPoste(poste);
+                  }
+                }}
                 className={`group relative overflow-hidden text-left rounded-2xl border ${palette.border} bg-white cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1`}
               >
                 <div className={`absolute top-0 left-0 right-0 h-1.5 ${palette.accent}`} />
@@ -841,7 +921,20 @@ export function CvsRetenusForm() {
                       </p>
                       <h3 className="font-bold text-base truncate text-foreground" title={poste}>{poste}</h3>
                     </div>
-                    <ChevronRight className={`h-5 w-5 ${palette.text} opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1`} />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openUploadPicker([poste]);
+                        }}
+                      >
+                        <Upload className="h-3.5 w-3.5 mr-1" /> Ajouter CV
+                      </Button>
+                      <ChevronRight className={`h-5 w-5 ${palette.text} opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1`} />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2">
@@ -882,7 +975,7 @@ export function CvsRetenusForm() {
                     </div>
                   )}
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
