@@ -8,6 +8,7 @@ import {
   Packer,
   Paragraph,
   TextRun,
+  ImageRun,
   Table,
   TableRow,
   TableCell,
@@ -20,6 +21,7 @@ import {
   WidthType,
 } from 'docx';
 import { saveAs } from 'file-saver';
+import logoUrl from '@/assets/logo-cimar.png';
 import type { EvaluationForm, JobRoleConfig } from '@/types/evaluation';
 
 // CIMAR brand colors
@@ -37,11 +39,11 @@ const cellBorders = {
   right: thinBorder,
 };
 
-// Landscape A4: 16838 x 11906 DXA. With 0.4" margins (576 DXA) → content width ≈ 15686
-const PAGE_W = 16838;
-const PAGE_H = 11906;
-const MARGIN = 432; // 0.3"
-const CONTENT_W = PAGE_W - MARGIN * 2; // ≈ 15974
+// A4 portrait: 11906 x 16838 DXA. With 0.4" margins (576 DXA)
+const PAGE_W = 11906;
+const PAGE_H = 16838;
+const MARGIN = 576; // 0.4"
+const CONTENT_W = PAGE_W - MARGIN * 2; // ≈ 10754
 
 function txt(
   text: string,
@@ -412,15 +414,66 @@ export async function exportEvaluationDocx(
     ],
   });
 
-  // ===== Title =====
-  const title = new Paragraph({
-    alignment: AlignmentType.CENTER,
-    spacing: { before: 0, after: 120 },
-    children: [
-      txt("GRILLE D'ÉVALUATION DE L'ENTRETIEN — CIMAR", {
-        bold: true,
-        size: 22,
-        color: GREEN,
+  // ===== Logo + Title header =====
+  const logoBuf = await fetch(logoUrl).then((r) => r.arrayBuffer());
+
+  const headerBlock = new Table({
+    width: { size: CONTENT_W, type: WidthType.DXA },
+    columnWidths: [1800, CONTENT_W - 1800],
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 1800, type: WidthType.DXA },
+            verticalAlign: 'center',
+            borders: {
+              top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+            },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.LEFT,
+                children: [
+                  new ImageRun({
+                    type: 'png',
+                    data: logoBuf,
+                    transformation: { width: 90, height: 45 },
+                    altText: { title: 'CIMAR', description: 'CIMAR logo', name: 'cimar' },
+                  }),
+                ],
+              }),
+            ],
+          }),
+          new TableCell({
+            width: { size: CONTENT_W - 1800, type: WidthType.DXA },
+            verticalAlign: 'center',
+            borders: {
+              top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+              right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+            },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  txt("GRILLE D'ÉVALUATION DE L'ENTRETIEN", {
+                    bold: true,
+                    size: 22,
+                    color: GREEN,
+                  }),
+                ],
+              }),
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 40 },
+                children: [txt('CIMAR — Ciments du Maroc', { bold: true, size: 14, color: GREY })],
+              }),
+            ],
+          }),
+        ],
       }),
     ],
   });
@@ -434,7 +487,7 @@ export async function exportEvaluationDocx(
     creator: 'CIMAR HR',
     title: "Grille d'évaluation",
     styles: {
-      default: { document: { run: { font: 'Arial', size: 16 } } },
+      default: { document: { run: { font: 'Arial', size: 14 } } },
     },
     sections: [
       {
@@ -443,7 +496,7 @@ export async function exportEvaluationDocx(
             size: {
               width: PAGE_W,
               height: PAGE_H,
-              orientation: PageOrientation.LANDSCAPE,
+              orientation: PageOrientation.PORTRAIT,
             },
             margin: {
               top: MARGIN,
@@ -453,7 +506,7 @@ export async function exportEvaluationDocx(
             },
           },
         },
-        children: [title, headerTable, spacer, gridTable, spacer, commentTable],
+        children: [headerBlock, spacer, headerTable, spacer, gridTable, spacer, commentTable],
       },
     ],
   });
