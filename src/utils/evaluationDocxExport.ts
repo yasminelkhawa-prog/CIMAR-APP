@@ -74,7 +74,7 @@ function cell(opts: {
   shade?: string;
   colSpan?: number;
   rowSpan?: number;
-  vAlign?: (typeof VerticalAlign)[keyof typeof VerticalAlign];
+  vAlign?: 'top' | 'center' | 'bottom';
 }) {
   return new TableCell({
     children: opts.children,
