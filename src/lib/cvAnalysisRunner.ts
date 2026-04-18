@@ -16,6 +16,11 @@ export interface CvPayload {
   filePath: string;
 }
 
+export interface JobDescriptionPayload {
+  position: string;
+  description: string;
+}
+
 export interface FailedCv extends CvPayload {
   reason: string;
 }
@@ -31,6 +36,7 @@ export interface RunnerState {
   succeeded: number;
   sessionId: string | null;
   targetPositions: string[];
+  jobDescriptions: JobDescriptionPayload[];
 }
 
 const initialState: RunnerState = {
