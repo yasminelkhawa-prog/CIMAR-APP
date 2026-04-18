@@ -658,6 +658,15 @@ export function CvsRetenusForm() {
             <Button variant="outline" size="sm" onClick={() => openUploadPicker([openPoste])}>
               <Upload className="h-4 w-4 mr-1" /> Ajouter CV
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleReanalyzeAllForPoste(openPoste, candidates)}
+              disabled={runnerState.isAnalyzing}
+              title="Recalculer extraction et score pour tous les CV de ce poste, sans ré-uploader"
+            >
+              <Sparkles className="h-4 w-4 mr-1" /> Re-analyser tout
+            </Button>
             <Button variant="outline" size="sm" onClick={() => handleDownloadPosteReport(openPoste, candidates)}>
               <Download className="h-4 w-4 mr-1" /> Export Excel
             </Button>
