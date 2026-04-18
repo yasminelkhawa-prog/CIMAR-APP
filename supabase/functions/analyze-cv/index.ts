@@ -7,6 +7,8 @@ const corsHeaders = {
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const AI_REQUEST_TIMEOUT_MS = 60_000;
+const MAX_AI_ATTEMPTS = 2;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -74,7 +76,7 @@ ${text.substring(0, 8000)}`;
 
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 90000);
+        const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
 
         const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -93,8 +95,8 @@ ${text.substring(0, 8000)}`;
         });
         clearTimeout(timeout);
 
-        if (response.status === 429 || response.status === 503) {
-          if (attempt < 4) {
+        if (response.status === 429 || response.status === 503 || response.status === 408 || response.status === 504 || response.status === 524) {
+          if (attempt < MAX_AI_ATTEMPTS) {
             await sleep(2000 * attempt);
             return analyzeOne(cv, attempt + 1);
           }
@@ -105,7 +107,7 @@ ${text.substring(0, 8000)}`;
         if (!response.ok) {
           const body = await response.text().catch(() => "");
           console.error(`AI HTTP ${response.status} for ${filePath}: ${body.substring(0, 200)}`);
-          if (attempt < 4) {
+          if (attempt < MAX_AI_ATTEMPTS && response.status >= 500) {
             await sleep(1500 * attempt);
             return analyzeOne(cv, attempt + 1);
           }
@@ -117,7 +119,7 @@ ${text.substring(0, 8000)}`;
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
           console.error(`No JSON in AI response for ${filePath}`);
-          if (attempt < 2) return analyzeOne(cv, attempt + 1);
+          if (attempt < MAX_AI_ATTEMPTS) return analyzeOne(cv, attempt + 1);
           return null;
         }
 
@@ -126,7 +128,7 @@ ${text.substring(0, 8000)}`;
           parsed = JSON.parse(jsonMatch[0]);
         } catch {
           console.error(`JSON parse failed for ${filePath}`);
-          if (attempt < 2) return analyzeOne(cv, attempt + 1);
+          if (attempt < MAX_AI_ATTEMPTS) return analyzeOne(cv, attempt + 1);
           return null;
         }
 
@@ -152,7 +154,7 @@ ${text.substring(0, 8000)}`;
         return inserted;
       } catch (e: any) {
         console.error(`Error analyzing ${filePath} (attempt ${attempt}):`, e?.message || e);
-        if (attempt < 4) {
+        if (attempt < MAX_AI_ATTEMPTS) {
           await sleep(2000 * attempt);
           return analyzeOne(cv, attempt + 1);
         }
