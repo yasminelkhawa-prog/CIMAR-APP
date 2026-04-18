@@ -7,11 +7,24 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = 'You are an ultra-fast ATS data parser. You must return ONLY a valid, minified JSON object (no markdown, no prose). You receive a CV and a LIST of available target positions. You MUST pick the SINGLE position from the provided list that best matches the candidate (verbatim copy of one item from the list, never invent, never combine multiple). Use this exact structure: { "candidate_name": "", "first_name": "", "last_name": "", "email": "", "phone": "", "education_institution": "", "education_field": "", "current_position": "", "current_company": "", "current_position_start_date": "", "years_of_experience": 0, "top_3_skills": [], "matching_score_estimate": 0, "best_matching_position": "", "red_flags_or_gaps": "", "2_quick_interview_questions": [] }';
-const AI_TIMEOUT_MS = 25_000;
-const AI_MAX_TOKENS = 700;
+const SYSTEM_PROMPT = `You are a precise ATS CV parser. Return ONLY a valid minified JSON object — no markdown, no prose, no explanations.
+
+STRICT RULES — read carefully:
+1. Extract ONLY information that LITERALLY appears in the CV text. Never invent, never paraphrase fictional content, never hallucinate.
+2. If a field is missing or unclear in the CV, return an empty string "" (or 0 for numbers, [] for arrays). DO NOT guess.
+3. "current_position": this is the candidate's REAL current job title as written in the CV. If the candidate is a student / "étudiant" / "stagiaire" / "en formation" with no job, write exactly "Étudiant" (or "Stagiaire" if the CV says so). Never write filler like "they are looking for...", never write a sentence — only a short job title (2–6 words max).
+4. "current_company": the actual company name where they currently work, or "" if student/unemployed.
+5. "best_matching_position": you MUST pick exactly ONE item VERBATIM from the provided AVAILABLE TARGET POSITIONS list. Never invent a new title, never combine two, never modify the wording. If nothing fits well, still pick the closest one from the list.
+6. "matching_score_estimate": integer 0–100 reflecting how well the candidate fits the chosen target position based on skills, experience and education.
+7. "red_flags_or_gaps": ONE short factual sentence (max 25 words) about missing requirements. No fluff.
+8. "2_quick_interview_questions": exactly 2 short, specific interview questions tailored to this candidate's CV.
+
+Return EXACTLY this structure:
+{"candidate_name":"","first_name":"","last_name":"","email":"","phone":"","education_institution":"","education_field":"","current_position":"","current_company":"","current_position_start_date":"","years_of_experience":0,"top_3_skills":[],"matching_score_estimate":0,"best_matching_position":"","red_flags_or_gaps":"","2_quick_interview_questions":["",""]}`;
+const AI_TIMEOUT_MS = 30_000;
+const AI_MAX_TOKENS = 800;
 const AI_MODEL = "google/gemini-2.5-flash";
-const CV_TEXT_LIMIT = 6000;
+const CV_TEXT_LIMIT = 8000;
 
 const RequestSchema = z.object({
   cvTexts: z.array(z.object({
