@@ -4,27 +4,28 @@
  * fills the {date}, {lieu}, {nomCandidat}, {nomIntervieweur} placeholders.
  */
 import PizZip from 'pizzip';
-import Docxtemplater from 'docxtemplater';
 import { saveAs } from 'file-saver';
 import templateUrl from '@/assets/templates/grille_evaluation_template.docx?url';
 import type { EvaluationForm } from '@/types/evaluation';
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
 
 export async function exportEvaluationDocx(
   evaluation: EvaluationForm,
   interviewerFallback?: string,
 ) {
-  // cache-bust to make sure we never serve a stale template
   const res = await fetch(`${templateUrl}?v=${Date.now()}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to load evaluation template');
   const buf = await res.arrayBuffer();
 
   const zip = new PizZip(buf);
-  const doc = new Docxtemplater(zip, {
-    paragraphLoop: true,
-    linebreaks: true,
-    delimiters: { start: '{', end: '}' },
-  });
-
   const data = {
     date: evaluation.date
       ? new Date(evaluation.date).toLocaleDateString('fr-FR')
@@ -34,23 +35,33 @@ export async function exportEvaluationDocx(
     nomIntervieweur: evaluation.interviewerName || interviewerFallback || '',
   };
 
-  // eslint-disable-next-line no-console
-  console.log('[evaluationDocxExport] Filling template with:', data);
+  const replacements = Object.entries(data).map(([key, value]) => [
+    `{${key}}`,
+    escapeXml(value),
+  ] as const);
 
-  try {
-    doc.render(data);
-  } catch (err: any) {
-    // eslint-disable-next-line no-console
-    console.error('[evaluationDocxExport] render error:', err, err?.properties);
-    throw err;
-  }
+  Object.keys(zip.files)
+    .filter((fileName) => fileName.startsWith('word/') && fileName.endsWith('.xml'))
+    .forEach((fileName) => {
+      const file = zip.file(fileName);
+      const xml = file?.asText();
+      if (!xml) return;
 
-  const out = doc.getZip().generate({
+      const nextXml = replacements.reduce(
+        (content, [token, value]) => content.split(token).join(value),
+        xml,
+      );
+
+      if (nextXml !== xml) {
+        zip.file(fileName, nextXml);
+      }
+    });
+
+  const out = zip.generate({
     type: 'blob',
     mimeType:
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   });
 
-  const safeName = (evaluation.candidateName || 'evaluation').replace(/\s+/g, '_');
-  saveAs(out, `Grille_evaluation_${safeName}.docx`);
+  saveAs(out, 'Grille_d_évaluation_de_l_entretien_-_CIMAR.docx');
 }
