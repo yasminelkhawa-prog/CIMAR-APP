@@ -91,6 +91,43 @@ async function analyzeOne(
   }
 }
 
+async function processBatch(
+  cvs: CvPayload[],
+  sessionId: string,
+  targetPositions: string[],
+  startIndex: number,
+  totalOverride: number,
+  isRetryPass: boolean
+): Promise<{ failed: FailedCv[]; succeeded: number }> {
+  const failed: FailedCv[] = [];
+  let succeeded = 0;
+  for (let i = 0; i < cvs.length; i++) {
+    const cv = cvs[i];
+    const name = prettyName(cv.filePath);
+    const display = startIndex + i + 1;
+    setState({
+      current: display,
+      currentName: name,
+      message: `${display}/${totalOverride} — ${name}${isRetryPass ? ' (retry)' : ''}`,
+    });
+    const res = await analyzeOne(cv, sessionId, targetPositions);
+    if (res.ok) {
+      succeeded += 1;
+      toast.success(`✓ ${name}`, {
+        description: `Analysé (${display}/${totalOverride})`,
+        duration: 2500,
+      });
+    } else {
+      failed.push({ ...cv, reason: res.reason || 'Échec' });
+      toast.error(`✗ ${name}`, {
+        description: `Échec: ${res.reason || 'Erreur'} (${display}/${totalOverride})`,
+        duration: 3500,
+      });
+    }
+  }
+  return { failed, succeeded };
+}
+
 async function runQueue(
   cvs: CvPayload[],
   sessionId: string,
@@ -115,47 +152,38 @@ async function runQueue(
     currentName: '',
   });
 
-  const failed: FailedCv[] = [];
-  let succeeded = 0;
+  // Pass 1
+  const pass1 = await processBatch(cvs, sessionId, targetPositions, 0, total, false);
+  let totalSucceeded = pass1.succeeded;
+  let stillFailed = pass1.failed;
+  setState({ succeeded: totalSucceeded, failed: [...stillFailed] });
 
-  for (let i = 0; i < cvs.length; i++) {
-    const cv = cvs[i];
-    const name = prettyName(cv.filePath);
+  // Auto-retry pass for failures (one extra pass)
+  if (stillFailed.length > 0) {
+    toast.info(`Auto-retry de ${stillFailed.length} CV en échec...`);
     setState({
-      current: i + 1,
-      currentName: name,
-      message: `${i + 1}/${total} — ${name}`,
+      message: `Auto-retry de ${stillFailed.length} CV en échec...`,
+      total: total + stillFailed.length,
     });
-    const res = await analyzeOne(cv, sessionId, targetPositions);
-    if (res.ok) {
-      succeeded += 1;
-      setState({ succeeded });
-      toast.success(`✓ ${name}`, {
-        description: `Analysé (${i + 1}/${total})`,
-        duration: 2500,
-      });
-    } else {
-      failed.push({ ...cv, reason: res.reason || 'Échec' });
-      setState({ failed: [...failed] });
-      toast.error(`✗ ${name}`, {
-        description: `Échec: ${res.reason || 'Erreur'} (${i + 1}/${total})`,
-        duration: 3500,
-      });
-    }
+    const retryCvs = stillFailed.map(({ text, filePath }) => ({ text, filePath }));
+    const pass2 = await processBatch(retryCvs, sessionId, targetPositions, total, total + retryCvs.length, true);
+    totalSucceeded += pass2.succeeded;
+    stillFailed = pass2.failed;
+    setState({ succeeded: totalSucceeded, failed: [...stillFailed] });
   }
 
-  if (failed.length > 0) {
-    callbacks.onError?.(`${failed.length} CV en échec — vous pouvez relancer.`);
+  if (stillFailed.length > 0) {
+    callbacks.onError?.(`${stillFailed.length} CV en échec — vous pouvez relancer.`);
   }
-  callbacks.onSuccess?.(succeeded, total, failed.length);
+  callbacks.onSuccess?.(totalSucceeded, total, stillFailed.length);
 
   setState({
     isAnalyzing: false,
     stage: 'done',
     currentName: '',
-    message: failed.length
-      ? `${succeeded}/${total} analysés — ${failed.length} échec(s)`
-      : `${succeeded}/${total} CV analysés`,
+    message: stillFailed.length
+      ? `${totalSucceeded}/${total} analysés — ${stillFailed.length} échec(s)`
+      : `${totalSucceeded}/${total} CV analysés`,
   });
   callbacks.onComplete?.();
 }

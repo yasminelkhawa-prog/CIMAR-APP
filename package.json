@@ -51,6 +51,7 @@
     "date-fns": "^3.6.0",
     "docx": "^9.6.1",
     "docxtemplater": "^3.68.5",
+    "docxtemplater-image-module-free": "^1.1.1",
     "embla-carousel-react": "^8.6.0",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",

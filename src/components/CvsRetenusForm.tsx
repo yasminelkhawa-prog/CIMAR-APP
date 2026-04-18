@@ -9,8 +9,9 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   Upload, FileText, Trash2, RefreshCw, Eye, Sparkles, Download, Plus, X, Users,
   ChevronRight, MapPin, GraduationCap, Briefcase, Building2, Calendar, Clock,
-  Mail, Phone, Trophy, Award, TrendingUp, User as UserIcon,
+  Mail, Phone, Trophy, Award, TrendingUp, User as UserIcon, Crown,
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -48,7 +49,7 @@ interface CvAnalysis {
 
 const DIRECT_TEXT_MIN_LENGTH = 24;
 const READABLE_TEXT_MIN_LENGTH = 10;
-const OCR_PAGE_LIMIT = 2;
+const OCR_PAGE_LIMIT = 10;
 
 const normalizeText = (value: string) => value.replace(/\s+/g, ' ').trim();
 
