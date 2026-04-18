@@ -113,7 +113,9 @@ export function FormAssistant({
     return (
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 h-14 rounded-full shadow-lg z-50 gap-2 px-5"
+        className="fixed bottom-6 right-6 h-14 rounded-full z-50 gap-2 px-5 ai-launcher-glow
+          bg-gradient-to-r from-primary to-[hsl(265_80%_55%)]
+          text-primary-foreground hover:opacity-95 hover:scale-105 transition-transform"
         size="lg"
       >
         <Sparkles className="h-5 w-5" />
@@ -126,8 +128,8 @@ export function FormAssistant({
     <Card
       className={cn(
         variant === 'floating'
-          ? 'fixed bottom-6 right-6 w-[min(420px,calc(100vw-2rem))] h-[min(600px,calc(100vh-3rem))] shadow-2xl z-50'
-          : 'w-full h-[600px] shadow-md',
+          ? 'fixed bottom-6 right-6 w-[min(420px,calc(100vw-2rem))] h-[min(600px,calc(100vh-3rem))] z-50 glass-card ring-glow-primary'
+          : 'w-full h-[600px] glass-card',
         'flex flex-col',
       )}
     >
