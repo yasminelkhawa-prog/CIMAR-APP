@@ -23,6 +23,7 @@ import { EvaluationForm } from '@/types/evaluation';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import logoImg from '@/assets/logo-cimar.png';
 
 
 export default function Index() {
@@ -143,6 +144,7 @@ export default function Index() {
             <div className="px-4 py-2.5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <SidebarTrigger />
+                <img src={logoImg} alt="Ciments du Maroc" className="h-9 w-auto object-contain" />
                 <div className="hidden md:block">
                   <h1 className="text-sm font-bold tracking-tight gradient-text-primary">{t('appTitle')}</h1>
                   <p className="text-[10px] text-muted-foreground">{t('appSubtitle')}</p>
