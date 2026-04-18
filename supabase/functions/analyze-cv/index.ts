@@ -22,7 +22,6 @@ STRICT RULES — read carefully:
 Return EXACTLY this structure:
 {"candidate_name":"","first_name":"","last_name":"","email":"","phone":"","education_institution":"","education_field":"","current_position":"","current_company":"","current_position_start_date":"","years_of_experience":0,"top_3_skills":[],"matching_score_estimate":0,"best_matching_position":"","red_flags_or_gaps":"","2_quick_interview_questions":["",""]}`;
 const AI_TIMEOUT_MS = 30_000;
-const AI_MAX_TOKENS = 800;
 const AI_MODEL = "google/gemini-2.5-flash";
 const CV_TEXT_LIMIT = 8000;
 
@@ -272,7 +271,8 @@ function scoreCurrentRoleAlignment(rawText: string, assignedPosition: string): n
 function hasStrongDescriptionSignal(rawText: string, assignedPosition: string, jobDescriptions: Map<string, string>): boolean {
   const description = jobDescriptions.get(assignedPosition);
   if (!description) return false;
-  const weightedScore = scoreTokensAgainstText(Array.from(buildJobDescriptionWeights(description).keys()), rawText, buildJobDescriptionWeights(description));
+  const descriptionWeights = buildJobDescriptionWeights(description);
+  const weightedScore = scoreTokensAgainstText(Array.from(descriptionWeights.keys()), rawText, descriptionWeights);
   return weightedScore >= 55;
 }
 
