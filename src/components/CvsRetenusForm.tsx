@@ -11,6 +11,7 @@ import {
   Upload, FileText, Trash2, RefreshCw, Eye, Sparkles, Download, Plus, X, Users,
   ChevronRight, MapPin, GraduationCap, Briefcase, Building2, Calendar, Clock,
   Mail, Phone, Trophy, Award, TrendingUp, User as UserIcon, Crown, ArrowLeft,
+  FileUp, Check,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
@@ -123,8 +124,13 @@ export function CvsRetenusForm() {
   const [targetPositions, setTargetPositions] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('cv-target-positions') || '[]'); } catch { return []; }
   });
+  const [jobDescriptions, setJobDescriptions] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem('cv-job-descriptions') || '{}'); } catch { return {}; }
+  });
   const [newPosition, setNewPosition] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const jdInputRef = useRef<HTMLInputElement>(null);
+  const jdTargetPositionRef = useRef<string | null>(null);
   const uploadTargetsRef = useRef<string[] | null>(null);
   const [openPoste, setOpenPoste] = useState<string | null>(null);
   const [openCandidate, setOpenCandidate] = useState<CvAnalysis | null>(null);
@@ -163,6 +169,11 @@ export function CvsRetenusForm() {
     localStorage.setItem('cv-target-positions', JSON.stringify(targetPositions));
   }, [targetPositions]);
 
+  // Persist job descriptions
+  useEffect(() => {
+    localStorage.setItem('cv-job-descriptions', JSON.stringify(jobDescriptions));
+  }, [jobDescriptions]);
+
   const loadAnalyses = async () => {
     const { data } = await supabase
       .from('cv_analyses')
@@ -186,8 +197,71 @@ export function CvsRetenusForm() {
   };
 
   const removePosition = (index: number) => {
+    const removed = targetPositions[index];
     setTargetPositions(prev => prev.filter((_, i) => i !== index));
+    if (removed) {
+      setJobDescriptions(prev => {
+        const next = { ...prev };
+        delete next[removed];
+        return next;
+      });
+    }
   };
+
+  const openJobDescriptionPicker = (position: string) => {
+    jdTargetPositionRef.current = position;
+    jdInputRef.current?.click();
+  };
+
+  const handleJobDescriptionUpload = async (file: File) => {
+    const position = jdTargetPositionRef.current;
+    jdTargetPositionRef.current = null;
+    if (!position) return;
+    try {
+      let text = '';
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith('.txt')) {
+        text = await file.text();
+      } else if (lower.endsWith('.docx') || lower.endsWith('.doc')) {
+        text = await extractTextFromWord(file);
+      } else if (lower.endsWith('.pdf')) {
+        text = await extractTextFromPdf(file);
+        if (text.length < DIRECT_TEXT_MIN_LENGTH) {
+          toast.info('PDF scanné détecté, OCR en cours...');
+          text = await extractTextFromPdfWithOcr(file);
+        }
+      } else if (file.type.startsWith('image/')) {
+        text = await extractTextFromImage(file);
+      } else {
+        toast.error('Format non supporté (PDF, DOCX, TXT, image)');
+        return;
+      }
+      const cleaned = normalizeText(text);
+      if (cleaned.length < 30) {
+        toast.error('Description trop courte ou illisible');
+        return;
+      }
+      setJobDescriptions(prev => ({ ...prev, [position]: cleaned }));
+      toast.success(`Description chargée pour « ${position} »`);
+    } catch (e) {
+      console.error('JD upload failed', e);
+      toast.error('Erreur lors de la lecture du document');
+    }
+  };
+
+  const removeJobDescription = (position: string) => {
+    setJobDescriptions(prev => {
+      const next = { ...prev };
+      delete next[position];
+      return next;
+    });
+    toast.success('Description supprimée');
+  };
+
+  const buildJobDescriptionsPayload = (positions: string[]) =>
+    positions
+      .filter(p => jobDescriptions[p]?.trim())
+      .map(p => ({ position: p, description: jobDescriptions[p] }));
 
   const extractTextFromPdf = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
