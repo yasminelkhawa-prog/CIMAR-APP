@@ -16,6 +16,8 @@ import { exportFichePosteDocx } from '@/utils/documentExports';
 import { FormAssistant } from '@/components/FormAssistant';
 import { RequestSignatureDialog } from '@/components/RequestSignatureDialog';
 import { fetchAcceptedSignatures } from '@/hooks/useSignatureRequests';
+import { useDocumentLock } from '@/hooks/useDocumentLock';
+import { Lock } from 'lucide-react';
 
 interface ListItem {
   id: string;
