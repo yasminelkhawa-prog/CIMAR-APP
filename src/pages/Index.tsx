@@ -112,6 +112,10 @@ export default function Index() {
         return <CvsRetenusForm />;
       case 'big-five':
         return <BigFiveAssessment />;
+      case 'calendar':
+        return <GlobalCalendarPage />;
+      case 'master-calendar':
+        return <MasterIntegrationCalendar />;
       case 'profile':
         return <ProfileSettings />;
       case 'config':
