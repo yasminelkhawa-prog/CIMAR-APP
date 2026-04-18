@@ -408,6 +408,25 @@ export function CvsRetenusForm() {
           <p className="text-sm text-muted-foreground mt-1">{t('smartSelectionDesc')}</p>
         </div>
         <div className="flex items-center gap-2">
+          {!runnerState.isAnalyzing && runnerState.failed.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                toast.info(`Relance de ${runnerState.failed.length} CV en échec...`);
+                cvAnalysisRunner.retryFailed({
+                  onError: (msg) => toast.error(msg),
+                  onSuccess: (count, total, failed) => {
+                    if (failed > 0) toast.warning(`${count}/${total} relancés. ${failed} échec(s) restant(s).`);
+                    else toast.success(`${count} CV relancés avec succès !`);
+                    loadAnalyses();
+                  },
+                });
+              }}
+            >
+              <RefreshCw className="h-4 w-4 mr-1" /> Relancer {runnerState.failed.length} échec(s)
+            </Button>
+          )}
           {analyses.length > 0 && (
             <>
               <Button variant="outline" size="sm" onClick={handleDownloadReport}>
