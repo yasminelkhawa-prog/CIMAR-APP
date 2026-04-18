@@ -12,6 +12,8 @@ import { FicheEmbaucheData, DEFAULT_FICHE_EMBAUCHE, calculateSalary, DEFAULT_SIT
 import { Plus, Trash2, Save, Pencil, ArrowLeft, Download, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
+import { useAuth } from '@/hooks/useAuth';
+import { exportFicheEmbaucheXlsx } from '@/utils/documentExports';
 
 interface ListItem {
   id: string;
@@ -21,15 +23,38 @@ interface ListItem {
 
 export function FicheEmbaucheForm() {
   const { t } = useLanguage();
+  const { profile } = useAuth();
   const [items, setItems] = useState<ListItem[]>([]);
   const [selected, setSelected] = useState<ListItem | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [formData, setFormData] = useState<FicheEmbaucheData>(DEFAULT_FICHE_EMBAUCHE);
 
+  // Auto-fill the signed-in user's name into the RH field if empty
+  useEffect(() => {
+    if (profile?.full_name && !formData.directionRHName) {
+      setFormData(prev => prev.directionRHName ? prev : { ...prev, directionRHName: profile.full_name });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.full_name, showNew, selected?.id]);
+
   useEffect(() => {
     loadItems();
   }, []);
+
+  const handleDownload = async () => {
+    try {
+      await exportFicheEmbaucheXlsx(formData, {
+        fullName: profile?.full_name,
+        title: profile?.title,
+        signatureUrl: profile?.signature_url,
+      });
+      toast.success('Document téléchargé');
+    } catch (e) {
+      console.error(e);
+      toast.error('Erreur lors du téléchargement');
+    }
+  };
 
   const loadItems = async () => {
     const { data } = await supabase.from('fiches_embauche').select('*').order('created_at', { ascending: false });
@@ -111,6 +136,9 @@ export function FicheEmbaucheForm() {
           <ArrowLeft className="h-4 w-4 mr-1" /> {t('backToList')}
         </Button>
         <div className="flex gap-2">
+          <Button onClick={handleDownload} size="sm" variant="outline">
+            <Download className="h-4 w-4 mr-1" /> Télécharger
+          </Button>
           {readOnly && (
             <Button onClick={() => setEditMode(true)} size="sm" variant="outline">
               <Pencil className="h-4 w-4 mr-1" /> {t('modify')}
