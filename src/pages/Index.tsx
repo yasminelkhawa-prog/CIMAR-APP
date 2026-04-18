@@ -23,7 +23,7 @@ import { EvaluationForm } from '@/types/evaluation';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import logoImg from '@/assets/logo-cimar.png';
+
 
 export default function Index() {
   const store = useEvaluationStore();
