@@ -236,7 +236,7 @@ export function BigFiveAssessment() {
               onClick={() => a.status !== 'pending' ? setSelectedAssessment(a) : null}>
               <CardContent className="py-3 px-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-[hsl(265_80%_55%/0.15)]">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-[hsl(var(--primary-glow)/0.18)]">
                     <Brain className="h-4 w-4 text-primary" />
                   </span>
                   <div>
