@@ -1030,6 +1030,15 @@ export function CvsRetenusForm() {
           'Quels candidats relancer en priorité ?',
         ]}
       />
+
+      <CandidateReportDrawer
+        candidate={openCandidate}
+        cvUrl={candidateCvUrl}
+        palette={openCandidate ? paletteFor(openCandidate.poste_assigne || 'Autre') : pastelPalette[0]}
+        onClose={() => setOpenCandidate(null)}
+        onView={() => openCandidate && handleViewCV(openCandidate.cv_file_path)}
+        onDownload={() => openCandidate && handleDownloadCV(openCandidate)}
+      />
     </div>
   );
 }
