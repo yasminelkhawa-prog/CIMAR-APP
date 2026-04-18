@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -123,6 +124,23 @@ export function CvsRetenusForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetsRef = useRef<string[] | null>(null);
   const [openPoste, setOpenPoste] = useState<string | null>(null);
+  const [openCandidate, setOpenCandidate] = useState<CvAnalysis | null>(null);
+  const [candidateCvUrl, setCandidateCvUrl] = useState<string | null>(null);
+
+  // Resolve a signed URL whenever a candidate is opened, for inline PDF preview.
+  useEffect(() => {
+    let cancelled = false;
+    if (!openCandidate?.cv_file_path) {
+      setCandidateCvUrl(null);
+      return;
+    }
+    (async () => {
+      const url = await getCvUrl(openCandidate.cv_file_path);
+      if (!cancelled) setCandidateCvUrl(url);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openCandidate?.id]);
 
   useEffect(() => { loadAnalyses(); }, []);
 
