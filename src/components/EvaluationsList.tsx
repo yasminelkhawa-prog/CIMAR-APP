@@ -99,7 +99,7 @@ export function EvaluationsList({ evaluations, jobRoles, onDelete, onSelect }: P
                 onClick={(e) => {
                   e.stopPropagation();
                   const r = jobRoles.find(jr => jr.id === ev.jobRoleConfigId);
-                  exportEvaluationDocx(ev, r, profile?.full_name);
+                  exportEvaluationDocx(ev, r, profile?.full_name, profile?.signature_url ?? null);
                 }}
               >
                 <FileType className="h-4 w-4" />
