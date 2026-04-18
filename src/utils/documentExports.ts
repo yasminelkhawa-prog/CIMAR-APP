@@ -19,6 +19,7 @@ import { calculateSalary } from '@/types/ficheEmbauche';
 import type { FichePosteData } from '@/types/fichePoste';
 import type { PlanIntegrationData } from '@/types/planIntegration';
 import templateUrl from '@/assets/templates/fiche_embauche_template.xlsx?url';
+import logoUrl from '@/assets/logo-cimar.png';
 
 interface SignerInfo {
   fullName?: string;
@@ -188,11 +189,25 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
 
   const signaturePara = await buildSignatureParagraphs(signer, AlignmentType.RIGHT);
 
+  // CIMAR logo header
+  const logoBuf = await fetch(logoUrl).then(r => r.arrayBuffer());
+  const logoPara = new Paragraph({
+    alignment: AlignmentType.LEFT,
+    spacing: { after: 200 },
+    children: [new ImageRun({
+      type: 'png',
+      data: logoBuf,
+      transformation: { width: 160, height: 50 },
+      altText: { title: 'CIMAR', description: 'Ciments du Maroc', name: 'logo-cimar' },
+    })],
+  });
+
   const doc = new Document({
     styles: { default: { document: { run: { font: 'Calibri', size: 22 } } } },
     sections: [{
       properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 } } },
       children: [
+        logoPara,
         new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Description de Poste', bold: true, size: 36, font: 'Calibri', color: TITLE_COLOR })] }),
         new Paragraph({ children: [new TextRun({ text: '' })] }),
         infoTable,
