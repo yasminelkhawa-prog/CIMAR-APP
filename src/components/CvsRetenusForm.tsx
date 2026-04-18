@@ -1140,6 +1140,9 @@ export function CvsRetenusForm() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">{t('targetPositionsTitle')}</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Astuce : ajoutez optionnellement une description de poste (PDF, DOCX, TXT) pour améliorer le score de matching. L'analyse fonctionne aussi sans description.
+          </p>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 mb-3">
@@ -1157,17 +1160,74 @@ export function CvsRetenusForm() {
           {targetPositions.length === 0 ? (
             <p className="text-sm text-muted-foreground italic">{t('noPositionsDefined')}</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {targetPositions.map((pos, i) => (
-                <Badge key={i} variant="secondary" className="text-sm px-3 py-1 flex items-center gap-1">
-                  {pos}
-                  <button onClick={() => removePosition(i)} className="ml-1 hover:text-destructive">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
+            <div className="flex flex-col gap-2">
+              {targetPositions.map((pos, i) => {
+                const hasJd = !!jobDescriptions[pos];
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 p-2 rounded-lg border border-border bg-muted/30"
+                  >
+                    <Badge variant="secondary" className="text-sm px-3 py-1 shrink-0">
+                      {pos}
+                    </Badge>
+                    {hasJd ? (
+                      <div className="flex items-center gap-1 flex-1 min-w-0 text-xs text-emerald-700">
+                        <Check className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
+                          Description chargée ({Math.round((jobDescriptions[pos]?.length || 0) / 100) / 10}k caractères)
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="flex-1 text-xs text-muted-foreground italic truncate">
+                        Aucune description (analyse standard)
+                      </span>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 gap-1 text-xs"
+                      onClick={() => openJobDescriptionPicker(pos)}
+                      title="Importer la description du poste (PDF, DOCX, TXT, image)"
+                    >
+                      <FileUp className="h-3.5 w-3.5" />
+                      {hasJd ? 'Remplacer' : 'Description'}
+                    </Button>
+                    {hasJd && (
+                      <button
+                        type="button"
+                        onClick={() => removeJobDescription(pos)}
+                        className="text-muted-foreground hover:text-destructive p-1"
+                        title="Retirer la description"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removePosition(i)}
+                      className="text-muted-foreground hover:text-destructive p-1"
+                      title="Supprimer ce poste"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
+          <input
+            ref={jdInputRef}
+            type="file"
+            accept=".pdf,.docx,.doc,.txt,image/*"
+            className="hidden"
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) handleJobDescriptionUpload(file);
+              e.currentTarget.value = '';
+            }}
+          />
         </CardContent>
       </Card>
 
