@@ -167,7 +167,16 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation, readO
             </div>
             <div>
               <Label>{t('location')}</Label>
-              <Input value={location} onChange={e => setLocation(e.target.value)} placeholder={t('locationPlaceholder')} disabled={readOnly} />
+              <Select value={location} onValueChange={setLocation} disabled={readOnly}>
+                <SelectTrigger><SelectValue placeholder={t('locationPlaceholder')} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Sur site">Sur site</SelectItem>
+                  <SelectItem value="Bureau">Bureau</SelectItem>
+                  <SelectItem value="Télétravail">Télétravail</SelectItem>
+                  <SelectItem value="Hybride">Hybride</SelectItem>
+                  <SelectItem value="Visioconférence">Visioconférence</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>

@@ -29,7 +29,8 @@ export default function Index() {
   const [showNewEval, setShowNewEval] = useState(false);
   const [viewingEvaluation, setViewingEvaluation] = useState<EvaluationForm | null>(null);
   const [editMode, setEditMode] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
+  const defaultInterviewer = profile?.full_name || user?.email || '';
 
   const handleSave = (evaluation: Parameters<typeof store.saveEvaluation>[0]) => {
     store.saveEvaluation(evaluation);
@@ -56,6 +57,7 @@ export default function Index() {
         <EvaluationFormView
           jobRoles={store.jobRoles}
           onSave={handleSave}
+          defaultInterviewer={defaultInterviewer}
         />
       );
     }
@@ -68,6 +70,7 @@ export default function Index() {
           readOnly={!editMode}
           onEnableEdit={() => setEditMode(true)}
           onBack={handleBackToList}
+          defaultInterviewer={defaultInterviewer}
         />
       );
     }
