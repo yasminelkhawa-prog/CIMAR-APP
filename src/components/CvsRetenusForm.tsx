@@ -9,10 +9,9 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   Upload, FileText, Trash2, RefreshCw, Eye, Sparkles, Download, Plus, X, Users,
   ChevronRight, MapPin, GraduationCap, Briefcase, Building2, Calendar, Clock,
-  Mail, Phone, Trophy, Award, TrendingUp, User as UserIcon, Crown,
+  Mail, Phone, Trophy, Award, TrendingUp, User as UserIcon, Crown, ArrowLeft,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import * as pdfjsLib from 'pdfjs-dist';
 import * as XLSX from 'xlsx';
@@ -72,9 +71,9 @@ const buildLimitedAnalysisFallback = (fileName: string, text: string, reason?: s
 );
 
 function getScoreTone(score: number) {
-  if (score >= 75) return { ring: 'ring-emerald-500/40', text: 'text-emerald-600', bg: 'bg-emerald-500', soft: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-500', label: 'Excellent' };
-  if (score >= 50) return { ring: 'ring-amber-500/40', text: 'text-amber-600', bg: 'bg-amber-500', soft: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-500', label: 'Bon' };
-  return { ring: 'ring-rose-500/40', text: 'text-rose-600', bg: 'bg-rose-500', soft: 'bg-rose-50 dark:bg-rose-950/30', border: 'border-rose-500', label: 'Faible' };
+  if (score >= 75) return { ring: 'ring-emerald-200', text: 'text-emerald-700', bg: 'bg-emerald-400', soft: 'bg-emerald-50', border: 'border-emerald-200', label: 'Excellent' };
+  if (score >= 50) return { ring: 'ring-amber-200', text: 'text-amber-700', bg: 'bg-amber-400', soft: 'bg-amber-50', border: 'border-amber-200', label: 'Bon' };
+  return { ring: 'ring-rose-200', text: 'text-rose-700', bg: 'bg-rose-400', soft: 'bg-rose-50', border: 'border-rose-200', label: 'Faible' };
 }
 
 function getInitials(prenom?: string, nom?: string, fallback = '') {
@@ -448,17 +447,24 @@ export function CvsRetenusForm() {
     grouped[key].sort((a, b) => b.matching_score - a.matching_score);
   });
 
-  const posteAccents: Record<string, string> = {
-    DAF: 'from-blue-500 to-blue-600',
-    RH: 'from-purple-500 to-purple-600',
-    'Marketing/Digital': 'from-pink-500 to-pink-600',
-    IT: 'from-cyan-500 to-cyan-600',
-    Finance: 'from-emerald-500 to-emerald-600',
-    Juridique: 'from-amber-500 to-amber-600',
-    Commercial: 'from-orange-500 to-orange-600',
-    Audit: 'from-indigo-500 to-indigo-600',
+  // Soft pastel palette — minimalist & beautiful
+  const pastelPalette = [
+    { grad: 'from-rose-200 to-pink-200', soft: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
+    { grad: 'from-sky-200 to-blue-200', soft: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200' },
+    { grad: 'from-violet-200 to-purple-200', soft: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
+    { grad: 'from-emerald-200 to-teal-200', soft: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+    { grad: 'from-amber-200 to-orange-200', soft: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+    { grad: 'from-fuchsia-200 to-pink-200', soft: 'bg-fuchsia-50', text: 'text-fuchsia-700', border: 'border-fuchsia-200' },
+    { grad: 'from-lime-200 to-green-200', soft: 'bg-lime-50', text: 'text-lime-700', border: 'border-lime-200' },
+    { grad: 'from-cyan-200 to-sky-200', soft: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' },
+    { grad: 'from-indigo-200 to-violet-200', soft: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
+  ];
+  const paletteFor = (poste: string) => {
+    let hash = 0;
+    for (let i = 0; i < poste.length; i++) hash = (hash * 31 + poste.charCodeAt(i)) & 0xffffffff;
+    return pastelPalette[Math.abs(hash) % pastelPalette.length];
   };
-  const accentFor = (poste: string) => posteAccents[poste] || 'from-slate-500 to-slate-600';
+  const accentFor = (poste: string) => paletteFor(poste).grad;
 
   const showRunningBar = isExtracting || runnerState.isAnalyzing;
 
@@ -702,150 +708,7 @@ export function CvsRetenusForm() {
       )}
 
       {/* Detail dialog */}
-      <Dialog open={!!openPoste} onOpenChange={(o) => !o && setOpenPoste(null)}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4 pr-6">
-              <div className="min-w-0 flex-1">
-                <div className={`inline-block h-1 w-12 rounded-full bg-gradient-to-r ${openPoste ? accentFor(openPoste) : ''} mb-2`} />
-                <DialogTitle className="text-xl">{openPoste}</DialogTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {openPoste ? grouped[openPoste]?.length || 0 : 0} candidat(s) — Insights détaillés
-                </p>
-              </div>
-              {openPoste && grouped[openPoste]?.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownloadPosteReport(openPoste, grouped[openPoste])}
-                >
-                  <Download className="h-4 w-4 mr-1" /> Export Excel
-                </Button>
-              )}
-            </div>
-          </DialogHeader>
-          {openPoste && grouped[openPoste] && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-4">
-              {grouped[openPoste].map((cv, index) => {
-                const tone = getScoreTone(cv.matching_score);
-                const accent = accentFor(openPoste);
-                return (
-                  <div
-                    key={cv.id}
-                    className="group relative overflow-hidden rounded-2xl border border-white/40 dark:border-white/10 bg-white/60 dark:bg-white/5 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgb(0,0,0,0.12)] transition-all duration-300 hover:-translate-y-0.5"
-                  >
-                    {/* Decorative glassy blobs */}
-                    <div className={`pointer-events-none absolute -top-20 -right-20 w-56 h-56 rounded-full bg-gradient-to-br ${accent} opacity-25 blur-3xl`} />
-                    <div className={`pointer-events-none absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-gradient-to-tr ${accent} opacity-15 blur-3xl`} />
-                    <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${accent}`} />
-
-                    {/* Rank badge */}
-                    <div className="absolute top-3 right-3 z-10">
-                      <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold backdrop-blur-md border ${
-                        index === 0 ? 'bg-amber-100/80 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-200'
-                        : index === 1 ? 'bg-slate-100/80 text-slate-700 border-slate-300 dark:bg-slate-800/60 dark:text-slate-300'
-                        : index === 2 ? 'bg-orange-100/80 text-orange-800 border-orange-300 dark:bg-orange-950/60 dark:text-orange-200'
-                        : 'bg-white/60 text-muted-foreground border-white/50 dark:bg-white/10'
-                      }`}>
-                        {index === 0 ? <Crown className="h-2.5 w-2.5" /> : index < 3 ? <Trophy className="h-2.5 w-2.5" /> : null}
-                        #{index + 1}
-                      </div>
-                    </div>
-
-                    <div className="relative p-5">
-                      {/* Header: avatar + name + score */}
-                      <div className="flex items-start gap-3 mb-4">
-                        <div className={`flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br ${accent} flex items-center justify-center text-white text-base font-bold shadow-lg ring-2 ring-white/60 dark:ring-white/20`}>
-                          {getInitials(cv.candidate_details?.prenom, cv.candidate_details?.nom, cv.nom_candidat)}
-                        </div>
-                        <div className="min-w-0 flex-1 pr-12">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
-                            Prénom & Nom
-                          </p>
-                          <p className="font-bold text-base leading-tight truncate">
-                            {cv.candidate_details?.prenom || ''}{' '}
-                            {cv.candidate_details?.nom || cv.nom_candidat}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Score pill row */}
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${tone.bg} text-white shadow-md text-xs font-bold`}>
-                          <Sparkles className="h-3 w-3" />
-                          {cv.matching_score}% — {tone.label}
-                        </div>
-                        <div className="px-2.5 py-1 rounded-full bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/10 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                          {openPoste}
-                        </div>
-                      </div>
-
-                      {/* Detail grid — all required criteria */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-                        <GlassDetail icon={Briefcase} label="Poste actuel" value={cv.candidate_details?.poste_actuel} accent={accent} />
-                        <GlassDetail icon={Building2} label="Entreprise actuelle" value={cv.candidate_details?.entreprise_actuelle} accent={accent} />
-                        <GlassDetail icon={Calendar} label="Début poste actuel" value={cv.candidate_details?.date_debut_poste} accent={accent} />
-                        <GlassDetail icon={Clock} label="Années d'expérience" value={cv.candidate_details?.annees_experience} accent={accent} />
-                        <GlassDetail icon={GraduationCap} label="Établissement formation" value={cv.candidate_details?.etablissement_formation} accent={accent} />
-                        <GlassDetail icon={Award} label="Formation" value={cv.candidate_details?.formation} accent={accent} />
-                        <GlassDetail icon={Mail} label="Adresse e-mail" value={cv.email} accent={accent} />
-                        <GlassDetail icon={Phone} label="Téléphone" value={cv.candidate_details?.telephone} accent={accent} />
-                      </div>
-
-                      {/* Skills */}
-                      {(cv.competences_cles || []).length > 0 && (
-                        <div className="mb-3">
-                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1.5">
-                            Compétences clés
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {cv.competences_cles.map((comp, i) => (
-                              <span
-                                key={i}
-                                className={`text-[11px] px-2.5 py-1 rounded-full bg-gradient-to-r ${accent} text-white font-medium shadow-sm`}
-                              >
-                                {comp}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* AI synthesis */}
-                      {cv.synthese_ia && (
-                        <div className={`p-3 rounded-xl bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-white/50 dark:border-white/10 mb-3`}>
-                          <div className="flex items-start gap-2">
-                            <Sparkles className={`h-3.5 w-3.5 ${tone.text} flex-shrink-0 mt-0.5`} />
-                            <p className="text-xs italic leading-relaxed text-foreground/80">{cv.synthese_ia}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 pt-3 border-t border-white/40 dark:border-white/10">
-                        {cv.cv_file_path && (
-                          <Button variant="outline" size="sm" className="h-7 text-xs bg-white/60 dark:bg-white/10 backdrop-blur-sm border-white/50 dark:border-white/10" onClick={() => handleViewCV(cv.cv_file_path)}>
-                            <Eye className="h-3 w-3 mr-1" /> Voir CV
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs ml-auto text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteCard(cv.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
+      {/* Detail page is rendered above as an early-return view, not a dialog */}
       <FormAssistant
         formType="cvs_retenus"
         currentData={{
