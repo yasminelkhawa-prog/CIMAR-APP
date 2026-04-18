@@ -107,17 +107,29 @@ export function EvaluationFormView({ jobRoles, onSave, existingEvaluation, readO
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Top bar with back and modify buttons */}
+      {/* Top bar with back, signature request and modify buttons */}
       {existingEvaluation && (
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-1" /> {t('backToList')}
           </Button>
-          {readOnly && (
-            <Button onClick={onEnableEdit} size="sm" variant="outline">
-              <Pencil className="h-4 w-4 mr-1" /> {t('modify')}
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {locked && (
+              <Badge variant="secondary" className="gap-1">
+                <Lock className="h-3 w-3" /> Verrouillé (signé)
+              </Badge>
+            )}
+            <RequestSignatureDialog
+              docType="evaluation"
+              docId={existingEvaluation.id}
+              docTitle={existingEvaluation.candidateName || 'Évaluation'}
+            />
+            {readOnlyProp && !locked && (
+              <Button onClick={onEnableEdit} size="sm" variant="outline">
+                <Pencil className="h-4 w-4 mr-1" /> {t('modify')}
+              </Button>
+            )}
+          </div>
         </div>
       )}
       <Card>
