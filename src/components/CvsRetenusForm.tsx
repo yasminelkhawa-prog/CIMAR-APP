@@ -423,11 +423,14 @@ export function CvsRetenusForm() {
         return;
       }
 
-      const win = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!win) {
-        // Popup blocked — navigate current tab as fallback
-        window.location.href = url;
-      }
+      // Use an anchor element to reliably open in a new tab without same-tab fallback issues
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } catch (e) {
       console.error('CV view exception:', e);
       toast.error("Erreur lors de l'ouverture du CV");
