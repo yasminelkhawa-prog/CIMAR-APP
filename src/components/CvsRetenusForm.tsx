@@ -611,24 +611,18 @@ export function CvsRetenusForm() {
     grouped[key].sort((a, b) => b.matching_score - a.matching_score);
   });
 
-  // Soft pastel palette — matching reference swatches (rose, peach, sky, mint, lavender...)
-  // `icon` = darker pastel for icon backgrounds; `chip` = soft tint for badges; cards stay white.
-  const pastelPalette = [
-    { icon: 'bg-rose-200', iconText: 'text-rose-700', chip: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200', accent: 'bg-rose-300' },
-    { icon: 'bg-orange-200', iconText: 'text-orange-700', chip: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200', accent: 'bg-orange-300' },
-    { icon: 'bg-blue-200', iconText: 'text-blue-700', chip: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200', accent: 'bg-blue-300' },
-    { icon: 'bg-green-200', iconText: 'text-green-700', chip: 'bg-green-100', text: 'text-green-700', border: 'border-green-200', accent: 'bg-green-300' },
-    { icon: 'bg-teal-200', iconText: 'text-teal-700', chip: 'bg-teal-100', text: 'text-teal-700', border: 'border-teal-200', accent: 'bg-teal-300' },
-    { icon: 'bg-slate-200', iconText: 'text-slate-700', chip: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200', accent: 'bg-slate-300' },
-    { icon: 'bg-indigo-200', iconText: 'text-indigo-700', chip: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-200', accent: 'bg-indigo-300' },
-    { icon: 'bg-purple-200', iconText: 'text-purple-700', chip: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200', accent: 'bg-purple-300' },
-    { icon: 'bg-emerald-200', iconText: 'text-emerald-700', chip: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', accent: 'bg-emerald-300' },
-  ];
-  const paletteFor = (poste: string) => {
-    let hash = 0;
-    for (let i = 0; i < poste.length; i++) hash = (hash * 31 + poste.charCodeAt(i)) & 0xffffffff;
-    return pastelPalette[Math.abs(hash) % pastelPalette.length];
+  // Apple-style monochrome palette: white cards, near-black text, neutral grays.
+  // Single neutral palette for every poste — no colorful charge.
+  const neutralPalette = {
+    icon: 'bg-neutral-900',
+    iconText: 'text-white',
+    chip: 'bg-neutral-100',
+    text: 'text-neutral-900',
+    border: 'border-neutral-200',
+    accent: 'bg-neutral-900',
   };
+  const pastelPalette = [neutralPalette];
+  const paletteFor = (_poste: string) => neutralPalette;
 
   const showRunningBar = isExtracting || runnerState.isAnalyzing;
 
