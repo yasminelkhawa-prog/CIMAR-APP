@@ -296,7 +296,13 @@ function mapAnalysisToRecord(parsed: Record<string, unknown>, sessionId: string,
   const lastName = pickStr(parsed.last_name) || nameParts.slice(1).join(" ");
   const skills = normalizeStringArray(parsed.top_3_skills, 3);
   const quickQuestions = normalizeStringArray(parsed["2_quick_interview_questions"], 2);
-  const assignedPosition = pickAssignedPosition(parsed, targetPositions);
+  const aiAssigned = pickAssignedPosition(parsed, targetPositions);
+  const heuristicBest = pickBestPositionByHeuristic(targetPositions, rawText);
+  const aiAssignedHeuristic = scorePositionAgainstText(aiAssigned, rawText);
+  // If the AI's pick has poor keyword overlap but another target clearly fits better, override.
+  const assignedPosition = (heuristicBest.score >= 72 && heuristicBest.score - aiAssignedHeuristic >= 25)
+    ? heuristicBest.position
+    : aiAssigned;
   const now = new Date().toISOString();
   const normalizedCurrentPosition = inferCurrentPosition(rawText, pickStr(parsed.current_position, 200));
   const normalizedEmail = pickStr(parsed.email, 150) || extractEmail(rawText);
