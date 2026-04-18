@@ -316,11 +316,14 @@ function validateExtraction(parsed: Record<string, unknown>, sourceText: string)
   return { valid: true, needsReview: false };
 }
 
-async function callAi(cvText: string, targetPositions: string[]): Promise<Record<string, unknown>> {
+async function callAi(cvText: string, targetPositions: string[], jobDescriptions: Map<string, string>): Promise<Record<string, unknown>> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-  const positionsList = targetPositions.map((p, i) => `${i + 1}. ${p}`).join("\n");
+  const positionsList = targetPositions.map((p, i) => {
+    const jd = jobDescriptions.get(p);
+    return `${i + 1}. ${p}${jd ? `\n   JOB DESCRIPTION: ${jd.slice(0, 1200)}` : ""}`;
+  }).join("\n");
   const userPrompt = `AVAILABLE TARGET POSITIONS (pick exactly ONE, verbatim, for "best_matching_position"):\n${positionsList}\n\nCV TEXT:\n${cvText.slice(0, CV_TEXT_LIMIT)}`;
 
   let response: Response;
@@ -335,7 +338,7 @@ async function callAi(cvText: string, targetPositions: string[]): Promise<Record
       body: JSON.stringify({
         model: AI_MODEL,
         temperature: 0,
-        max_tokens: AI_MAX_TOKENS,
+        max_tokens: 1200,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
@@ -358,14 +361,11 @@ async function callAi(cvText: string, targetPositions: string[]): Promise<Record
   const payload = await response.json();
   const rawContent = getMessageContent(payload?.choices?.[0]?.message?.content);
   if (!rawContent) throw new Error("AI returned an empty response");
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(rawContent);
-  } catch {
-    throw new Error("AI returned invalid JSON");
+  if (isLikelyTruncatedResponse(payload, rawContent)) {
+    throw new Error("AI response was truncated");
   }
 
+  const parsed = extractJsonFromResponse(rawContent);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("AI returned an unexpected JSON structure");
   }
