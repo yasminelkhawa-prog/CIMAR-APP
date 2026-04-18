@@ -166,7 +166,9 @@ export default function Index() {
         </div>
       </div>
 
-      <ChatBot jobRoles={store.jobRoles} evaluations={store.evaluations} />
+      {!['fiche-embauche', 'fiche-poste', 'plan-integration', 'cvs-retenus'].includes(activeSection) && (
+        <ChatBot jobRoles={store.jobRoles} evaluations={store.evaluations} />
+      )}
     </SidebarProvider>
   );
 }
