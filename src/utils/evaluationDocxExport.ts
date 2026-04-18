@@ -496,6 +496,77 @@ export async function exportEvaluationDocx(
     spacing: { before: 0, after: 60 },
   });
 
+  // ===== Signature block =====
+  const sigInnerCells: Paragraph[] = [
+    new Paragraph({
+      alignment: AlignmentType.LEFT,
+      spacing: { before: 40, after: 40 },
+      children: [txt(`Date : ${dateStr}`, { size: 12, color: GREY })],
+    }),
+  ];
+
+  if (signatureBuf) {
+    sigInnerCells.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 40, after: 40 },
+        children: [
+          new ImageRun({
+            type: 'png',
+            data: signatureBuf,
+            transformation: { width: 170, height: 60 },
+            altText: { title: 'Signature', description: 'Signature', name: 'sig' },
+          }),
+        ],
+      }),
+    );
+  } else {
+    sigInnerCells.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 200, after: 200 },
+        children: [txt('', { size: 12 })],
+      }),
+    );
+  }
+
+  sigInnerCells.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 40, after: 20 },
+      children: [txt(interviewerName, { bold: true, size: 13 })],
+    }),
+  );
+
+  const signatureTable = new Table({
+    width: { size: CONTENT_W, type: WidthType.DXA },
+    columnWidths: [CONTENT_W],
+    rows: [
+      new TableRow({
+        children: [
+          cell({
+            width: CONTENT_W,
+            shade: GREEN,
+            children: [
+              p([txt('SIGNATURE DU RECRUTEUR', { bold: true, color: WHITE, size: 13 })], {
+                align: AlignmentType.CENTER,
+              }),
+            ],
+          }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          cell({
+            width: CONTENT_W,
+            vAlign: 'center',
+            children: sigInnerCells,
+          }),
+        ],
+      }),
+    ],
+  });
+
   const doc = new Document({
     creator: 'CIMAR HR',
     title: "Grille d'évaluation",
