@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = 'You are an ultra-fast ATS data parser. You must return ONLY a valid, minified JSON object. Do not include markdown or conversational text. Use this exact structure: { "candidate_name": "", "years_of_experience": 0, "top_3_skills": [], "matching_score_estimate": 0, "red_flags_or_gaps": "", "2_quick_interview_questions": [] }';
+const SYSTEM_PROMPT = 'You are an ultra-fast ATS data parser. You must return ONLY a valid, minified JSON object (no markdown, no prose). You receive a CV and a LIST of available target positions. You MUST pick the SINGLE position from the provided list that best matches the candidate (verbatim copy of one item from the list, never invent, never combine multiple). Use this exact structure: { "candidate_name": "", "first_name": "", "last_name": "", "email": "", "phone": "", "education_institution": "", "education_field": "", "current_position": "", "current_company": "", "current_position_start_date": "", "years_of_experience": 0, "top_3_skills": [], "matching_score_estimate": 0, "best_matching_position": "", "red_flags_or_gaps": "", "2_quick_interview_questions": [] }';
 const AI_TIMEOUT_MS = 15_000;
 const AI_MAX_TOKENS = 300;
 const AI_MODEL = "google/gemini-2.5-flash";
@@ -71,7 +71,8 @@ async function callAi(cvText: string, targetPositions: string[]): Promise<Record
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-  const userPrompt = `Input Text to Analyze: [INSERT PLAIN TEXT CV HERE] ${cvText.slice(0, CV_TEXT_LIMIT)} [INSERT JOB REQUIREMENT SUMMARY HERE] ${targetPositions.join(", ")}`;
+  const positionsList = targetPositions.map((p, i) => `${i + 1}. ${p}`).join("\n");
+  const userPrompt = `AVAILABLE TARGET POSITIONS (pick exactly ONE, verbatim, for "best_matching_position"):\n${positionsList}\n\nCV TEXT:\n${cvText.slice(0, CV_TEXT_LIMIT)}`;
 
   let response: Response;
   try {
@@ -123,36 +124,57 @@ async function callAi(cvText: string, targetPositions: string[]): Promise<Record
   return parsed as Record<string, unknown>;
 }
 
+function pickStr(value: unknown, max = 200): string {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, max);
+}
+
+function pickAssignedPosition(parsed: Record<string, unknown>, targetPositions: string[]): string {
+  const candidate = pickStr(parsed.best_matching_position);
+  if (!candidate) return targetPositions[0] || "";
+  // Exact match (case-insensitive)
+  const exact = targetPositions.find((p) => p.toLowerCase() === candidate.toLowerCase());
+  if (exact) return exact;
+  // Fuzzy: longest target position contained in candidate or vice-versa
+  const fuzzy = targetPositions.find(
+    (p) =>
+      candidate.toLowerCase().includes(p.toLowerCase()) ||
+      p.toLowerCase().includes(candidate.toLowerCase()),
+  );
+  return fuzzy || targetPositions[0] || candidate;
+}
+
 function mapAnalysisToRecord(parsed: Record<string, unknown>, sessionId: string, filePath: string, rawText: string, targetPositions: string[]) {
-  const candidateName = typeof parsed.candidate_name === "string" && parsed.candidate_name.trim()
-    ? parsed.candidate_name.trim()
-    : "Inconnu";
+  const candidateName = pickStr(parsed.candidate_name) || "Inconnu";
   const nameParts = candidateName.split(/\s+/).filter(Boolean);
+  const firstName = pickStr(parsed.first_name) || nameParts[0] || "";
+  const lastName = pickStr(parsed.last_name) || nameParts.slice(1).join(" ");
   const skills = normalizeStringArray(parsed.top_3_skills, 3);
   const quickQuestions = normalizeStringArray(parsed["2_quick_interview_questions"], 2);
+  const assignedPosition = pickAssignedPosition(parsed, targetPositions);
   const now = new Date().toISOString();
 
   return {
     session_id: sessionId,
     nom_candidat: candidateName,
-    email: "",
-    poste_assigne: targetPositions.join(", "),
+    email: pickStr(parsed.email, 150),
+    poste_assigne: assignedPosition,
     matching_score: normalizeScore(parsed.matching_score_estimate),
     competences_cles: skills,
-    synthese_ia: typeof parsed.red_flags_or_gaps === "string" ? parsed.red_flags_or_gaps.trim().slice(0, 300) : "",
+    synthese_ia: pickStr(parsed.red_flags_or_gaps, 300),
     cv_file_path: filePath,
     cv_raw_text: rawText.slice(0, 5000),
     candidate_details: {
-      prenom: nameParts[0] || "",
-      nom: nameParts.slice(1).join(" "),
+      prenom: firstName,
+      nom: lastName,
       region: "",
-      etablissement_formation: "",
-      formation: "",
-      poste_actuel: "",
-      entreprise_actuelle: "",
-      date_debut_poste: "",
+      etablissement_formation: pickStr(parsed.education_institution, 200),
+      formation: pickStr(parsed.education_field, 200),
+      poste_actuel: pickStr(parsed.current_position, 200),
+      entreprise_actuelle: pickStr(parsed.current_company, 200),
+      date_debut_poste: pickStr(parsed.current_position_start_date, 50),
       annees_experience: normalizeYears(parsed.years_of_experience),
-      telephone: "",
+      telephone: pickStr(parsed.phone, 50),
       quick_interview_questions: quickQuestions,
     },
     status: "completed",
