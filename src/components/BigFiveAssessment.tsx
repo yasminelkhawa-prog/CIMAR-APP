@@ -232,10 +232,13 @@ export function BigFiveAssessment() {
       ) : (
         <div className="space-y-2">
           {assessments.map(a => (
-            <Card key={a.id} className="hover:shadow-md transition-shadow cursor-pointer"
+            <Card key={a.id} className="glass-card glass-card-hover cursor-pointer"
               onClick={() => a.status !== 'pending' ? setSelectedAssessment(a) : null}>
               <CardContent className="py-3 px-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-[hsl(265_80%_55%/0.15)]">
+                    <Brain className="h-4 w-4 text-primary" />
+                  </span>
                   <div>
                     <p className="font-medium text-sm">{a.candidate_name}</p>
                     <p className="text-xs text-muted-foreground">{a.job_role || 'Poste non défini'} • {new Date(a.created_at).toLocaleDateString('fr')}</p>
@@ -250,7 +253,8 @@ export function BigFiveAssessment() {
                   )}
                   {a.status === 'completed' && (
                     <Button size="sm" variant="default" onClick={e => { e.stopPropagation(); analyzeWithAI(a); }}
-                      disabled={analyzing === a.id}>
+                      disabled={analyzing === a.id}
+                      className="bg-gradient-to-r from-primary to-[hsl(265_80%_55%)] shadow-md shadow-primary/30">
                       {analyzing === a.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Brain className="h-3 w-3 mr-1" />}
                       Analyser
                     </Button>
