@@ -1,5 +1,5 @@
 import {
-  ClipboardList, FileText, Briefcase, CalendarCheck, Users, Settings2, Brain, UserCircle
+  ClipboardList, FileText, Briefcase, CalendarCheck, Users, Settings2, Brain, UserCircle, Calendar
 } from 'lucide-react';
 import {
   Sidebar,
@@ -21,6 +21,8 @@ export type SidebarSection =
   | 'plan-integration'
   | 'cvs-retenus'
   | 'big-five'
+  | 'calendar'
+  | 'master-calendar'
   | 'profile'
   | 'config';
 
@@ -41,6 +43,8 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
     { id: 'plan-integration' as SidebarSection, title: t('planIntegration'), icon: CalendarCheck },
     { id: 'cvs-retenus' as SidebarSection, title: t('cvsRetenus'), icon: Users },
     { id: 'big-five' as SidebarSection, title: 'Big Five (OCEAN)', icon: Brain },
+    { id: 'calendar' as SidebarSection, title: 'Calendrier', icon: Calendar },
+    { id: 'master-calendar' as SidebarSection, title: "Calendrier d'Intégration", icon: CalendarCheck },
   ];
 
   return (

@@ -19,6 +19,7 @@ import { FormAssistant } from '@/components/FormAssistant';
 import { RequestSignatureDialog } from '@/components/RequestSignatureDialog';
 import { fetchAcceptedSignatures } from '@/hooks/useSignatureRequests';
 import { useDocumentLock } from '@/hooks/useDocumentLock';
+import { useCalendar } from '@/hooks/useCalendar';
 
 interface ListItem {
   id: string;
@@ -34,6 +35,7 @@ export function PlanIntegrationForm() {
   const [editMode, setEditMode] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [formData, setFormData] = useState<PlanIntegrationData>(DEFAULT_PLAN_INTEGRATION);
+  const { syncPlanEntries } = useCalendar();
 
   // Auto-fill signed-in user as default visa for entries
   useEffect(() => {
@@ -77,10 +79,18 @@ export function PlanIntegrationForm() {
   }, []);
 
   const handleSave = async () => {
+    let planId = selected?.id;
     if (selected) {
       await supabase.from('plans_integration').update({ data: formData as unknown as Json }).eq('id', selected.id);
     } else {
-      await supabase.from('plans_integration').insert({ data: formData as unknown as Json });
+      const { data: inserted } = await supabase.from('plans_integration').insert({ data: formData as unknown as Json }).select('id').single();
+      planId = inserted?.id;
+    }
+    // Sync entries → calendar
+    if (planId) {
+      try {
+        await syncPlanEntries(planId, formData.nomPrenom, formData.entries);
+      } catch (e) { console.error('calendar sync failed', e); }
     }
     setShowNew(false); setSelected(null); setEditMode(false);
     toast.success(t('evaluationSaved'));

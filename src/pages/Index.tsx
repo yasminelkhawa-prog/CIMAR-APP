@@ -10,6 +10,8 @@ import { PlanIntegrationForm } from '@/components/PlanIntegrationForm';
 import { CvsRetenusForm } from '@/components/CvsRetenusForm';
 import { BigFiveAssessment } from '@/components/BigFiveAssessment';
 import { ChatBot } from '@/components/ChatBot';
+import { GlobalCalendarPage } from '@/components/calendar/GlobalCalendarPage';
+import { MasterIntegrationCalendar } from '@/components/calendar/MasterIntegrationCalendar';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { NotificationsBell } from '@/components/NotificationsBell';
 import { ProfileSettings } from '@/components/ProfileSettings';
@@ -110,6 +112,10 @@ export default function Index() {
         return <CvsRetenusForm />;
       case 'big-five':
         return <BigFiveAssessment />;
+      case 'calendar':
+        return <GlobalCalendarPage />;
+      case 'master-calendar':
+        return <MasterIntegrationCalendar />;
       case 'profile':
         return <ProfileSettings />;
       case 'config':

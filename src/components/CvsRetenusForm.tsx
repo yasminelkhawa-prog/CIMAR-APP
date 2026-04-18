@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import * as pdfjsLib from 'pdfjs-dist';
 import * as XLSX from 'xlsx';
 import { cvAnalysisRunner, type RunnerState } from '@/lib/cvAnalysisRunner';
+import { FormAssistant } from '@/components/FormAssistant';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
@@ -776,6 +777,27 @@ export function CvsRetenusForm() {
           )}
         </DialogContent>
       </Dialog>
+
+      <FormAssistant
+        formType="cvs_retenus"
+        currentData={{
+          openPoste,
+          totalCandidates: analyses.length,
+          candidates: analyses.slice(0, 30).map(a => ({
+            nom: a.nom_candidat,
+            poste: a.poste_assigne,
+            score: a.matching_score,
+            competences: a.competences_cles,
+            synthese: a.synthese_ia,
+          })),
+        }}
+        quickPrompts={[
+          'Compare les 3 meilleurs candidats',
+          'Génère 5 questions techniques pour le top candidat',
+          'Identifie les soft skills dominants',
+          'Quels candidats relancer en priorité ?',
+        ]}
+      />
     </div>
   );
 }
