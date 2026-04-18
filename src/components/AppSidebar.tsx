@@ -1,5 +1,5 @@
 import {
-  ClipboardList, FileText, Briefcase, CalendarCheck, Users, Settings2, Brain, UserCircle, Calendar
+  ClipboardList, FileText, Briefcase, CalendarCheck, Users, Settings2, Brain, UserCircle, Calendar, Building2
 } from 'lucide-react';
 import {
   Sidebar,
@@ -14,7 +14,6 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { useLanguage } from '@/i18n/LanguageContext';
-import logoImg from '@/assets/logo-cimar.png';
 
 export type SidebarSection =
   | 'evaluations'
@@ -71,7 +70,9 @@ export function AppSidebar({ activeSection, onSectionChange }: Props) {
     <Sidebar collapsible="icon" variant="floating" className="border-none">
       <SidebarHeader className="px-3 pt-4 pb-2">
         <div className="flex items-center gap-2.5 px-2">
-          <img src={logoImg} alt="Ciments du Maroc" className="h-10 w-auto object-contain shrink-0" />
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[hsl(var(--primary-glow))] to-primary shadow-lg shadow-primary/40 shrink-0">
+            <Building2 className="h-5 w-5 text-white" strokeWidth={2.2} />
+          </span>
           {!collapsed && (
             <div className="leading-tight">
               <p className="text-sm font-bold text-white">CIMAR</p>
