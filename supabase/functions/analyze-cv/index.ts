@@ -464,8 +464,11 @@ serve(async (req) => {
       return jsonResponse({ error: "Invalid request payload", details: parsedRequest.error.flatten() }, 400);
     }
 
-    const { cvTexts, targetPositions } = parsedRequest.data;
+    const { cvTexts, targetPositions, jobDescriptions } = parsedRequest.data;
     const sessionId = parsedRequest.data.sessionId ?? crypto.randomUUID();
+    const jobDescriptionMap = new Map(
+      jobDescriptions.map((item) => [item.position.trim(), compactWhitespace(item.description)])
+    );
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -477,8 +480,8 @@ serve(async (req) => {
     const results = [];
 
     for (const cv of cvTexts) {
-      const aiResult = await callAi(cv.text, targetPositions);
-      const record = mapAnalysisToRecord(aiResult, sessionId, cv.filePath || "", cv.text, targetPositions);
+      const aiResult = await callAi(cv.text, targetPositions, jobDescriptionMap);
+      const record = mapAnalysisToRecord(aiResult, sessionId, cv.filePath || "", cv.text, targetPositions, jobDescriptionMap);
       const { data, error } = await supabase.from("cv_analyses").insert(record).select().single();
       if (error) {
         throw new Error(`Database insert failed: ${error.message}`);
