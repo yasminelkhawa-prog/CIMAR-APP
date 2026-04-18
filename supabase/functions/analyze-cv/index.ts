@@ -26,6 +26,20 @@ const AI_MAX_TOKENS = 800;
 const AI_MODEL = "google/gemini-2.5-flash";
 const CV_TEXT_LIMIT = 8000;
 
+const KNOWN_STUDENT_MARKERS = [
+  "étudiant",
+  "etudiant",
+  "student",
+  "stagiaire",
+  "intern",
+  "pfe",
+  "stage de fin",
+  "dut",
+  "licence",
+  "bachelor",
+  "master",
+];
+
 const RequestSchema = z.object({
   cvTexts: z.array(z.object({
     text: z.string().min(1),
@@ -78,6 +92,91 @@ function normalizeYears(value: unknown): string {
   const years = Number(value);
   if (!Number.isFinite(years)) return "";
   return String(Math.max(0, Math.round(years)));
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function compactWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function normalizeForCompare(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isLikelyStudent(cvText: string): boolean {
+  const normalized = normalizeForCompare(cvText);
+  return KNOWN_STUDENT_MARKERS.some((marker) => normalized.includes(normalizeForCompare(marker)));
+}
+
+function extractEmail(rawText: string): string {
+  const match = rawText.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match?.[0]?.trim() ?? "";
+}
+
+function extractPhone(rawText: string): string {
+  const match = rawText.match(/(?:\+?\d[\d\s().-]{7,}\d)/);
+  return match?.[0]?.replace(/\s+/g, " ").trim() ?? "";
+}
+
+function extractNameFromText(rawText: string): string {
+  const compact = compactWhitespace(rawText);
+  const lines = compact
+    .split(/(?<=[a-zA-Z])\s(?=[A-ZÀ-Ÿ][a-zà-ÿ]+\s+[A-ZÀ-Ÿ][A-ZÀ-Ÿa-zà-ÿ'-]{1,})/)
+    .flatMap((line) => line.split(/[\n\r]+/))
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+
+  for (const line of lines) {
+    if (/@|http|www\.|profil|objectif|contact|comp[eé]tences|exp[eé]rience|formation/i.test(line)) continue;
+    const match = line.match(/\b([A-ZÀ-Ÿ][A-ZÀ-Ÿ' -]{1,}|[A-ZÀ-Ÿ][a-zà-ÿ' -]{1,})\s+([A-ZÀ-Ÿ][A-ZÀ-Ÿ' -]{1,}|[A-ZÀ-Ÿ][a-zà-ÿ' -]{1,})\b/);
+    if (match) {
+      const candidate = compactWhitespace(match[0]).slice(0, 80);
+      if (candidate.split(" ").length >= 2) return candidate;
+    }
+  }
+  return "";
+}
+
+function inferCurrentPosition(rawText: string, aiValue: string): string {
+  const ai = compactWhitespace(aiValue);
+  if (ai && !/they are|looking for|searching for|recherche/i.test(ai)) return ai;
+  if (isLikelyStudent(rawText)) {
+    const normalized = normalizeForCompare(rawText);
+    return normalized.includes("stagiaire") ? "Stagiaire" : "Étudiant";
+  }
+  return "";
+}
+
+function scorePositionAgainstText(position: string, rawText: string): number {
+  const positionWords = normalizeForCompare(position).split(" ").filter((word) => word.length >= 3);
+  const text = normalizeForCompare(rawText);
+  if (positionWords.length === 0) return 0;
+  const hits = positionWords.filter((word) => text.includes(word)).length;
+  const ratio = hits / positionWords.length;
+  if (ratio >= 1) return 92;
+  if (ratio >= 0.66) return 78;
+  if (ratio >= 0.4) return 60;
+  if (ratio > 0) return 35;
+  return 0;
+}
+
+function normalizeMatchingScore(rawScore: unknown, assignedPosition: string, rawText: string): number {
+  const aiScore = normalizeScore(rawScore);
+  const heuristicScore = scorePositionAgainstText(assignedPosition, rawText);
+  if (heuristicScore >= 78 && aiScore < 30) return heuristicScore;
+  if (heuristicScore >= 60 && aiScore < 20) return Math.max(aiScore, heuristicScore);
+  if (heuristicScore === 0 && aiScore > 95) return 95;
+  return Math.max(aiScore, heuristicScore);
 }
 
 async function callAi(cvText: string, targetPositions: string[]): Promise<Record<string, unknown>> {
@@ -158,7 +257,8 @@ function pickAssignedPosition(parsed: Record<string, unknown>, targetPositions: 
 }
 
 function mapAnalysisToRecord(parsed: Record<string, unknown>, sessionId: string, filePath: string, rawText: string, targetPositions: string[]) {
-  const candidateName = pickStr(parsed.candidate_name) || "Inconnu";
+  const detectedName = extractNameFromText(rawText);
+  const candidateName = pickStr(parsed.candidate_name) || detectedName || "Inconnu";
   const nameParts = candidateName.split(/\s+/).filter(Boolean);
   const firstName = pickStr(parsed.first_name) || nameParts[0] || "";
   const lastName = pickStr(parsed.last_name) || nameParts.slice(1).join(" ");
@@ -166,13 +266,17 @@ function mapAnalysisToRecord(parsed: Record<string, unknown>, sessionId: string,
   const quickQuestions = normalizeStringArray(parsed["2_quick_interview_questions"], 2);
   const assignedPosition = pickAssignedPosition(parsed, targetPositions);
   const now = new Date().toISOString();
+  const normalizedCurrentPosition = inferCurrentPosition(rawText, pickStr(parsed.current_position, 200));
+  const normalizedEmail = pickStr(parsed.email, 150) || extractEmail(rawText);
+  const normalizedPhone = pickStr(parsed.phone, 50) || extractPhone(rawText);
+  const normalizedScore = normalizeMatchingScore(parsed.matching_score_estimate, assignedPosition, rawText);
 
   return {
     session_id: sessionId,
     nom_candidat: candidateName,
-    email: pickStr(parsed.email, 150),
+    email: normalizedEmail,
     poste_assigne: assignedPosition,
-    matching_score: normalizeScore(parsed.matching_score_estimate),
+    matching_score: normalizedScore,
     competences_cles: skills,
     synthese_ia: pickStr(parsed.red_flags_or_gaps, 300),
     cv_file_path: filePath,
@@ -183,11 +287,11 @@ function mapAnalysisToRecord(parsed: Record<string, unknown>, sessionId: string,
       region: "",
       etablissement_formation: pickStr(parsed.education_institution, 200),
       formation: pickStr(parsed.education_field, 200),
-      poste_actuel: pickStr(parsed.current_position, 200),
+       poste_actuel: normalizedCurrentPosition,
       entreprise_actuelle: pickStr(parsed.current_company, 200),
       date_debut_poste: pickStr(parsed.current_position_start_date, 50),
       annees_experience: normalizeYears(parsed.years_of_experience),
-      telephone: pickStr(parsed.phone, 50),
+       telephone: normalizedPhone,
       quick_interview_questions: quickQuestions,
     },
     status: "completed",
