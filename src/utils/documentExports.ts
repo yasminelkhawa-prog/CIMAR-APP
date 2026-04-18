@@ -233,160 +233,232 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
 // ─────────────────────── Plan d'Intégration (DOCX) ───────────────────────
 
 export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signer: SignerInfo) {
-  const HEADER_FILL = 'B9DCCB';   // CIMAR light green
-  const TITLE_COLOR = '044C2A';   // CIMAR dark green
-  // Landscape A4: long edge = 16838, with 800 DXA margins (~0.55in) → content = 15238
-  const fullW = 15238;
-  const colWidths = [1900, 3200, 2700, 3700, 1870, 1868]; // sums to 15238
+  const HEADER_FILL = 'B5D8E5';   // Light teal/blue (matches template)
+  // Landscape A4: long edge = 16838, with 720 DXA margins (0.5in) → content = 15398
+  const fullW = 15398;
+  const colWidths = [1900, 3300, 2700, 3700, 1900, 1898]; // sums to 15398
 
-  // --- Identity / type checkbox table (matches template) ---
-  const idColWidths = [3500, 800, 3500, 800];
+  // Cell border helper (light gray border for inner table cells)
+  const thinBorder = { style: BorderStyle.SINGLE, size: 4, color: '000000' };
+  const allBorders = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
+
+  // Override the default cell helper inline to ensure visible borders on planning tables
+  const tCell = (text: string | Paragraph[], opts: Parameters<typeof cell>[1] = {}) => {
+    const c = cell(text, opts);
+    // mutate borders post-creation: docx TableCell exposes options through internal root, simpler to recreate
+    return new TableCell({
+      children: Array.isArray(text)
+        ? text
+        : [new Paragraph({
+            alignment: opts.align,
+            children: [new TextRun({ text, bold: opts.bold, italics: opts.italic, color: opts.color, font: 'Calibri', size: 20 })],
+          })],
+      columnSpan: opts.colSpan,
+      width: opts.width ? { size: opts.width, type: WidthType.DXA } : undefined,
+      shading: opts.shade ? { fill: opts.shade, type: ShadingType.CLEAR, color: 'auto' } : undefined,
+      margins: { top: 80, bottom: 80, left: 120, right: 120 },
+      borders: allBorders,
+    });
+  };
+
+  // --- Identity / type checkbox table (matches template top-right block) ---
+  const idColWidths = [2400, 700, 2400, 700];
   const idTable = new Table({
-    width: { size: 8600, type: WidthType.DXA },
+    width: { size: 6200, type: WidthType.DXA },
     columnWidths: idColWidths,
     rows: [
       new TableRow({
         children: [
-          cell('Nouvelle recrue :', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: idColWidths[0] }),
-          cell(data.type === 'nouvelle_recrue' ? 'X' : '', { bold: true, align: AlignmentType.CENTER, width: idColWidths[1] }),
-          cell('Réaffectation :', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: idColWidths[2] }),
-          cell(data.type === 'reaffectation' ? 'X' : '', { bold: true, align: AlignmentType.CENTER, width: idColWidths[3] }),
+          tCell('Nouvelle recrue :', { bold: true, width: idColWidths[0] }),
+          tCell(data.type === 'nouvelle_recrue' ? 'X' : '', { bold: true, align: AlignmentType.CENTER, width: idColWidths[1] }),
+          tCell('Réaffectation :', { bold: true, width: idColWidths[2] }),
+          tCell(data.type === 'reaffectation' ? 'X' : '', { bold: true, align: AlignmentType.CENTER, width: idColWidths[3] }),
         ],
       }),
     ],
   });
 
   // --- Planning header row ---
-  const planningHeader = new TableRow({
+  const buildHeaderRow = () => new TableRow({
     tableHeader: true,
     children: [
-      cell('Date', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[0], align: AlignmentType.CENTER }),
-      cell('Direction / Département / Service', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[1], align: AlignmentType.CENTER }),
-      cell('Responsable', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[2], align: AlignmentType.CENTER }),
-      cell('Objectifs', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[3], align: AlignmentType.CENTER }),
-      cell('Visa Responsable du service', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[4], align: AlignmentType.CENTER }),
-      cell('Visa Nouvelle recrue', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[5], align: AlignmentType.CENTER }),
+      tCell('Date', { bold: true, shade: HEADER_FILL, width: colWidths[0], align: AlignmentType.CENTER }),
+      tCell('Direction /Département /Service', { bold: true, shade: HEADER_FILL, width: colWidths[1], align: AlignmentType.CENTER }),
+      tCell('Responsable', { bold: true, shade: HEADER_FILL, width: colWidths[2], align: AlignmentType.CENTER }),
+      tCell('Objectifs', { bold: true, shade: HEADER_FILL, width: colWidths[3], align: AlignmentType.CENTER }),
+      tCell('Visa Responsable du service', { bold: true, shade: HEADER_FILL, width: colWidths[4], align: AlignmentType.CENTER }),
+      tCell([
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Visa', bold: true, font: 'Calibri', size: 20 })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Nouvelle recrue', bold: true, font: 'Calibri', size: 20 })] }),
+      ], { shade: HEADER_FILL, width: colWidths[5] }),
     ],
   });
 
-  const planningRows = data.entries.map(e => new TableRow({
+  const buildEntryRow = (e: typeof data.entries[number]) => new TableRow({
     children: [
-      cell([
+      tCell([
         new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: e.date ? new Date(e.date).toLocaleDateString('fr-FR') : '', bold: true, font: 'Calibri', size: 20 })] }),
         new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: e.horaire || '', bold: true, font: 'Calibri', size: 20 })] }),
       ], { width: colWidths[0] }),
-      cell(
+      tCell(
         e.direction
           ? e.direction.split(/\r?\n/).filter(l => l.trim()).map(line => new Paragraph({
               children: [new TextRun({ text: line.trim(), bold: true, font: 'Calibri', size: 20 })],
             }))
-          : '',
+          : [new Paragraph({ children: [new TextRun({ text: '' })] })],
         { width: colWidths[1] }
       ),
-      cell(e.responsable || '', { width: colWidths[2], bold: true, italic: true, align: AlignmentType.CENTER }),
-      cell(
+      tCell(e.responsable || '', { width: colWidths[2], bold: true, italic: true }),
+      tCell(
         e.objectifs
           ? e.objectifs.split(/\r?\n/).filter(l => l.trim()).map(line => new Paragraph({
               bullet: { level: 0 },
               children: [new TextRun({ text: line.replace(/^[-•]\s*/, ''), bold: true, font: 'Calibri', size: 20 })],
             }))
-          : '',
+          : [new Paragraph({ children: [new TextRun({ text: '' })] })],
         { width: colWidths[3] }
       ),
-      cell(e.visaResponsable || '', { width: colWidths[4] }),
-      cell(e.visaRecrue || data.nomPrenom || '', { width: colWidths[5] }),
+      tCell(e.visaResponsable || '', { width: colWidths[4] }),
+      tCell(e.visaRecrue || '', { width: colWidths[5] }),
     ],
-  }));
+  });
+
+  // Split entries: planning (non-formation) vs formations rows.
+  // Heuristic: entries flagged with direction containing keywords like Sécurité, Formation,
+  // Workday, Recrutement go to formations; otherwise stay in planning.
+  const formationKeywords = /(formation|workday|sécurit|securit|recrutement|développement rh|developpement rh)/i;
+  const planningEntries = data.entries.filter(e => !formationKeywords.test(`${e.direction} ${e.objectifs}`));
+  const formationEntries = data.entries.filter(e => formationKeywords.test(`${e.direction} ${e.objectifs}`));
 
   const planningTable = new Table({
     width: { size: fullW, type: WidthType.DXA },
     columnWidths: colWidths,
-    rows: [planningHeader, ...planningRows],
-  });
-
-  // --- Formations section: same structure as planning (header + rows) ---
-  const formationsHeader = new TableRow({
-    tableHeader: true,
-    children: [
-      cell('Date', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[0], align: AlignmentType.CENTER }),
-      cell('Direction / Département / Service', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[1], align: AlignmentType.CENTER }),
-      cell('Responsable', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[2], align: AlignmentType.CENTER }),
-      cell('Objectifs', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[3], align: AlignmentType.CENTER }),
-      cell('Visa Responsable du service', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[4], align: AlignmentType.CENTER }),
-      cell('Visa Nouvelle recrue', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[5], align: AlignmentType.CENTER }),
-    ],
+    rows: [buildHeaderRow(), ...planningEntries.map(buildEntryRow)],
   });
 
   const formationsTable = new Table({
     width: { size: fullW, type: WidthType.DXA },
     columnWidths: colWidths,
-    rows: [
-      formationsHeader,
-      new TableRow({
+    rows: [buildHeaderRow(), ...formationEntries.map(buildEntryRow)],
+  });
+
+  // --- AVIS / APPRECIATION boxes: large bordered box, label on top-left, "Date et Visa" bottom-right ---
+  const buildBoxRow = (title: string, content: string) => {
+    const lines = content
+      ? content.split(/\r?\n/).map(l => new Paragraph({
+          spacing: { line: 360 },
+          border: { bottom: { style: BorderStyle.DOTTED, size: 4, color: '999999', space: 1 } },
+          children: [new TextRun({ text: l, font: 'Calibri', size: 22 })],
+        }))
+      : Array.from({ length: 4 }, () => new Paragraph({
+          spacing: { line: 360 },
+          border: { bottom: { style: BorderStyle.DOTTED, size: 4, color: '999999', space: 1 } },
+          children: [new TextRun({ text: '' })],
+        }));
+
+    return new Table({
+      width: { size: fullW, type: WidthType.DXA },
+      columnWidths: [fullW],
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              borders: allBorders,
+              width: { size: fullW, type: WidthType.DXA },
+              margins: { top: 200, bottom: 200, left: 200, right: 200 },
+              children: [
+                new Paragraph({
+                  spacing: { after: 240 },
+                  children: [new TextRun({ text: title, bold: true, font: 'Calibri', size: 24 })],
+                }),
+                ...lines,
+                new Paragraph({
+                  spacing: { before: 240 },
+                  alignment: AlignmentType.RIGHT,
+                  children: [new TextRun({ text: 'Date et Visa', bold: true, font: 'Calibri', size: 22 })],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    });
+  };
+
+  const appreciationTable = buildBoxRow(
+    "APPRECIATION DE LA NOUVELLE RECRUE APRES LA REALISATION DU PLAN D'INTEGRATION",
+    data.appreciation || ''
+  );
+  const avisTable = buildBoxRow('AVIS DE LA HIERARCHIE', data.avisHierarchie || '');
+
+  // --- CIMAR logo for header (top-right on every page) ---
+  const logoBuf = await fetch(logoUrl).then(r => r.arrayBuffer());
+  const headerLogo = new Header({
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.RIGHT,
+        children: [new ImageRun({
+          type: 'png',
+          data: logoBuf,
+          transformation: { width: 160, height: 50 },
+          altText: { title: 'CIMAR', description: 'Ciments du Maroc', name: 'logo-cimar' },
+        })],
+      }),
+    ],
+  });
+
+  const footer = new Footer({
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.RIGHT,
         children: [
-          cell('', { width: colWidths[0] }),
-          cell(data.formations || '', { width: colWidths[1] + colWidths[2] + colWidths[3], colSpan: 3 }),
-          cell('', { width: colWidths[4] }),
-          cell('', { width: colWidths[5] }),
+          new TextRun({ text: 'Page ', font: 'Calibri', size: 20 }),
+          new TextRun({ children: [PageNumber.CURRENT], font: 'Calibri', size: 20 }),
+          new TextRun({ text: '/', font: 'Calibri', size: 20 }),
+          new TextRun({ children: [PageNumber.TOTAL_PAGES], font: 'Calibri', size: 20 }),
         ],
       }),
     ],
   });
 
-  const sigParas = await buildSignatureParagraphs(signer, AlignmentType.LEFT);
-
-  // --- AVIS DE LA HIERARCHIE box (header + content with "Date et Visa") ---
-  const avisTable = new Table({
-    width: { size: fullW, type: WidthType.DXA },
-    columnWidths: [fullW],
+  // --- Title in bordered box (centered) ---
+  const titleTable = new Table({
+    alignment: AlignmentType.CENTER,
+    width: { size: 5000, type: WidthType.DXA },
+    columnWidths: [5000],
     rows: [
       new TableRow({
-        tableHeader: true,
-        children: [cell('AVIS DE LA HIERARCHIE', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, align: AlignmentType.CENTER })],
-      }),
-      new TableRow({
-        children: [cell([
-          new Paragraph({ children: [new TextRun({ text: data.avisHierarchie || '', font: 'Calibri', size: 20 })] }),
-          new Paragraph({ children: [new TextRun({ text: '' })] }),
-          new Paragraph({ children: [new TextRun({ text: '' })] }),
-          ...sigParas,
-        ])],
+        children: [new TableCell({
+          borders: allBorders,
+          width: { size: 5000, type: WidthType.DXA },
+          margins: { top: 100, bottom: 100, left: 200, right: 200 },
+          children: [new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun({ text: "PLAN D'INTEGRATION", bold: true, font: 'Calibri', size: 36 })],
+          })],
+        })],
       }),
     ],
   });
 
-  // --- APPRECIATION DE LA NOUVELLE RECRUE box ---
-  const appreciationTable = new Table({
-    width: { size: fullW, type: WidthType.DXA },
-    columnWidths: [fullW],
-    rows: [
-      new TableRow({
-        tableHeader: true,
-        children: [cell("APPRÉCIATION DE LA NOUVELLE RECRUE APRÈS LA RÉALISATION DU PLAN D'INTÉGRATION", { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, align: AlignmentType.CENTER })],
-      }),
-      new TableRow({
-        children: [cell([
-          new Paragraph({ children: [new TextRun({ text: data.appreciation || '', font: 'Calibri', size: 20 })] }),
-          new Paragraph({ children: [new TextRun({ text: '' })] }),
-          new Paragraph({ children: [new TextRun({ text: '' })] }),
-          new Paragraph({ children: [new TextRun({ text: 'Date et Visa', bold: true, font: 'Calibri', size: 20 })] }),
-          new Paragraph({ children: [new TextRun({ text: data.nomPrenom || '', bold: true, font: 'Calibri', size: 20 })] }),
-        ])],
-      }),
+  // --- Identity row: 3 fields side-by-side via tab stops ---
+  const thirdW = Math.floor(fullW / 3);
+  const identityPara = new Paragraph({
+    spacing: { before: 240, after: 120 },
+    tabStops: [
+      { type: TabStopType.LEFT, position: thirdW },
+      { type: TabStopType.LEFT, position: thirdW * 2 },
     ],
-  });
-
-  // --- CIMAR logo header ---
-  const logoBuf = await fetch(logoUrl).then(r => r.arrayBuffer());
-  const logoPara = new Paragraph({
-    alignment: AlignmentType.LEFT,
-    spacing: { after: 200 },
-    children: [new ImageRun({
-      type: 'png',
-      data: logoBuf,
-      transformation: { width: 180, height: 56 },
-      altText: { title: 'CIMAR', description: 'Ciments du Maroc', name: 'logo-cimar' },
-    })],
+    children: [
+      new TextRun({ text: 'Nom et prénom : ', bold: true, font: 'Calibri', size: 22 }),
+      new TextRun({ text: data.nomPrenom || '', bold: true, font: 'Calibri', size: 22 }),
+      new TextRun({ text: '\t', font: 'Calibri', size: 22 }),
+      new TextRun({ text: "Date d'embauche : ", bold: true, font: 'Calibri', size: 22 }),
+      new TextRun({ text: data.dateEmbauche ? new Date(data.dateEmbauche).toLocaleDateString('fr-FR') : '', bold: true, font: 'Calibri', size: 22 }),
+      new TextRun({ text: '\t', font: 'Calibri', size: 22 }),
+      new TextRun({ text: 'Poste à occuper : ', bold: true, font: 'Calibri', size: 22 }),
+      new TextRun({ text: data.posteOccuper || '', bold: true, font: 'Calibri', size: 22 }),
+    ],
   });
 
   const doc = new Document({
@@ -395,38 +467,26 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
       properties: {
         page: {
           size: { width: 11906, height: 16838, orientation: PageOrientation.LANDSCAPE },
-          margin: { top: 800, right: 800, bottom: 800, left: 800 },
+          margin: { top: 1440, right: 720, bottom: 720, left: 720 },
         },
       },
+      headers: { default: headerLogo },
+      footers: { default: footer },
       children: [
-        logoPara,
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 240 },
-          children: [new TextRun({ text: "PLAN D'INTÉGRATION", bold: true, size: 40, font: 'Calibri', color: TITLE_COLOR })],
-        }),
-        new Paragraph({ children: [
-          new TextRun({ text: 'Nom et prénom : ', bold: true, font: 'Calibri', size: 22, color: TITLE_COLOR }),
-          new TextRun({ text: data.nomPrenom || '', bold: true, font: 'Calibri', size: 22 }),
-        ]}),
-        new Paragraph({ children: [
-          new TextRun({ text: "Date d'embauche : ", bold: true, font: 'Calibri', size: 22, color: TITLE_COLOR }),
-          new TextRun({ text: data.dateEmbauche ? new Date(data.dateEmbauche).toLocaleDateString('fr-FR') : '', bold: true, font: 'Calibri', size: 22 }),
-        ]}),
-        new Paragraph({ children: [
-          new TextRun({ text: 'Poste à occuper : ', bold: true, font: 'Calibri', size: 22, color: TITLE_COLOR }),
-          new TextRun({ text: data.posteOccuper || '', bold: true, font: 'Calibri', size: 22 }),
-        ]}),
-        new Paragraph({ children: [new TextRun({ text: '' })] }),
+        titleTable,
+        identityPara,
         idTable,
         new Paragraph({ children: [new TextRun({ text: '' })] }),
         planningTable,
-        new Paragraph({ spacing: { before: 240, after: 120 }, children: [new TextRun({ text: 'Formations :', bold: true, size: 26, font: 'Calibri', color: TITLE_COLOR })] }),
+        new Paragraph({
+          spacing: { before: 360, after: 120 },
+          children: [new TextRun({ text: 'Formations :', bold: true, size: 32, font: 'Calibri' })],
+        }),
         formationsTable,
         new Paragraph({ children: [new TextRun({ text: '' })] }),
-        avisTable,
-        new Paragraph({ children: [new TextRun({ text: '' })] }),
         appreciationTable,
+        new Paragraph({ children: [new TextRun({ text: '' })] }),
+        avisTable,
       ],
     }],
   });
