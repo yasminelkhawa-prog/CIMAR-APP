@@ -783,6 +783,16 @@ export function CvsRetenusForm() {
                       </>
                     )}
                     <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={runnerState.isAnalyzing || !cv.cv_raw_text}
+                      title={!cv.cv_raw_text ? 'Texte du CV non disponible — ré-uploadez le CV' : 'Recalculer extraction et score'}
+                      onClick={(e) => { e.stopPropagation(); handleReanalyzeOne(cv); }}
+                    >
+                      <RefreshCw className="h-3 w-3 mr-1" /> Re-analyser
+                    </Button>
+                    <Button
                       variant="ghost"
                       size="sm"
                       className="h-7 text-xs ml-auto text-muted-foreground hover:text-destructive"
