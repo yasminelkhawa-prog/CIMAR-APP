@@ -215,46 +215,105 @@ function tokenizePosition(position: string): string[] {
     .filter((word) => word.length >= 3 && !STOP_WORDS.has(word));
 }
 
-function scorePositionAgainstText(position: string, rawText: string): number {
-  const tokens = tokenizePosition(position);
+function tokenizeText(value: string): string[] {
+  return normalizeForCompare(value)
+    .split(" ")
+    .filter((word) => word.length >= 3 && !STOP_WORDS.has(word));
+}
+
+function scoreTokensAgainstText(tokens: string[], rawText: string, weights?: Map<string, number>): number {
   const text = normalizeForCompare(rawText);
-  if (tokens.length === 0) {
-    // fallback: all words including stop words
-    const all = normalizeForCompare(position).split(" ").filter((w) => w.length >= 3);
-    if (all.length === 0) return 0;
-    const h = all.filter((w) => text.includes(w)).length;
-    return Math.round((h / all.length) * 70);
-  }
-  const hits = tokens.filter((word) => text.includes(word)).length;
-  const ratio = hits / tokens.length;
-  if (ratio >= 1) return 95;
-  if (ratio >= 0.75) return 85;
-  if (ratio >= 0.5) return 72;
-  if (ratio >= 0.34) return 58;
-  if (ratio > 0) return 42;
+  if (tokens.length === 0) return 0;
+  const uniqueTokens = Array.from(new Set(tokens));
+  const totalWeight = uniqueTokens.reduce((sum, token) => sum + (weights?.get(token) ?? 1), 0);
+  if (totalWeight <= 0) return 0;
+  const matchedWeight = uniqueTokens.reduce((sum, token) => sum + (text.includes(token) ? (weights?.get(token) ?? 1) : 0), 0);
+  const ratio = matchedWeight / totalWeight;
+  if (ratio >= 0.9) return 95;
+  if (ratio >= 0.75) return 88;
+  if (ratio >= 0.6) return 80;
+  if (ratio >= 0.45) return 68;
+  if (ratio >= 0.3) return 54;
+  if (ratio > 0) return 35;
   return 0;
 }
 
-function pickBestPositionByHeuristic(targetPositions: string[], rawText: string): { position: string; score: number } {
+function scorePositionAgainstText(position: string, rawText: string): number {
+  return scoreTokensAgainstText(tokenizePosition(position), rawText);
+}
+
+function buildJobDescriptionWeights(description: string): Map<string, number> {
+  const weights = new Map<string, number>();
+  for (const token of tokenizeText(description)) {
+    weights.set(token, (weights.get(token) ?? 0) + 1.6);
+  }
+  return weights;
+}
+
+function scorePositionWithJobDescription(position: string, rawText: string, jobDescription?: string): number {
+  const positionTokens = tokenizePosition(position);
+  if (!jobDescription) return scoreTokensAgainstText(positionTokens, rawText);
+
+  const descriptionWeights = buildJobDescriptionWeights(jobDescription);
+  const descriptionTokens = Array.from(descriptionWeights.keys());
+  const positionScore = scoreTokensAgainstText(positionTokens, rawText);
+  const descriptionScore = scoreTokensAgainstText(descriptionTokens, rawText, descriptionWeights);
+
+  if (descriptionTokens.length === 0) return positionScore;
+  return Math.round(positionScore * 0.45 + descriptionScore * 0.55);
+}
+
+function pickBestPositionByHeuristic(
+  targetPositions: string[],
+  rawText: string,
+  jobDescriptions: Map<string, string>
+): { position: string; score: number } {
   let best = { position: targetPositions[0] || "", score: -1 };
   for (const p of targetPositions) {
-    const s = scorePositionAgainstText(p, rawText);
+    const s = scorePositionWithJobDescription(p, rawText, jobDescriptions.get(p));
     if (s > best.score) best = { position: p, score: s };
   }
   return best;
 }
 
-function normalizeMatchingScore(rawScore: unknown, assignedPosition: string, rawText: string): number {
+function normalizeMatchingScore(
+  rawScore: unknown,
+  assignedPosition: string,
+  rawText: string,
+  jobDescriptions: Map<string, string>
+): number {
   const aiScore = normalizeScore(rawScore);
-  const heuristicScore = scorePositionAgainstText(assignedPosition, rawText);
-  // Severe AI under-scoring: trust heuristic
-  if (heuristicScore >= 72 && aiScore < 40) return heuristicScore;
-  if (heuristicScore >= 50 && aiScore < 25) return Math.max(aiScore, heuristicScore);
-  // Suspicious AI over-score with zero keyword overlap
+  const heuristicScore = scorePositionWithJobDescription(assignedPosition, rawText, jobDescriptions.get(assignedPosition));
+  if (heuristicScore >= 80 && aiScore < 45) return heuristicScore;
+  if (heuristicScore >= 60 && aiScore < 30) return heuristicScore;
+  if (heuristicScore >= 45 && aiScore < 20) return heuristicScore;
   if (heuristicScore === 0 && aiScore > 90) return 70;
-  // Floor: if any meaningful overlap, never report < 25%
   if (heuristicScore > 0 && aiScore < 25) return Math.max(25, heuristicScore);
   return Math.max(aiScore, heuristicScore);
+}
+
+function buildLowScoreComment(score: number, rawText: string, assignedPosition: string, aiComment: string): string {
+  if (score >= 20) return aiComment;
+  const currentRole = inferCurrentPosition(rawText, "");
+  const education = /formation|ecole|école|universit|bachelor|master|licence|dut|ingenieur|ingénieur/i.test(rawText)
+    ? "Formation visible mais correspondance métier faible."
+    : "Correspondance métier faible avec le poste cible.";
+  if (currentRole) {
+    return `Score faible: profil plutôt orienté ${currentRole} que ${assignedPosition}. ${education}`.slice(0, 300);
+  }
+  return (`Score faible: ${education} Mots-clés du poste peu présents dans le CV.`).slice(0, 300);
+}
+
+function validateExtraction(parsed: Record<string, unknown>, sourceText: string): { valid: boolean; needsReview: boolean; reason?: string } {
+  const normalizedSource = normalizeForCompare(sourceText).replace(/\s+/g, "");
+  const candidateName = pickStr(parsed.candidate_name, 120);
+  if (candidateName) {
+    const normalizedName = normalizeForCompare(candidateName).replace(/\s+/g, "");
+    if (normalizedName && normalizedName.length >= 5 && !normalizedSource.includes(normalizedName)) {
+      return { valid: false, needsReview: false, reason: "Candidate name not found in source text" };
+    }
+  }
+  return { valid: true, needsReview: false };
 }
 
 async function callAi(cvText: string, targetPositions: string[]): Promise<Record<string, unknown>> {
