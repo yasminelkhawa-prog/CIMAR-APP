@@ -13,7 +13,8 @@ export async function exportEvaluationDocx(
   evaluation: EvaluationForm,
   interviewerFallback?: string,
 ) {
-  const res = await fetch(templateUrl);
+  // cache-bust to make sure we never serve a stale template
+  const res = await fetch(`${templateUrl}?v=${Date.now()}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to load evaluation template');
   const buf = await res.arrayBuffer();
 
@@ -24,12 +25,25 @@ export async function exportEvaluationDocx(
     delimiters: { start: '{', end: '}' },
   });
 
-  doc.render({
-    date: evaluation.date || '',
+  const data = {
+    date: evaluation.date
+      ? new Date(evaluation.date).toLocaleDateString('fr-FR')
+      : '',
     lieu: evaluation.location || '',
     nomCandidat: evaluation.candidateName || '',
     nomIntervieweur: evaluation.interviewerName || interviewerFallback || '',
-  });
+  };
+
+  // eslint-disable-next-line no-console
+  console.log('[evaluationDocxExport] Filling template with:', data);
+
+  try {
+    doc.render(data);
+  } catch (err: any) {
+    // eslint-disable-next-line no-console
+    console.error('[evaluationDocxExport] render error:', err, err?.properties);
+    throw err;
+  }
 
   const out = doc.getZip().generate({
     type: 'blob',
