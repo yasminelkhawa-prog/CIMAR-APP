@@ -78,11 +78,30 @@ export function EvaluationsList({ evaluations, jobRoles, onDelete, onSelect }: P
                 {ev.decision === 'unfavorable' && <XCircle className="h-5 w-5 text-destructive" />}
                 {!ev.decision && <span className="text-xs text-muted-foreground">{t('pending')}</span>}
               </div>
-              <Button variant="ghost" size="icon" className="shrink-0" onClick={() => {
-                const role = jobRoles.find(r => r.id === ev.jobRoleConfigId);
-                generateEvaluationPdf(ev, role, lang, profile?.signature_url ?? null);
-              }}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                title="Export PDF"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const role = jobRoles.find(r => r.id === ev.jobRoleConfigId);
+                  generateEvaluationPdf(ev, role, lang, profile?.signature_url ?? null);
+                }}
+              >
                 <Download className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                title="Export Word"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  exportEvaluationDocx(ev, profile?.full_name);
+                }}
+              >
+                <FileType className="h-4 w-4" />
               </Button>
               <Button variant="ghost" size="icon" className="text-destructive shrink-0" onClick={() => onDelete(ev.id)}>
                 <Trash2 className="h-4 w-4" />
