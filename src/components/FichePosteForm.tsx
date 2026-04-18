@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { exportFichePosteDocx } from '@/utils/documentExports';
+import { FormAssistant } from '@/components/FormAssistant';
 
 interface ListItem {
   id: string;
@@ -224,6 +225,31 @@ export function FichePosteForm() {
           </Button>
         </div>
       )}
+
+      <FormAssistant
+        formType="fiche_poste"
+        currentData={formData}
+        disabled={!!readOnly}
+        onApply={(s) => {
+          setFormData(prev => {
+            const next: FichePosteData = { ...prev };
+            const scalarKeys: (keyof FichePosteData)[] = ['poste','rattachementHierarchique','rattachementFonctionnel','supervise','nombreSubordonnees','perimetre','niveauHierarchique','mission'];
+            scalarKeys.forEach(k => {
+              const v = s[k as string];
+              if (typeof v === 'string' && v.trim()) (next as any)[k] = v;
+            });
+            (['rolesResponsabilites','competences','profil'] as const).forEach(k => {
+              const v = s[k];
+              if (Array.isArray(v) && v.length > 0) {
+                const items = v as CategorizedItem[];
+                const isEmpty = prev[k].every(it => !it.category && !it.details);
+                next[k] = isEmpty ? items : [...prev[k], ...items];
+              }
+            });
+            return next;
+          });
+        }}
+      />
     </div>
   );
 }

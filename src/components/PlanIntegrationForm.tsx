@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { exportPlanIntegrationDocx } from '@/utils/documentExports';
+import { FormAssistant } from '@/components/FormAssistant';
 
 interface ListItem {
   id: string;
@@ -239,6 +240,39 @@ export function PlanIntegrationForm() {
           </Button>
         </div>
       )}
+
+      <FormAssistant
+        formType="plan_integration"
+        currentData={formData}
+        disabled={!!readOnly}
+        onApply={(s) => {
+          setFormData(prev => {
+            const next: PlanIntegrationData = { ...prev };
+            if (typeof s.posteOccuper === 'string' && s.posteOccuper.trim()) next.posteOccuper = s.posteOccuper;
+            if (s.type === 'nouvelle_recrue' || s.type === 'reaffectation') next.type = s.type;
+            if (typeof s.formations === 'string' && s.formations.trim()) {
+              next.formations = prev.formations ? `${prev.formations}\n${s.formations}` : s.formations;
+            }
+            if (typeof s.avisHierarchie === 'string' && s.avisHierarchie.trim()) next.avisHierarchie = s.avisHierarchie;
+            if (typeof s.appreciation === 'string' && s.appreciation.trim()) next.appreciation = s.appreciation;
+            if (Array.isArray(s.entries) && s.entries.length > 0) {
+              const newEntries: IntegrationEntry[] = (s.entries as Array<Partial<IntegrationEntry>>).map(e => ({
+                id: crypto.randomUUID(),
+                date: e.date || '',
+                horaire: e.horaire || '',
+                direction: e.direction || '',
+                responsable: e.responsable || '',
+                objectifs: e.objectifs || '',
+                visaResponsable: '',
+                visaRecrue: '',
+              }));
+              const isEmpty = prev.entries.every(e => !e.direction && !e.responsable && !e.objectifs);
+              next.entries = isEmpty ? newEntries : [...prev.entries, ...newEntries];
+            }
+            return next;
+          });
+        }}
+      />
     </div>
   );
 }
