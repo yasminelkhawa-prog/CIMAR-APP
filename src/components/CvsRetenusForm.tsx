@@ -415,6 +415,48 @@ export function CvsRetenusForm() {
     setAnalyses(prev => prev.filter(a => a.id !== id));
   };
 
+  /** Re-run extraction + scoring on already-stored CVs (no re-upload). */
+  const reanalyzeExisting = async (cvs: CvAnalysis[], label: string) => {
+    if (targetPositions.length === 0) {
+      toast.error('Ajoutez au moins un poste cible avant de relancer.');
+      return;
+    }
+    const usable = cvs.filter(c => (c.cv_raw_text && c.cv_raw_text.trim().length > 20));
+    if (usable.length === 0) {
+      toast.error("Aucun texte de CV stocké pour relancer l'analyse.");
+      return;
+    }
+    if (usable.length < cvs.length) {
+      toast.warning(`${cvs.length - usable.length} CV ignoré(s) — texte manquant en base.`);
+    }
+    const oldIds = usable.map(c => c.id);
+    const payload = usable.map(c => ({
+      text: c.cv_raw_text || '',
+      filePath: c.cv_file_path || '',
+    }));
+    toast.info(`Relance de ${usable.length} CV — ${label}`);
+    cvAnalysisRunner.run({
+      cvTexts: payload,
+      sessionId: crypto.randomUUID(),
+      targetPositions,
+      onError: (msg) => toast.error(msg),
+      onSuccess: async (count, total, failed) => {
+        // Remove old analyses now that new ones have been inserted
+        if (oldIds.length > 0) {
+          await supabase.from('cv_analyses').delete().in('id', oldIds);
+        }
+        if (failed > 0) toast.warning(`${count}/${total} relancés. ${failed} échec(s).`);
+        else toast.success(`${count} CV ré-analysés !`);
+        loadAnalyses();
+      },
+    });
+  };
+
+  const handleReanalyzeOne = (cv: CvAnalysis) => reanalyzeExisting([cv], cv.nom_candidat || 'candidat');
+  const handleReanalyzeAllForPoste = (poste: string, cvs: CvAnalysis[]) =>
+    reanalyzeExisting(cvs, poste);
+  const handleReanalyzeAll = () => reanalyzeExisting(analyses, 'tous les CV');
+
   const getCvUrl = async (filePath: string) => {
     if (!filePath) {
       toast.error('Aucun fichier CV stocké pour ce candidat');
