@@ -35,6 +35,7 @@ export function PlanIntegrationForm() {
   const [editMode, setEditMode] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [formData, setFormData] = useState<PlanIntegrationData>(DEFAULT_PLAN_INTEGRATION);
+  const { syncPlanEntries } = useCalendar();
 
   // Auto-fill signed-in user as default visa for entries
   useEffect(() => {
