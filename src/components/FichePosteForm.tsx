@@ -81,7 +81,8 @@ export function FichePosteForm() {
     toast.success(t('deleted'));
   };
 
-  const readOnly = selected && !editMode;
+  const { locked } = useDocumentLock('fiche_poste', selected?.id ?? null);
+  const readOnly = (selected && !editMode) || locked;
 
   if (!showNew && !selected) {
     return (
