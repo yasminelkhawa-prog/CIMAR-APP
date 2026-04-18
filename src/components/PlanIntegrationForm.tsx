@@ -93,7 +93,8 @@ export function PlanIntegrationForm() {
     toast.success(t('deleted'));
   };
 
-  const readOnly = selected && !editMode;
+  const { locked } = useDocumentLock('plan_integration', selected?.id ?? null);
+  const readOnly = (selected && !editMode) || locked;
 
   if (!showNew && !selected) {
     return (
