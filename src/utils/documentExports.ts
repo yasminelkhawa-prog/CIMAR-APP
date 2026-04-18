@@ -193,7 +193,7 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
     sections: [{
       properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 } } },
       children: [
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Description de Poste', bold: true, size: 36, font: 'Calibri' })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Description de Poste', bold: true, size: 36, font: 'Calibri', color: TITLE_COLOR })] }),
         new Paragraph({ children: [new TextRun({ text: '' })] }),
         infoTable,
         new Paragraph({ children: [new TextRun({ text: '' })] }),
