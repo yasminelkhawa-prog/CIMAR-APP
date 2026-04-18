@@ -35,7 +35,6 @@ export function FicheEmbaucheForm() {
     if (!profile?.full_name) return;
     setFormData(prev => {
       let next = prev;
-      if (!prev.directionRHName) next = { ...next, directionRHName: profile.full_name };
       // Pre-fill first interviewer slot if it's empty
       if (next.interviewPanel?.length > 0 && !next.interviewPanel[0].name) {
         const panel = [...next.interviewPanel];
