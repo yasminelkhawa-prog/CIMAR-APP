@@ -16,6 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import * as pdfjsLib from 'pdfjs-dist';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import { cvAnalysisRunner, type RunnerState } from '@/lib/cvAnalysisRunner';
 import { FormAssistant } from '@/components/FormAssistant';
 
@@ -608,47 +610,171 @@ export function CvsRetenusForm() {
     }
   };
 
-  const handleDownloadReport = () => {
-    const wb = XLSX.utils.book_new();
-    Object.entries(grouped).forEach(([poste, candidates]) => {
-      const ws = XLSX.utils.json_to_sheet(buildExportRows(poste, candidates));
-      ws['!cols'] = EXPORT_COL_WIDTHS;
-      XLSX.utils.book_append_sheet(wb, ws, poste.substring(0, 31));
+  const styleSheet = (
+    ws: ExcelJS.Worksheet,
+    headers: string[],
+    rows: (string | number)[][],
+    widths: number[],
+    scoreColIndex: number,
+    rankColIndex: number | null,
+  ) => {
+    ws.columns = headers.map((h, i) => ({ header: h, key: `c${i}`, width: widths[i] || 18 }));
+    rows.forEach((r) => ws.addRow(r));
+
+    // Header styling — dark navy, white bold
+    const headerRow = ws.getRow(1);
+    headerRow.height = 28;
+    headerRow.eachCell((cell) => {
+      cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FF334155' } },
+        left: { style: 'thin', color: { argb: 'FF334155' } },
+        bottom: { style: 'medium', color: { argb: 'FF0F172A' } },
+        right: { style: 'thin', color: { argb: 'FF334155' } },
+      };
     });
-    const summaryData = Object.entries(grouped).flatMap(([poste, candidates]) =>
-      candidates.map((cv, i) => ({
-        'Poste': poste,
-        'Rang': i + 1,
-        'Prénom': cv.candidate_details?.prenom || (cv.nom_candidat || '').split(' ')[0] || '',
-        'Nom': cv.candidate_details?.nom || (cv.nom_candidat || '').split(' ').slice(1).join(' ') || '',
-        'Score (%)': cv.matching_score,
-        'Région': cv.candidate_details?.region || '',
-        'Formation': cv.candidate_details?.formation || '',
-        'Poste actuel': cv.candidate_details?.poste_actuel || '',
-        'Entreprise': cv.candidate_details?.entreprise_actuelle || '',
-        'Expérience': cv.candidate_details?.annees_experience || '',
-        'Email': cv.email || '',
-        'Téléphone': cv.candidate_details?.telephone || '',
-      }))
-    );
-    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
-    summaryWs['!cols'] = [
-      { wch: 25 }, { wch: 6 }, { wch: 15 }, { wch: 20 }, { wch: 8 },
-      { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 10 },
-      { wch: 30 }, { wch: 15 },
+
+    // Top 6 highlight palette (gold → silver → bronze → soft tints)
+    const topPalette = [
+      { bg: 'FFFFF3C4', accent: 'FFB45309', label: '🥇' }, // 1 gold
+      { bg: 'FFE5E7EB', accent: 'FF374151', label: '🥈' }, // 2 silver
+      { bg: 'FFFCD9B6', accent: 'FF9A3412', label: '🥉' }, // 3 bronze
+      { bg: 'FFDBEAFE', accent: 'FF1E40AF', label: '⭐' }, // 4
+      { bg: 'FFDBEAFE', accent: 'FF1E40AF', label: '⭐' }, // 5
+      { bg: 'FFDBEAFE', accent: 'FF1E40AF', label: '⭐' }, // 6
     ];
-    XLSX.utils.book_append_sheet(wb, summaryWs, 'Comparatif Global');
-    XLSX.writeFile(wb, `rapport_preselection_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+    rows.forEach((_, i) => {
+      const excelRow = ws.getRow(i + 2);
+      excelRow.height = 22;
+      const top = i < 6 ? topPalette[i] : null;
+      const zebra = i % 2 === 1 ? 'FFF8FAFC' : 'FFFFFFFF';
+
+      excelRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        cell.font = {
+          name: 'Calibri',
+          size: 10,
+          bold: !!top,
+          color: { argb: top ? top.accent : 'FF0F172A' },
+        };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: top ? top.bg : zebra },
+        };
+        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+        cell.border = {
+          top: { style: 'hair', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'hair', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'hair', color: { argb: 'FFE2E8F0' } },
+        };
+
+        // Score column — center + colored badge
+        if (colNumber === scoreColIndex) {
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          cell.numFmt = '0"%"';
+          const score = Number(cell.value) || 0;
+          const scoreColor = score >= 80 ? 'FF15803D' : score >= 60 ? 'FF1E40AF' : score >= 40 ? 'FFB45309' : 'FFB91C1C';
+          cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: scoreColor } };
+        }
+
+        // Rank column — center + medal
+        if (rankColIndex !== null && colNumber === rankColIndex && top) {
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          cell.value = `${top.label} ${cell.value}`;
+        } else if (rankColIndex !== null && colNumber === rankColIndex) {
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        }
+      });
+    });
+
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: headers.length } };
+  };
+
+  const buildPosteSheet = (wb: ExcelJS.Workbook, poste: string, candidates: CvAnalysis[]) => {
+    const ws = wb.addWorksheet(poste.substring(0, 31).replace(/[\\/?*[\]]/g, '_'), {
+      views: [{ showGridLines: false }],
+    });
+    const headers = [
+      'Rang', 'Poste', 'Prénom', 'Nom', 'Région', 'Établissement de formation', 'Formation',
+      'Poste actuel', 'Entreprise actuelle', 'Date début poste', 'Nbr années expérience',
+      'Email', 'Téléphone', 'Score (%)', 'Compétences clés', 'Synthèse IA',
+    ];
+    const widths = [6, 25, 15, 20, 15, 25, 25, 25, 25, 12, 10, 30, 15, 10, 40, 60];
+    const rows = candidates.map((cv, i) => [
+      i + 1,
+      poste,
+      cv.candidate_details?.prenom || (cv.nom_candidat || '').split(' ')[0] || '',
+      cv.candidate_details?.nom || (cv.nom_candidat || '').split(' ').slice(1).join(' ') || '',
+      cv.candidate_details?.region || '',
+      cv.candidate_details?.etablissement_formation || '',
+      cv.candidate_details?.formation || '',
+      cv.candidate_details?.poste_actuel || '',
+      cv.candidate_details?.entreprise_actuelle || '',
+      cv.candidate_details?.date_debut_poste || '',
+      cv.candidate_details?.annees_experience || '',
+      cv.email || '',
+      cv.candidate_details?.telephone || '',
+      cv.matching_score,
+      (cv.competences_cles || []).join(', '),
+      cv.synthese_ia || '',
+    ]);
+    styleSheet(ws, headers, rows, widths, 14, 1);
+  };
+
+  const writeStyledWorkbook = async (wb: ExcelJS.Workbook, filename: string) => {
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
+  };
+
+  const handleDownloadReport = async () => {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'CIMAR HR';
+    wb.created = new Date();
+
+    Object.entries(grouped).forEach(([poste, candidates]) => {
+      buildPosteSheet(wb, poste, candidates);
+    });
+
+    // Global comparative — sorted by score desc across all postes
+    const allRows = Object.entries(grouped).flatMap(([poste, candidates]) =>
+      candidates.map((cv) => ({ poste, cv }))
+    ).sort((a, b) => (b.cv.matching_score || 0) - (a.cv.matching_score || 0));
+
+    const summaryWs = wb.addWorksheet('Comparatif Global', { views: [{ showGridLines: false }] });
+    const sumHeaders = ['Rang', 'Poste', 'Prénom', 'Nom', 'Score (%)', 'Région', 'Formation', 'Poste actuel', 'Entreprise', 'Expérience', 'Email', 'Téléphone'];
+    const sumWidths = [6, 25, 15, 20, 10, 15, 25, 25, 25, 12, 30, 15];
+    const sumRows = allRows.map(({ poste, cv }, i) => [
+      i + 1,
+      poste,
+      cv.candidate_details?.prenom || (cv.nom_candidat || '').split(' ')[0] || '',
+      cv.candidate_details?.nom || (cv.nom_candidat || '').split(' ').slice(1).join(' ') || '',
+      cv.matching_score,
+      cv.candidate_details?.region || '',
+      cv.candidate_details?.formation || '',
+      cv.candidate_details?.poste_actuel || '',
+      cv.candidate_details?.entreprise_actuelle || '',
+      cv.candidate_details?.annees_experience || '',
+      cv.email || '',
+      cv.candidate_details?.telephone || '',
+    ]);
+    styleSheet(summaryWs, sumHeaders, sumRows, sumWidths, 5, 1);
+
+    await writeStyledWorkbook(wb, `rapport_preselection_${new Date().toISOString().split('T')[0]}.xlsx`);
     toast.success(t('downloadReport'));
   };
 
-  const handleDownloadPosteReport = (poste: string, candidates: CvAnalysis[]) => {
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(buildExportRows(poste, candidates));
-    ws['!cols'] = EXPORT_COL_WIDTHS;
-    XLSX.utils.book_append_sheet(wb, ws, poste.substring(0, 31));
+  const handleDownloadPosteReport = async (poste: string, candidates: CvAnalysis[]) => {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'CIMAR HR';
+    wb.created = new Date();
+    buildPosteSheet(wb, poste, candidates);
     const safe = poste.replace(/[^a-z0-9]/gi, '_').substring(0, 40);
-    XLSX.writeFile(wb, `${safe}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    await writeStyledWorkbook(wb, `${safe}_${new Date().toISOString().split('T')[0]}.xlsx`);
     toast.success(`Export "${poste}" téléchargé`);
   };
 
