@@ -725,83 +725,71 @@ export function CvsRetenusForm() {
             </div>
           </DialogHeader>
           {openPoste && grouped[openPoste] && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-4">
               {grouped[openPoste].map((cv, index) => {
                 const tone = getScoreTone(cv.matching_score);
                 const accent = accentFor(openPoste);
                 return (
-                  <Card
+                  <div
                     key={cv.id}
-                    className={`relative overflow-hidden border-2 hover:shadow-md transition-shadow ${tone.border}/30`}
+                    className="group relative overflow-hidden rounded-2xl border border-white/40 dark:border-white/10 bg-white/60 dark:bg-white/5 backdrop-blur-xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:shadow-[0_12px_40px_rgb(0,0,0,0.12)] transition-all duration-300 hover:-translate-y-0.5"
                   >
+                    {/* Decorative glassy blobs */}
+                    <div className={`pointer-events-none absolute -top-20 -right-20 w-56 h-56 rounded-full bg-gradient-to-br ${accent} opacity-25 blur-3xl`} />
+                    <div className={`pointer-events-none absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-gradient-to-tr ${accent} opacity-15 blur-3xl`} />
+                    <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${accent}`} />
+
                     {/* Rank badge */}
-                    <div className="absolute top-3 left-3 z-10">
-                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        index === 0 ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200'
-                        : index === 1 ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                        : index === 2 ? 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200'
-                        : 'bg-muted text-muted-foreground'
+                    <div className="absolute top-3 right-3 z-10">
+                      <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold backdrop-blur-md border ${
+                        index === 0 ? 'bg-amber-100/80 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-200'
+                        : index === 1 ? 'bg-slate-100/80 text-slate-700 border-slate-300 dark:bg-slate-800/60 dark:text-slate-300'
+                        : index === 2 ? 'bg-orange-100/80 text-orange-800 border-orange-300 dark:bg-orange-950/60 dark:text-orange-200'
+                        : 'bg-white/60 text-muted-foreground border-white/50 dark:bg-white/10'
                       }`}>
-                        {index < 3 && <Trophy className="h-2.5 w-2.5" />} #{index + 1}
+                        {index === 0 ? <Crown className="h-2.5 w-2.5" /> : index < 3 ? <Trophy className="h-2.5 w-2.5" /> : null}
+                        #{index + 1}
                       </div>
                     </div>
 
-                    <CardContent className="p-5 pt-10">
-                      {/* Header with avatar + score */}
+                    <div className="relative p-5">
+                      {/* Header: avatar + name + score */}
                       <div className="flex items-start gap-3 mb-4">
-                        <div className={`flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br ${accent} flex items-center justify-center text-white text-sm font-bold shadow-md`}>
+                        <div className={`flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br ${accent} flex items-center justify-center text-white text-base font-bold shadow-lg ring-2 ring-white/60 dark:ring-white/20`}>
                           {getInitials(cv.candidate_details?.prenom, cv.candidate_details?.nom, cv.nom_candidat)}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-bold text-sm truncate">
+                        <div className="min-w-0 flex-1 pr-12">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
+                            Prénom & Nom
+                          </p>
+                          <p className="font-bold text-base leading-tight truncate">
                             {cv.candidate_details?.prenom || ''}{' '}
                             {cv.candidate_details?.nom || cv.nom_candidat}
                           </p>
-                          <div className="flex flex-col gap-0.5 mt-0.5">
-                            {cv.email && (
-                              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                                <Mail className="h-3 w-3 flex-shrink-0" />
-                                <span className="truncate">{cv.email}</span>
-                              </div>
-                            )}
-                            {cv.candidate_details?.telephone && (
-                              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                                <Phone className="h-3 w-3 flex-shrink-0" />
-                                <span className="truncate">{cv.candidate_details.telephone}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {/* Score ring */}
-                        <div className={`flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-full ${tone.bg} text-white shadow-md ring-4 ${tone.ring}`}>
-                          <span className="text-base font-bold leading-none">{cv.matching_score}</span>
-                          <span className="text-[9px] opacity-90">{tone.label}</span>
                         </div>
                       </div>
 
-                      {/* Detail grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 text-xs">
-                        {cv.candidate_details?.region && (
-                          <DetailRow icon={MapPin} label="Région" value={cv.candidate_details.region} />
-                        )}
-                        {cv.candidate_details?.annees_experience && (
-                          <DetailRow icon={Clock} label="Expérience" value={cv.candidate_details.annees_experience} />
-                        )}
-                        {cv.candidate_details?.formation && (
-                          <DetailRow icon={GraduationCap} label="Formation" value={cv.candidate_details.formation} />
-                        )}
-                        {cv.candidate_details?.etablissement_formation && (
-                          <DetailRow icon={Building2} label="École" value={cv.candidate_details.etablissement_formation} />
-                        )}
-                        {cv.candidate_details?.poste_actuel && (
-                          <DetailRow icon={Briefcase} label="Poste actuel" value={cv.candidate_details.poste_actuel} />
-                        )}
-                        {cv.candidate_details?.entreprise_actuelle && (
-                          <DetailRow icon={Building2} label="Entreprise" value={cv.candidate_details.entreprise_actuelle} />
-                        )}
-                        {cv.candidate_details?.date_debut_poste && (
-                          <DetailRow icon={Calendar} label="Depuis" value={cv.candidate_details.date_debut_poste} />
-                        )}
+                      {/* Score pill row */}
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${tone.bg} text-white shadow-md text-xs font-bold`}>
+                          <Sparkles className="h-3 w-3" />
+                          {cv.matching_score}% — {tone.label}
+                        </div>
+                        <div className="px-2.5 py-1 rounded-full bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/10 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          {openPoste}
+                        </div>
+                      </div>
+
+                      {/* Detail grid — all required criteria */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                        <GlassDetail icon={Briefcase} label="Poste actuel" value={cv.candidate_details?.poste_actuel} accent={accent} />
+                        <GlassDetail icon={Building2} label="Entreprise actuelle" value={cv.candidate_details?.entreprise_actuelle} accent={accent} />
+                        <GlassDetail icon={Calendar} label="Début poste actuel" value={cv.candidate_details?.date_debut_poste} accent={accent} />
+                        <GlassDetail icon={Clock} label="Années d'expérience" value={cv.candidate_details?.annees_experience} accent={accent} />
+                        <GlassDetail icon={GraduationCap} label="Établissement formation" value={cv.candidate_details?.etablissement_formation} accent={accent} />
+                        <GlassDetail icon={Award} label="Formation" value={cv.candidate_details?.formation} accent={accent} />
+                        <GlassDetail icon={Mail} label="Adresse e-mail" value={cv.email} accent={accent} />
+                        <GlassDetail icon={Phone} label="Téléphone" value={cv.candidate_details?.telephone} accent={accent} />
                       </div>
 
                       {/* Skills */}
@@ -810,11 +798,14 @@ export function CvsRetenusForm() {
                           <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1.5">
                             Compétences clés
                           </p>
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-1.5">
                             {cv.competences_cles.map((comp, i) => (
-                              <Badge key={i} variant="secondary" className="text-[11px] px-2 py-0.5 font-normal">
+                              <span
+                                key={i}
+                                className={`text-[11px] px-2.5 py-1 rounded-full bg-gradient-to-r ${accent} text-white font-medium shadow-sm`}
+                              >
                                 {comp}
-                              </Badge>
+                              </span>
                             ))}
                           </div>
                         </div>
@@ -822,18 +813,18 @@ export function CvsRetenusForm() {
 
                       {/* AI synthesis */}
                       {cv.synthese_ia && (
-                        <div className={`p-2.5 rounded-lg ${tone.soft} border-l-2 ${tone.border} mb-3`}>
-                          <div className="flex items-start gap-1.5">
-                            <Sparkles className={`h-3 w-3 ${tone.text} flex-shrink-0 mt-0.5`} />
-                            <p className="text-xs italic leading-relaxed">{cv.synthese_ia}</p>
+                        <div className={`p-3 rounded-xl bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-white/50 dark:border-white/10 mb-3`}>
+                          <div className="flex items-start gap-2">
+                            <Sparkles className={`h-3.5 w-3.5 ${tone.text} flex-shrink-0 mt-0.5`} />
+                            <p className="text-xs italic leading-relaxed text-foreground/80">{cv.synthese_ia}</p>
                           </div>
                         </div>
                       )}
 
                       {/* Actions */}
-                      <div className="flex items-center gap-2 pt-2 border-t">
+                      <div className="flex items-center gap-2 pt-3 border-t border-white/40 dark:border-white/10">
                         {cv.cv_file_path && (
-                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewCV(cv.cv_file_path)}>
+                          <Button variant="outline" size="sm" className="h-7 text-xs bg-white/60 dark:bg-white/10 backdrop-blur-sm border-white/50 dark:border-white/10" onClick={() => handleViewCV(cv.cv_file_path)}>
                             <Eye className="h-3 w-3 mr-1" /> Voir CV
                           </Button>
                         )}
@@ -846,8 +837,8 @@ export function CvsRetenusForm() {
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -879,14 +870,35 @@ export function CvsRetenusForm() {
   );
 }
 
-function DetailRow({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+function GlassDetail({
+  icon: Icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: any;
+  label: string;
+  value?: string;
+  accent: string;
+}) {
+  const hasValue = !!(value && value.trim());
   return (
-    <div className="flex items-start gap-1.5 min-w-0">
-      <Icon className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
-      <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{label}</p>
-        <p className="text-xs font-medium truncate" title={value}>{value}</p>
+    <div className="flex items-start gap-2 p-2 rounded-lg bg-white/50 dark:bg-white/5 backdrop-blur-sm border border-white/40 dark:border-white/10 min-w-0">
+      <div className={`flex-shrink-0 w-6 h-6 rounded-md bg-gradient-to-br ${accent} flex items-center justify-center shadow-sm`}>
+        <Icon className="h-3 w-3 text-white" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
+          {label}
+        </p>
+        <p
+          className={`text-xs font-medium truncate ${hasValue ? 'text-foreground' : 'text-muted-foreground/60 italic'}`}
+          title={hasValue ? value : 'Non renseigné'}
+        >
+          {hasValue ? value : '—'}
+        </p>
       </div>
     </div>
   );
 }
+
