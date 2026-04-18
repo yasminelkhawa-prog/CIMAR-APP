@@ -47,6 +47,10 @@ const RequestSchema = z.object({
   })).min(1),
   sessionId: z.string().uuid().optional(),
   targetPositions: z.array(z.string().trim().min(1)).min(1),
+  jobDescriptions: z.array(z.object({
+    position: z.string().trim().min(1),
+    description: z.string().trim().min(1),
+  })).optional().default([]),
 });
 
 function jsonResponse(body: unknown, status = 200) {
@@ -72,6 +76,43 @@ function getMessageContent(content: unknown): string {
   return "";
 }
 
+function extractJsonFromResponse(raw: string): Record<string, unknown> {
+  let cleaned = raw
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+    .trim();
+
+  if (!cleaned.startsWith("{")) {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start !== -1 && end > start) cleaned = cleaned.slice(start, end + 1);
+  }
+
+  const tryParse = (value: string) => JSON.parse(value) as Record<string, unknown>;
+
+  try {
+    return tryParse(cleaned);
+  } catch {
+    const repaired = cleaned
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*]/g, "]")
+      .replace(/\u00a0/g, " ");
+    return tryParse(repaired);
+  }
+}
+
+function isLikelyTruncatedResponse(payload: any, rawContent: string): boolean {
+  const finishReason = payload?.choices?.[0]?.finish_reason ?? payload?.stop_reason;
+  if (finishReason === "length" || finishReason === "max_tokens") return true;
+  const text = rawContent.trim();
+  const openBraces = (text.match(/{/g) || []).length;
+  const closeBraces = (text.match(/}/g) || []).length;
+  const openBrackets = (text.match(/\[/g) || []).length;
+  const closeBrackets = (text.match(/\]/g) || []).length;
+  return openBraces !== closeBraces || openBrackets !== closeBrackets;
+}
+
 function normalizeStringArray(value: unknown, limit: number): string[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -82,6 +123,11 @@ function normalizeStringArray(value: unknown, limit: number): string[] {
 }
 
 function normalizeScore(value: unknown): number {
+  if (typeof value === "string") {
+    const normalized = value.replace(/\s+/g, "").replace(/,/g, ".").replace(/[^0-9.\-]/g, "");
+    const parsed = Number(normalized);
+    if (Number.isFinite(parsed)) return Math.min(100, Math.max(0, Math.round(parsed)));
+  }
   const score = Number(value);
   if (!Number.isFinite(score)) return 0;
   return Math.min(100, Math.max(0, Math.round(score)));
@@ -169,53 +215,115 @@ function tokenizePosition(position: string): string[] {
     .filter((word) => word.length >= 3 && !STOP_WORDS.has(word));
 }
 
-function scorePositionAgainstText(position: string, rawText: string): number {
-  const tokens = tokenizePosition(position);
+function tokenizeText(value: string): string[] {
+  return normalizeForCompare(value)
+    .split(" ")
+    .filter((word) => word.length >= 3 && !STOP_WORDS.has(word));
+}
+
+function scoreTokensAgainstText(tokens: string[], rawText: string, weights?: Map<string, number>): number {
   const text = normalizeForCompare(rawText);
-  if (tokens.length === 0) {
-    // fallback: all words including stop words
-    const all = normalizeForCompare(position).split(" ").filter((w) => w.length >= 3);
-    if (all.length === 0) return 0;
-    const h = all.filter((w) => text.includes(w)).length;
-    return Math.round((h / all.length) * 70);
-  }
-  const hits = tokens.filter((word) => text.includes(word)).length;
-  const ratio = hits / tokens.length;
-  if (ratio >= 1) return 95;
-  if (ratio >= 0.75) return 85;
-  if (ratio >= 0.5) return 72;
-  if (ratio >= 0.34) return 58;
-  if (ratio > 0) return 42;
+  if (tokens.length === 0) return 0;
+  const uniqueTokens = Array.from(new Set(tokens));
+  const totalWeight = uniqueTokens.reduce((sum, token) => sum + (weights?.get(token) ?? 1), 0);
+  if (totalWeight <= 0) return 0;
+  const matchedWeight = uniqueTokens.reduce((sum, token) => sum + (text.includes(token) ? (weights?.get(token) ?? 1) : 0), 0);
+  const ratio = matchedWeight / totalWeight;
+  if (ratio >= 0.9) return 95;
+  if (ratio >= 0.75) return 88;
+  if (ratio >= 0.6) return 80;
+  if (ratio >= 0.45) return 68;
+  if (ratio >= 0.3) return 54;
+  if (ratio > 0) return 35;
   return 0;
 }
 
-function pickBestPositionByHeuristic(targetPositions: string[], rawText: string): { position: string; score: number } {
+function scorePositionAgainstText(position: string, rawText: string): number {
+  return scoreTokensAgainstText(tokenizePosition(position), rawText);
+}
+
+function buildJobDescriptionWeights(description: string): Map<string, number> {
+  const weights = new Map<string, number>();
+  for (const token of tokenizeText(description)) {
+    weights.set(token, (weights.get(token) ?? 0) + 1.6);
+  }
+  return weights;
+}
+
+function scorePositionWithJobDescription(position: string, rawText: string, jobDescription?: string): number {
+  const positionTokens = tokenizePosition(position);
+  if (!jobDescription) return scoreTokensAgainstText(positionTokens, rawText);
+
+  const descriptionWeights = buildJobDescriptionWeights(jobDescription);
+  const descriptionTokens = Array.from(descriptionWeights.keys());
+  const positionScore = scoreTokensAgainstText(positionTokens, rawText);
+  const descriptionScore = scoreTokensAgainstText(descriptionTokens, rawText, descriptionWeights);
+
+  if (descriptionTokens.length === 0) return positionScore;
+  return Math.round(positionScore * 0.45 + descriptionScore * 0.55);
+}
+
+function pickBestPositionByHeuristic(
+  targetPositions: string[],
+  rawText: string,
+  jobDescriptions: Map<string, string>
+): { position: string; score: number } {
   let best = { position: targetPositions[0] || "", score: -1 };
   for (const p of targetPositions) {
-    const s = scorePositionAgainstText(p, rawText);
+    const s = scorePositionWithJobDescription(p, rawText, jobDescriptions.get(p));
     if (s > best.score) best = { position: p, score: s };
   }
   return best;
 }
 
-function normalizeMatchingScore(rawScore: unknown, assignedPosition: string, rawText: string): number {
+function normalizeMatchingScore(
+  rawScore: unknown,
+  assignedPosition: string,
+  rawText: string,
+  jobDescriptions: Map<string, string>
+): number {
   const aiScore = normalizeScore(rawScore);
-  const heuristicScore = scorePositionAgainstText(assignedPosition, rawText);
-  // Severe AI under-scoring: trust heuristic
-  if (heuristicScore >= 72 && aiScore < 40) return heuristicScore;
-  if (heuristicScore >= 50 && aiScore < 25) return Math.max(aiScore, heuristicScore);
-  // Suspicious AI over-score with zero keyword overlap
+  const heuristicScore = scorePositionWithJobDescription(assignedPosition, rawText, jobDescriptions.get(assignedPosition));
+  if (heuristicScore >= 80 && aiScore < 45) return heuristicScore;
+  if (heuristicScore >= 60 && aiScore < 30) return heuristicScore;
+  if (heuristicScore >= 45 && aiScore < 20) return heuristicScore;
   if (heuristicScore === 0 && aiScore > 90) return 70;
-  // Floor: if any meaningful overlap, never report < 25%
   if (heuristicScore > 0 && aiScore < 25) return Math.max(25, heuristicScore);
   return Math.max(aiScore, heuristicScore);
 }
 
-async function callAi(cvText: string, targetPositions: string[]): Promise<Record<string, unknown>> {
+function buildLowScoreComment(score: number, rawText: string, assignedPosition: string, aiComment: string): string {
+  if (score >= 20) return aiComment;
+  const currentRole = inferCurrentPosition(rawText, "");
+  const education = /formation|ecole|école|universit|bachelor|master|licence|dut|ingenieur|ingénieur/i.test(rawText)
+    ? "Formation visible mais correspondance métier faible."
+    : "Correspondance métier faible avec le poste cible.";
+  if (currentRole) {
+    return `Score faible: profil plutôt orienté ${currentRole} que ${assignedPosition}. ${education}`.slice(0, 300);
+  }
+  return (`Score faible: ${education} Mots-clés du poste peu présents dans le CV.`).slice(0, 300);
+}
+
+function validateExtraction(parsed: Record<string, unknown>, sourceText: string): { valid: boolean; needsReview: boolean; reason?: string } {
+  const normalizedSource = normalizeForCompare(sourceText).replace(/\s+/g, "");
+  const candidateName = pickStr(parsed.candidate_name, 120);
+  if (candidateName) {
+    const normalizedName = normalizeForCompare(candidateName).replace(/\s+/g, "");
+    if (normalizedName && normalizedName.length >= 5 && !normalizedSource.includes(normalizedName)) {
+      return { valid: false, needsReview: false, reason: "Candidate name not found in source text" };
+    }
+  }
+  return { valid: true, needsReview: false };
+}
+
+async function callAi(cvText: string, targetPositions: string[], jobDescriptions: Map<string, string>): Promise<Record<string, unknown>> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-  const positionsList = targetPositions.map((p, i) => `${i + 1}. ${p}`).join("\n");
+  const positionsList = targetPositions.map((p, i) => {
+    const jd = jobDescriptions.get(p);
+    return `${i + 1}. ${p}${jd ? `\n   JOB DESCRIPTION: ${jd.slice(0, 1200)}` : ""}`;
+  }).join("\n");
   const userPrompt = `AVAILABLE TARGET POSITIONS (pick exactly ONE, verbatim, for "best_matching_position"):\n${positionsList}\n\nCV TEXT:\n${cvText.slice(0, CV_TEXT_LIMIT)}`;
 
   let response: Response;
@@ -230,7 +338,7 @@ async function callAi(cvText: string, targetPositions: string[]): Promise<Record
       body: JSON.stringify({
         model: AI_MODEL,
         temperature: 0,
-        max_tokens: AI_MAX_TOKENS,
+        max_tokens: 1200,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
@@ -253,14 +361,11 @@ async function callAi(cvText: string, targetPositions: string[]): Promise<Record
   const payload = await response.json();
   const rawContent = getMessageContent(payload?.choices?.[0]?.message?.content);
   if (!rawContent) throw new Error("AI returned an empty response");
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(rawContent);
-  } catch {
-    throw new Error("AI returned invalid JSON");
+  if (isLikelyTruncatedResponse(payload, rawContent)) {
+    throw new Error("AI response was truncated");
   }
 
+  const parsed = extractJsonFromResponse(rawContent);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("AI returned an unexpected JSON structure");
   }
@@ -288,26 +393,36 @@ function pickAssignedPosition(parsed: Record<string, unknown>, targetPositions: 
   return fuzzy || targetPositions[0] || candidate;
 }
 
-function mapAnalysisToRecord(parsed: Record<string, unknown>, sessionId: string, filePath: string, rawText: string, targetPositions: string[]) {
+function mapAnalysisToRecord(
+  parsed: Record<string, unknown>,
+  sessionId: string,
+  filePath: string,
+  rawText: string,
+  targetPositions: string[],
+  jobDescriptions: Map<string, string>
+) {
+  const validation = validateExtraction(parsed, rawText);
   const detectedName = extractNameFromText(rawText);
-  const candidateName = pickStr(parsed.candidate_name) || detectedName || "Inconnu";
+  const safeParsedName = validation.valid ? pickStr(parsed.candidate_name) : "";
+  const candidateName = safeParsedName || detectedName || "Inconnu";
   const nameParts = candidateName.split(/\s+/).filter(Boolean);
   const firstName = pickStr(parsed.first_name) || nameParts[0] || "";
   const lastName = pickStr(parsed.last_name) || nameParts.slice(1).join(" ");
   const skills = normalizeStringArray(parsed.top_3_skills, 3);
   const quickQuestions = normalizeStringArray(parsed["2_quick_interview_questions"], 2);
   const aiAssigned = pickAssignedPosition(parsed, targetPositions);
-  const heuristicBest = pickBestPositionByHeuristic(targetPositions, rawText);
-  const aiAssignedHeuristic = scorePositionAgainstText(aiAssigned, rawText);
-  // If the AI's pick has poor keyword overlap but another target clearly fits better, override.
-  const assignedPosition = (heuristicBest.score >= 72 && heuristicBest.score - aiAssignedHeuristic >= 25)
+  const heuristicBest = pickBestPositionByHeuristic(targetPositions, rawText, jobDescriptions);
+  const aiAssignedHeuristic = scorePositionWithJobDescription(aiAssigned, rawText, jobDescriptions.get(aiAssigned));
+  const assignedPosition = (heuristicBest.score >= 72 && heuristicBest.score - aiAssignedHeuristic >= 20)
     ? heuristicBest.position
     : aiAssigned;
   const now = new Date().toISOString();
   const normalizedCurrentPosition = inferCurrentPosition(rawText, pickStr(parsed.current_position, 200));
   const normalizedEmail = pickStr(parsed.email, 150) || extractEmail(rawText);
   const normalizedPhone = pickStr(parsed.phone, 50) || extractPhone(rawText);
-  const normalizedScore = normalizeMatchingScore(parsed.matching_score_estimate, assignedPosition, rawText);
+  const normalizedScore = normalizeMatchingScore(parsed.matching_score_estimate, assignedPosition, rawText, jobDescriptions);
+  const aiComment = pickStr(parsed.red_flags_or_gaps, 300);
+  const finalComment = buildLowScoreComment(normalizedScore, rawText, assignedPosition, aiComment || validation.reason || "");
 
   return {
     session_id: sessionId,
@@ -316,7 +431,7 @@ function mapAnalysisToRecord(parsed: Record<string, unknown>, sessionId: string,
     poste_assigne: assignedPosition,
     matching_score: normalizedScore,
     competences_cles: skills,
-    synthese_ia: pickStr(parsed.red_flags_or_gaps, 300),
+    synthese_ia: finalComment,
     cv_file_path: filePath,
     cv_raw_text: rawText.slice(0, 5000),
     candidate_details: {
@@ -325,11 +440,11 @@ function mapAnalysisToRecord(parsed: Record<string, unknown>, sessionId: string,
       region: "",
       etablissement_formation: pickStr(parsed.education_institution, 200),
       formation: pickStr(parsed.education_field, 200),
-       poste_actuel: normalizedCurrentPosition,
+      poste_actuel: normalizedCurrentPosition,
       entreprise_actuelle: pickStr(parsed.current_company, 200),
       date_debut_poste: pickStr(parsed.current_position_start_date, 50),
       annees_experience: normalizeYears(parsed.years_of_experience),
-       telephone: normalizedPhone,
+      telephone: normalizedPhone,
       quick_interview_questions: quickQuestions,
     },
     status: "completed",
@@ -349,8 +464,11 @@ serve(async (req) => {
       return jsonResponse({ error: "Invalid request payload", details: parsedRequest.error.flatten() }, 400);
     }
 
-    const { cvTexts, targetPositions } = parsedRequest.data;
+    const { cvTexts, targetPositions, jobDescriptions } = parsedRequest.data;
     const sessionId = parsedRequest.data.sessionId ?? crypto.randomUUID();
+    const jobDescriptionMap = new Map(
+      jobDescriptions.map((item) => [item.position.trim(), compactWhitespace(item.description)])
+    );
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -362,8 +480,8 @@ serve(async (req) => {
     const results = [];
 
     for (const cv of cvTexts) {
-      const aiResult = await callAi(cv.text, targetPositions);
-      const record = mapAnalysisToRecord(aiResult, sessionId, cv.filePath || "", cv.text, targetPositions);
+      const aiResult = await callAi(cv.text, targetPositions, jobDescriptionMap);
+      const record = mapAnalysisToRecord(aiResult, sessionId, cv.filePath || "", cv.text, targetPositions, jobDescriptionMap);
       const { data, error } = await supabase.from("cv_analyses").insert(record).select().single();
       if (error) {
         throw new Error(`Database insert failed: ${error.message}`);
