@@ -6,7 +6,6 @@
 // per-CV progress (current name) AND keep failed CVs in memory for retry
 // without re-uploading.
 
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 type Listener = (state: RunnerState) => void;
@@ -48,6 +47,7 @@ const initialState: RunnerState = {
 
 let state: RunnerState = { ...initialState };
 const listeners = new Set<Listener>();
+const ANALYSIS_REQUEST_TIMEOUT_MS = 150_000;
 
 function setState(patch: Partial<RunnerState>) {
   state = { ...state, ...patch };
@@ -65,10 +65,13 @@ async function analyzeOne(
   targetPositions: string[]
 ): Promise<{ ok: boolean; reason?: string }> {
   try {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), ANALYSIS_REQUEST_TIMEOUT_MS);
     const resp = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-cv`,
       {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
@@ -80,13 +83,19 @@ async function analyzeOne(
         }),
       }
     );
+    clearTimeout(timeoutId);
     if (resp.status === 429) return { ok: false, reason: 'Rate limit' };
     if (resp.status === 402) return { ok: false, reason: 'Crédits IA' };
+    if ([408, 504, 524].includes(resp.status)) return { ok: false, reason: 'Délai dépassé' };
     if (!resp.ok) return { ok: false, reason: `HTTP ${resp.status}` };
-    const data = await resp.json();
+    const data = await resp.json().catch(() => null);
+    if (!data) return { ok: false, reason: 'Réponse invalide' };
     if ((data.results?.length || 0) > 0) return { ok: true };
-    return { ok: false, reason: 'Pas de résultat IA' };
+    return { ok: false, reason: data.error || 'Pas de résultat IA' };
   } catch (e: any) {
+    if (e?.name === 'AbortError') {
+      return { ok: false, reason: 'Délai dépassé' };
+    }
     return { ok: false, reason: e?.message || 'Erreur réseau' };
   }
 }
