@@ -152,7 +152,12 @@ export function FichePosteForm() {
           {selected && (
             <RequestSignatureDialog docType="fiche_poste" docId={selected.id} docTitle={formData.poste || 'Fiche de poste'} />
           )}
-          {readOnly && (
+          {locked && (
+            <Badge variant="secondary" className="gap-1 self-center">
+              <Lock className="h-3 w-3" /> Verrouillé
+            </Badge>
+          )}
+          {readOnly && !locked && (
             <Button onClick={() => setEditMode(true)} size="sm" variant="outline">
               <Pencil className="h-4 w-4 mr-1" /> {t('modify')}
             </Button>
