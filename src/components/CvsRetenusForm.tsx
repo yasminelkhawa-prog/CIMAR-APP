@@ -571,6 +571,7 @@ export function CvsRetenusForm() {
       cvTexts: payload,
       sessionId: crypto.randomUUID(),
       targetPositions,
+      jobDescriptions: buildJobDescriptionsPayload(targetPositions),
       onError: (msg) => toast.error(msg),
       onSuccess: async (count, total, failed) => {
         if (oldIds.length > 0) {
