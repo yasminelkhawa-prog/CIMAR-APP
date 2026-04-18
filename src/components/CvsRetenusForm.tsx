@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import * as pdfjsLib from 'pdfjs-dist';
 import * as XLSX from 'xlsx';
 import { cvAnalysisRunner, type RunnerState } from '@/lib/cvAnalysisRunner';
+import { FormAssistant } from '@/components/FormAssistant';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
