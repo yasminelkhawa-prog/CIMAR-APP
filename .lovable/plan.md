@@ -1,103 +1,76 @@
 
 
-## Plan: Sidebar Navigation + Interactive HR Document Forms
+## Plan
 
-### What we're building
+### 1. Strict Template Fidelity for Document Exports
 
-Transform the app from a tab-based layout to a **sidebar navigation** with 4 main menu items (matching the uploaded documents), plus the existing evaluation grid. Each document becomes an interactive form that users can fill in, view in read-only mode, and download as the original file format (XLSX/DOCX) with their data populated.
+Replace the code-generated exports with **template-based fill-ins** using the user's actual files in `src/assets/templates/`. This guarantees pixel-perfect format.
 
-### Menu items (sidebar)
+**Approach per template:**
+- **Fiche d'Embauche (`.xlsx`)**: Load `fiche_embauche_template.xlsx` with **ExcelJS** (`workbook.xlsx.load(arrayBuffer)`). Walk every cell, replace `{{placeholder}}` tokens with form data. Embed user signature image via `wb.addImage` + `ws.addImage` anchored on the existing "Signature" cell. Preserves all merged cells, formulas, column widths, fonts, borders.
+- **Fiche de Poste (`.docx`)** & **Plan d'Intégration (`.docx`)**: Use the **`docxtemplater`** library (small, browser-friendly) to load the `.docx` template and replace `{placeholders}` with form data. Use the `docxtemplater-image-module-free` (or inline base64 image swap) to inject the signature image. All original styling (fonts, margins, table layout, landscape orientation) is preserved because we never rebuild the document.
+- Templates need to be authored once with placeholders like `{nom_candidat}`, `{poste}`, `{date}`, `{signature}`, `{full_name}`, `{title}`, etc. Since the current templates are the originals, we will:
+  1. Open each template, insert the placeholders at the correct cells/locations (no layout change).
+  2. Save back to `src/assets/templates/`.
+- Auto-fill from `useAuth().profile`:
+  - `full_name` → all "Reçu par", "Préparé par", "Direction RH", "Visa Responsable" name fields.
+  - `title` → all "Fonction" / role label fields next to the name.
+  - `signature_url` → embedded as image at every signature placeholder.
+- Candidate `nom_candidat` propagated to all "Nom du candidat / Nouvelle recrue / Nom et prénom" fields in every doc.
 
-1. **Grille d'Évaluation** — existing evaluation grid (current functionality)
-2. **Fiche d'Embauche** — hiring validation form (from the XLSX)
-3. **Fiche de Poste** — job description form (from the DOCX)
-4. **Plan d'Intégration** — onboarding integration plan (from the DOCX)
-5. **CVs Retenus** — shortlisted candidates tracker (from the XLSX)
+**Files to change:**
+- Rewrite `src/utils/documentExports.ts` to use the template-fill pattern.
+- Update the three template files in `src/assets/templates/` with placeholder tokens.
+- Add deps: `docxtemplater`, `pizzip`, `docxtemplater-image-module-free`.
+- No changes needed to `FicheEmbaucheForm.tsx` / `FichePosteForm.tsx` / `PlanIntegrationForm.tsx` — same `exportXxx(data, signer)` signatures.
 
-Plus existing **Configuration** section.
+### 2. CV Analysis — Guarantee 100% Processing
 
-### Architecture
+Current state already has a singleton background runner with sequential per-CV calls + 3 retry attempts in the edge function. Remaining issues:
+- Client-side OCR (tesseract) is slow on scanned PDFs and capped at 2 pages → some files yield empty text and are dropped before analysis.
+- Edge function 45s timeout occasionally trips on large CVs.
 
-**Layout change**: Replace the current tab-based `Index.tsx` with a `SidebarProvider` layout using the existing Shadcn sidebar component. Each menu item routes to a sub-view within the same page (state-based, not routes — keeping it simple like current tabs).
+**Improvements:**
+- **Lift OCR page cap** from 2 → all pages, but do OCR pages in parallel (worker pool of 2) and cache.
+- **Pre-flight tracking**: Persist every uploaded CV into a new `cv_analyses` row immediately with status `pending` (so it's always visible and never silently lost), then update with results.
+- **Edge function**: Increase per-CV timeout to 90s, raise retry attempts to 4 with exponential backoff, and on final failure still insert a `failed` placeholder row so the UI shows it (with a "Retry this CV" button).
+- **Runner**: After main pass, automatically retry failed CVs once before declaring done. Keep the existing global `Retry failed` button as manual fallback.
+- **Concurrency**: Keep sequential per-CV calls (already chosen for live progress) — reliability is the priority over speed.
 
-**For each document form:**
+**Files to change:**
+- `supabase/functions/analyze-cv/index.ts` — longer timeout, more retries, always insert a row even on hard fail.
+- `src/lib/cvAnalysisRunner.ts` — auto-retry pass once, then settle.
+- `src/components/CvsRetenusForm.tsx` — increase OCR page limit, parallel OCR.
+- DB migration: add `status` column (`pending` | `done` | `failed`) and `failure_reason` to `cv_analyses`.
 
-#### 1. Fiche d'Embauche (Hiring Form)
-- Interactive form with all fields from the XLSX: candidate info, position details, salary structure, interview panel, internal comparisons
-- **Salary calculation formulas preserved**:
-  - Frais professionnels = min(25% × salaire brut imposable, 2916.67)
-  - CNSS = min(4.48% × salaire brut, 6000 plafond)
-  - CIMR = taux × salaire brut (taux configurable: 3%, 3.75%, 4.5%, 5.25%, 6%)
-  - Mutuelle = 3.41% × salaire brut
-  - Salaire brut imposable = Revenu brut - Frais pro - CNSS - CIMR - Retraite - Mutuelle
-  - IGR calculated using the 2010 barème (progressive tax brackets)
-  - Net à payer = Salaire brut imposable - IGR net
-  - IK (Indemnités kilométriques) = site distance × rate × jours
-- Download generates an XLSX matching the original layout with formulas
+### 3. UI: Single Global Ranking + "Top Match" Highlight
 
-#### 2. Fiche de Poste (Job Description)
-- Form fields: poste, rattachement hiérarchique/fonctionnel, supervise, périmètre, niveau hiérarchique, mission, rôles & responsabilités, compétences, profil
-- Download as DOCX with CIMAR branding
+Currently grouped per poste with a card-per-poste then a dialog. User now wants:
+- A **single flat list** of ALL analyzed CVs, ranked descending by `matching_score`, no filtering.
+- Top candidates clearly distinguished with a **modern visual treatment**:
+  - **Top 1**: full glassmorphism card with animated purple/violet aura border, "🏆 Top Match" badge, slightly larger.
+  - **Top 2-3**: subtle gradient ring (silver / bronze) + "Top Pick" badge.
+  - **Rest**: clean standard cards.
+- Keep the per-poste grouped overview as a secondary tab so existing workflow isn't lost.
 
-#### 3. Plan d'Intégration (Onboarding Plan)
-- Form: employee name, hire date, position, type (nouvelle recrue / réaffectation)
-- Dynamic table for schedule entries: date/time, direction/département, responsable, objectifs, visa fields
-- Sections for "Formations", "Avis de la hiérarchie", "Appréciation"
-- Download as DOCX
+**Files to change:**
+- `src/components/CvsRetenusForm.tsx`:
+  - Add Tabs: **"Classement global"** (default) and **"Par poste"**.
+  - In the global tab, render `analyses` (already sorted by `matching_score desc` from `loadAnalyses`) as a single grid using a new `CandidateCard` with rank-aware styling.
+  - Top-1 card: `border-2 border-violet-500/60 shadow-[0_0_40px_-10px_rgb(139,92,246)] bg-gradient-to-br from-violet-50/80 to-white dark:from-violet-950/30 backdrop-blur` + animated outer ring.
+  - Add a `<TopMatchBadge />` with crown icon for ranks 1-3.
 
-#### 4. CVs Retenus (Shortlisted CVs)
-- Table/list form: prénom, nom, poste actuel, entreprise, date début, établissement formation, années d'expérience
-- Add/remove candidates
-- Download as XLSX
+### Technical summary
 
-### Database
+| Area | Lib / Approach | Risk |
+|---|---|---|
+| DOCX templating | `docxtemplater` + `pizzip` (browser-safe) | Low — well-established |
+| DOCX signature image | `docxtemplater-image-module-free` | Low |
+| XLSX templating | Existing `exceljs` `.xlsx.load()` + cell walk | Low |
+| Edge function reliability | retries + always-insert row | Low |
+| DB | non-breaking column adds | Low |
 
-New tables needed:
-- `fiches_embauche` — stores hiring form data as JSON
-- `fiches_poste` — stores job descriptions
-- `plans_integration` — stores onboarding plans  
-- `cvs_retenus` — stores shortlisted candidate lists
-
-Each table: `id`, `data` (jsonb), `created_at`, `updated_at`, with RLS disabled (public-facing HR tool, no auth yet).
-
-### Files to create/modify
-
-1. **`src/pages/Index.tsx`** — Replace tabs with SidebarProvider layout
-2. **`src/components/AppSidebar.tsx`** — New sidebar with 5 menu items + config
-3. **`src/components/FicheEmbaucheForm.tsx`** — Hiring validation form with salary calc
-4. **`src/components/FichePosteForm.tsx`** — Job description form
-5. **`src/components/PlanIntegrationForm.tsx`** — Onboarding plan form
-6. **`src/components/CvsRetenusForm.tsx`** — Shortlisted CVs table form
-7. **`src/utils/ficheEmbaucheExport.ts`** — XLSX export with formulas
-8. **`src/utils/fichePosteExport.ts`** — DOCX export
-9. **`src/utils/planIntegrationExport.ts`** — DOCX export
-10. **`src/utils/cvsRetenusExport.ts`** — XLSX export
-11. **`src/i18n/translations.ts`** — Add translation keys for all new sections
-12. **Migration** — Create the 4 new tables
-
-### View/Edit pattern
-
-Same as evaluation grid: forms open in **read-only mode** by default. User must click **"Modifier"** to enable editing. Each form has list view → detail view → edit mode.
-
-### Export approach
-
-- XLSX exports: Use `xlsx` (SheetJS) library — client-side generation preserving formulas
-- DOCX exports: Use `docx` library — client-side generation with CIMAR branding (logo, green headers)
-
-### Key salary formulas (Fiche d'Embauche)
-
-All calculations happen live in the form and are also embedded as Excel formulas in the export:
-
-```
-Salaire brut imposable = Salaire base + Primes imposables
-Frais pro = MIN(Brut imposable × 25%, 2916.67)
-CNSS = MIN(Brut × 4.48%, 268.80)  [plafond 6000]
-CIMR = Brut × taux CIMR
-Mutuelle = Brut × 3.41%
-Base imposable = Brut imposable - Frais pro - CNSS - CIMR - Mutuelle
-IGR = barème progressif (6 tranches)
-Charges familiales = 41.66 × nb personnes à charge
-IGR Net = IGR Brut - Charges familiales
-Net à payer = Brut imposable - CNSS - CIMR - Mutuelle - IGR Net
-```
+### Out of scope (not requested)
+- Re-uploading CVs after refresh (failed list is in-memory only).
+- Bulk re-analysis of historical sessions.
 
