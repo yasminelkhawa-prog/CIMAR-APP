@@ -821,16 +821,14 @@ export function CvsRetenusForm() {
             const tone = getScoreTone(topScore);
             const top = candidates[0];
             const palette = paletteFor(poste);
-            const accent = palette.grad;
             return (
               <button
                 key={poste}
                 type="button"
                 onClick={() => setOpenPoste(poste)}
-                className={`group relative overflow-hidden text-left rounded-2xl border ${palette.border} ${palette.soft} cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1`}
+                className={`group relative overflow-hidden text-left rounded-2xl border ${palette.border} bg-white cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1`}
               >
-                <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${accent}`} />
-                <div className={`absolute -top-16 -right-16 w-40 h-40 rounded-full bg-gradient-to-br ${accent} opacity-40 blur-2xl group-hover:opacity-60 transition-opacity`} />
+                <div className={`absolute top-0 left-0 right-0 h-1.5 ${palette.accent}`} />
 
                 <div className="relative p-5 space-y-4">
                   <div className="flex items-start justify-between gap-2">
@@ -844,17 +842,17 @@ export function CvsRetenusForm() {
                   </div>
 
                   <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded-xl bg-white/70 backdrop-blur-sm p-2 text-center border border-white">
+                    <div className={`rounded-xl bg-white p-2 text-center border ${palette.border}`}>
                       <Users className={`h-3.5 w-3.5 mx-auto ${palette.text} mb-1`} />
                       <p className="text-base font-bold text-foreground">{candidates.length}</p>
                       <p className="text-[10px] text-muted-foreground uppercase">CVs</p>
                     </div>
-                    <div className="rounded-xl bg-white/70 backdrop-blur-sm p-2 text-center border border-white">
+                    <div className={`rounded-xl bg-white p-2 text-center border ${palette.border}`}>
                       <Trophy className={`h-3.5 w-3.5 mx-auto ${tone.text} mb-1`} />
                       <p className={`text-base font-bold ${tone.text}`}>{topScore}%</p>
                       <p className="text-[10px] text-muted-foreground uppercase">Top</p>
                     </div>
-                    <div className="rounded-xl bg-white/70 backdrop-blur-sm p-2 text-center border border-white">
+                    <div className={`rounded-xl bg-white p-2 text-center border ${palette.border}`}>
                       <TrendingUp className={`h-3.5 w-3.5 mx-auto ${palette.text} mb-1`} />
                       <p className="text-base font-bold text-foreground">{avgScore}%</p>
                       <p className="text-[10px] text-muted-foreground uppercase">Moy.</p>
@@ -862,8 +860,8 @@ export function CvsRetenusForm() {
                   </div>
 
                   {top && (
-                    <div className="flex items-center gap-3 p-2.5 rounded-xl border border-white bg-white/80 backdrop-blur-sm">
-                      <div className={`flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br ${accent} flex items-center justify-center text-white text-xs font-bold shadow-sm ring-2 ring-white`}>
+                    <div className={`flex items-center gap-3 p-2.5 rounded-xl border ${palette.border} bg-white`}>
+                      <div className={`flex-shrink-0 w-9 h-9 rounded-full ${palette.icon} flex items-center justify-center ${palette.iconText} text-xs font-bold ring-2 ring-white`}>
                         {getInitials(top.candidate_details?.prenom, top.candidate_details?.nom, top.nom_candidat)}
                       </div>
                       <div className="min-w-0 flex-1">
