@@ -48,7 +48,7 @@ export function EvaluationsList({ evaluations, jobRoles, onDelete, onSelect }: P
         const pct = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
 
         return (
-          <Card key={ev.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => onSelect(ev)}>
+          <Card key={ev.id} className="glass-card glass-card-hover cursor-pointer" onClick={() => onSelect(ev)}>
             <CardContent className="py-4 flex items-center gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
