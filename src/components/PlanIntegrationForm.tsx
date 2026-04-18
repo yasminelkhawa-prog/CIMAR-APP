@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { PlanIntegrationData, DEFAULT_PLAN_INTEGRATION, IntegrationEntry } from '@/types/planIntegration';
@@ -272,6 +273,7 @@ export function PlanIntegrationForm() {
             if (Array.isArray(s.entries) && s.entries.length > 0) {
               const newEntries: IntegrationEntry[] = (s.entries as Array<Partial<IntegrationEntry>>).map(e => ({
                 id: crypto.randomUUID(),
+                activityType: (e.activityType === 'formation' ? 'formation' : 'planning'),
                 date: e.date || '',
                 horaire: e.horaire || '',
                 direction: e.direction || '',
