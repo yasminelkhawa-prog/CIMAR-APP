@@ -391,11 +391,46 @@ export function CvsRetenusForm() {
       toast.error('Aucun fichier CV stocké pour ce candidat');
       return;
     }
-    const { data } = supabase.storage.from('cv-uploads').getPublicUrl(filePath);
-    if (data?.publicUrl) {
-      window.open(data.publicUrl, '_blank', 'noopener,noreferrer');
-    } else {
-      toast.error('Impossible d\'ouvrir le CV');
+    try {
+      // Try a signed URL first (works for both public & private buckets, and properly encodes paths with spaces/special chars)
+      const { data: signed, error: signedErr } = await supabase
+        .storage
+        .from('cv-uploads')
+        .createSignedUrl(filePath, 3600);
+
+      let url = signed?.signedUrl;
+
+      if (!url) {
+        // Fallback: build a public URL with each path segment properly encoded
+        const { data: pub } = supabase.storage.from('cv-uploads').getPublicUrl(filePath);
+        if (pub?.publicUrl) {
+          // Re-encode the object path portion to handle spaces and special chars
+          const marker = '/object/public/cv-uploads/';
+          const idx = pub.publicUrl.indexOf(marker);
+          if (idx >= 0) {
+            const base = pub.publicUrl.slice(0, idx + marker.length);
+            const path = pub.publicUrl.slice(idx + marker.length);
+            url = base + path.split('/').map(encodeURIComponent).join('/');
+          } else {
+            url = pub.publicUrl;
+          }
+        }
+      }
+
+      if (!url) {
+        console.error('CV view error:', signedErr);
+        toast.error("Impossible d'ouvrir le CV");
+        return;
+      }
+
+      const win = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!win) {
+        // Popup blocked — navigate current tab as fallback
+        window.location.href = url;
+      }
+    } catch (e) {
+      console.error('CV view exception:', e);
+      toast.error("Erreur lors de l'ouverture du CV");
     }
   };
 
