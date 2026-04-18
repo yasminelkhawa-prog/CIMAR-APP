@@ -76,6 +76,43 @@ function getMessageContent(content: unknown): string {
   return "";
 }
 
+function extractJsonFromResponse(raw: string): Record<string, unknown> {
+  let cleaned = raw
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+    .trim();
+
+  if (!cleaned.startsWith("{")) {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start !== -1 && end > start) cleaned = cleaned.slice(start, end + 1);
+  }
+
+  const tryParse = (value: string) => JSON.parse(value) as Record<string, unknown>;
+
+  try {
+    return tryParse(cleaned);
+  } catch {
+    const repaired = cleaned
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*]/g, "]")
+      .replace(/\u00a0/g, " ");
+    return tryParse(repaired);
+  }
+}
+
+function isLikelyTruncatedResponse(payload: any, rawContent: string): boolean {
+  const finishReason = payload?.choices?.[0]?.finish_reason ?? payload?.stop_reason;
+  if (finishReason === "length" || finishReason === "max_tokens") return true;
+  const text = rawContent.trim();
+  const openBraces = (text.match(/{/g) || []).length;
+  const closeBraces = (text.match(/}/g) || []).length;
+  const openBrackets = (text.match(/\[/g) || []).length;
+  const closeBrackets = (text.match(/\]/g) || []).length;
+  return openBraces !== closeBraces || openBrackets !== closeBrackets;
+}
+
 function normalizeStringArray(value: unknown, limit: number): string[] {
   if (!Array.isArray(value)) return [];
   return value
