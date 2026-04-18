@@ -7,6 +7,7 @@
 // without re-uploading.
 
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 type Listener = (state: RunnerState) => void;
 
@@ -65,30 +66,32 @@ async function analyzeOne(
   targetPositions: string[]
 ): Promise<{ ok: boolean; reason?: string }> {
   try {
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), ANALYSIS_REQUEST_TIMEOUT_MS);
-    const resp = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-cv`,
-      {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          cvTexts: [cv],
-          sessionId,
-          targetPositions,
-        }),
+    const data = await new Promise<any>(async (resolve, reject) => {
+      const timeoutId = window.setTimeout(() => reject(new Error('Délai dépassé')), ANALYSIS_REQUEST_TIMEOUT_MS);
+
+      try {
+        const result = await supabase.functions.invoke('analyze-cv', {
+          body: {
+            cvTexts: [cv],
+            sessionId,
+            targetPositions,
+          },
+        });
+
+        clearTimeout(timeoutId);
+
+        if (result.error) {
+          reject(result.error);
+          return;
+        }
+
+        resolve(result.data);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        reject(error);
       }
-    );
-    clearTimeout(timeoutId);
-    if (resp.status === 429) return { ok: false, reason: 'Rate limit' };
-    if (resp.status === 402) return { ok: false, reason: 'Crédits IA' };
-    if ([408, 504, 524].includes(resp.status)) return { ok: false, reason: 'Délai dépassé' };
-    if (!resp.ok) return { ok: false, reason: `HTTP ${resp.status}` };
-    const data = await resp.json().catch(() => null);
+    });
+
     if (!data) return { ok: false, reason: 'Réponse invalide' };
     if ((data.results?.length || 0) > 0) return { ok: true };
     return { ok: false, reason: data.error || 'Pas de résultat IA' };
@@ -96,7 +99,11 @@ async function analyzeOne(
     if (e?.name === 'AbortError') {
       return { ok: false, reason: 'Délai dépassé' };
     }
-    return { ok: false, reason: e?.message || 'Erreur réseau' };
+
+    const message = String(e?.message || e?.context?.statusText || 'Erreur réseau');
+    if (message.includes('429')) return { ok: false, reason: 'Rate limit' };
+    if (message.includes('402')) return { ok: false, reason: 'Crédits IA' };
+    return { ok: false, reason: message };
   }
 }
 
@@ -216,7 +223,7 @@ export const cvAnalysisRunner = {
     onError?: (msg: string) => void;
     onSuccess?: (count: number, total: number, failed: number) => void;
   }) {
-    if (state.isAnalyzing) return;
+    if (state.isAnalyzing && state.stage === 'analyzing') return;
     await runQueue(params.cvTexts, params.sessionId, params.targetPositions, params);
   },
 
@@ -225,7 +232,7 @@ export const cvAnalysisRunner = {
     onError?: (msg: string) => void;
     onSuccess?: (count: number, total: number, failed: number) => void;
   }) {
-    if (state.isAnalyzing) return;
+    if (state.isAnalyzing && state.stage === 'analyzing') return;
     const toRetry = state.failed.map(({ text, filePath }) => ({ text, filePath }));
     if (toRetry.length === 0) return;
     const sessionId = state.sessionId || crypto.randomUUID();
