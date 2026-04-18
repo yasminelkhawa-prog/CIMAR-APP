@@ -116,45 +116,81 @@
     @apply bg-[hsl(var(--score-excellent))] text-[hsl(var(--score-excellent))];
   }
 
-  /* ─── Glassmorphism utilities ─── */
+  /* ─── Glassmorphism + flow utilities (CIMAR green) ─── */
   .glass-card {
-    @apply bg-card/70 backdrop-blur-xl border border-white/40 dark:border-white/10
-      shadow-[0_8px_32px_-8px_hsl(var(--primary)/0.18)]
-      transition-all duration-300;
+    @apply bg-card/80 backdrop-blur-xl border border-white/50 dark:border-white/10
+      shadow-[0_8px_32px_-12px_hsl(var(--primary)/0.18)]
+      transition-all duration-300 ease-out;
+    border-radius: var(--radius);
   }
   .glass-card-hover {
-    @apply hover:shadow-[0_16px_40px_-12px_hsl(var(--primary)/0.28)] hover:-translate-y-0.5
-      hover:border-primary/30;
+    @apply hover:shadow-[0_20px_48px_-12px_hsl(var(--primary)/0.32)]
+      hover:-translate-y-1 hover:border-primary/30;
+  }
+  .lift-on-hover {
+    @apply transition-all duration-300 ease-out
+      hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-12px_hsl(var(--primary)/0.35)];
   }
   .glass-header {
-    @apply bg-card/60 backdrop-blur-xl border-b border-white/30 dark:border-white/5
-      shadow-[0_2px_20px_-8px_hsl(var(--primary)/0.15)];
+    @apply bg-card/70 backdrop-blur-2xl border-b border-white/40 dark:border-white/5
+      shadow-[0_2px_24px_-12px_hsl(var(--primary)/0.18)];
   }
-  .glass-sidebar {
+
+  /* Floating dark sidebar shell — Donezo / PinenMFB style */
+  .floating-sidebar {
     background: linear-gradient(180deg,
       hsl(var(--sidebar-background)) 0%,
-      hsl(var(--sidebar-background) / 0.92) 100%);
-    backdrop-filter: blur(12px);
+      hsl(158 45% 8%) 100%);
+    border-radius: 1.5rem;
+    box-shadow:
+      0 24px 60px -20px hsl(158 50% 5% / 0.45),
+      0 0 0 1px hsl(var(--sidebar-border) / 0.5);
   }
+  .floating-sidebar-light {
+    background: hsl(0 0% 100% / 0.85);
+    backdrop-filter: blur(24px);
+    border-radius: 1.5rem;
+    box-shadow:
+      0 24px 60px -20px hsl(var(--primary) / 0.18),
+      0 0 0 1px hsl(var(--border) / 0.6);
+  }
+
   .gradient-bg {
     background:
-      radial-gradient(ellipse 80% 60% at 10% -10%, hsl(var(--primary) / 0.10), transparent 60%),
-      radial-gradient(ellipse 70% 50% at 100% 0%, hsl(215 90% 60% / 0.08), transparent 55%),
-      radial-gradient(ellipse 60% 50% at 50% 110%, hsl(265 80% 60% / 0.07), transparent 60%),
+      radial-gradient(ellipse 70% 55% at 12% -10%, hsl(var(--primary) / 0.10), transparent 60%),
+      radial-gradient(ellipse 60% 45% at 100% 5%, hsl(var(--primary-glow) / 0.10), transparent 55%),
+      radial-gradient(ellipse 60% 50% at 50% 110%, hsl(150 50% 60% / 0.08), transparent 60%),
       hsl(var(--background));
   }
   .gradient-text-primary {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-[hsl(265_80%_55%)];
+    @apply bg-clip-text text-transparent
+      bg-gradient-to-r from-primary via-[hsl(var(--primary-glow))] to-primary;
+  }
+  .gradient-primary {
+    background: linear-gradient(135deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--primary-glow)) 100%);
   }
   .ring-glow-primary {
     box-shadow:
-      0 0 0 1px hsl(var(--primary) / 0.3),
-      0 0 24px -4px hsl(var(--primary) / 0.45),
-      0 8px 32px -8px hsl(var(--primary) / 0.4);
+      0 0 0 1px hsl(var(--primary) / 0.25),
+      0 0 32px -6px hsl(var(--primary-glow) / 0.45),
+      0 12px 36px -10px hsl(var(--primary) / 0.4);
   }
+
+  /* Subtle dotted decoration for stat cards (Donezo / PinenMFB hero cards) */
+  .dotted-bg {
+    background-image: radial-gradient(hsl(var(--primary) / 0.08) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+  .dotted-bg-on-primary {
+    background-image: radial-gradient(hsl(0 0% 100% / 0.10) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+
   @keyframes aiPulseRing {
     0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.45), 0 8px 24px -8px hsl(var(--primary) / 0.5); }
-    50%      { box-shadow: 0 0 0 8px hsl(var(--primary) / 0), 0 8px 24px -8px hsl(var(--primary) / 0.5); }
+    50%      { box-shadow: 0 0 0 10px hsl(var(--primary) / 0), 0 8px 24px -8px hsl(var(--primary) / 0.5); }
   }
   .ai-launcher-glow {
     animation: aiPulseRing 2.4s ease-in-out infinite;
