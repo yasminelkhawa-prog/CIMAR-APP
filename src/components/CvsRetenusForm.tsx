@@ -387,8 +387,16 @@ export function CvsRetenusForm() {
   };
 
   const handleViewCV = async (filePath: string) => {
+    if (!filePath) {
+      toast.error('Aucun fichier CV stocké pour ce candidat');
+      return;
+    }
     const { data } = supabase.storage.from('cv-uploads').getPublicUrl(filePath);
-    if (data?.publicUrl) window.open(data.publicUrl, '_blank');
+    if (data?.publicUrl) {
+      window.open(data.publicUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      toast.error('Impossible d\'ouvrir le CV');
+    }
   };
 
   const handleDownloadReport = () => {
@@ -467,6 +475,149 @@ export function CvsRetenusForm() {
   const accentFor = (poste: string) => paletteFor(poste).grad;
 
   const showRunningBar = isExtracting || runnerState.isAnalyzing;
+
+  // ============================================================
+  // SUB-PAGE: Detail view for a selected poste (full page, not modal)
+  // ============================================================
+  if (openPoste && grouped[openPoste]) {
+    const candidates = grouped[openPoste];
+    const palette = paletteFor(openPoste);
+    const accent = palette.grad;
+    return (
+      <div className="space-y-5">
+        {/* Sticky-ish header with back button */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <Button variant="ghost" size="sm" onClick={() => setOpenPoste(null)} className="gap-1">
+              <ArrowLeft className="h-4 w-4" /> Retour
+            </Button>
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Poste</p>
+              <h2 className="text-xl font-bold truncate" title={openPoste}>{openPoste}</h2>
+              <p className="text-xs text-muted-foreground">
+                {candidates.length} candidat(s) — classés par score
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => handleDownloadPosteReport(openPoste, candidates)}>
+            <Download className="h-4 w-4 mr-1" /> Export Excel
+          </Button>
+        </div>
+
+        <div className={`h-1.5 rounded-full bg-gradient-to-r ${accent}`} />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {candidates.map((cv, index) => {
+            const tone = getScoreTone(cv.matching_score);
+            return (
+              <div
+                key={cv.id}
+                className={`group relative overflow-hidden rounded-2xl border ${palette.border} ${palette.soft} backdrop-blur-xl shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-[0_10px_30px_rgb(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-0.5`}
+              >
+                <div className={`pointer-events-none absolute -top-20 -right-20 w-56 h-56 rounded-full bg-gradient-to-br ${accent} opacity-40 blur-3xl`} />
+                <div className={`pointer-events-none absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-gradient-to-tr ${accent} opacity-30 blur-3xl`} />
+                <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${accent}`} />
+
+                {/* Rank badge */}
+                <div className="absolute top-3 right-3 z-10">
+                  <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold backdrop-blur-md border ${
+                    index === 0 ? 'bg-amber-100/90 text-amber-800 border-amber-200'
+                    : index === 1 ? 'bg-slate-100/90 text-slate-700 border-slate-200'
+                    : index === 2 ? 'bg-orange-100/90 text-orange-800 border-orange-200'
+                    : 'bg-white/80 text-muted-foreground border-white'
+                  }`}>
+                    {index === 0 ? <Crown className="h-2.5 w-2.5" /> : index < 3 ? <Trophy className="h-2.5 w-2.5" /> : null}
+                    #{index + 1}
+                  </div>
+                </div>
+
+                <div className="relative p-5">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className={`flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br ${accent} flex items-center justify-center text-white text-base font-bold shadow-md ring-2 ring-white/70`}>
+                      {getInitials(cv.candidate_details?.prenom, cv.candidate_details?.nom, cv.nom_candidat)}
+                    </div>
+                    <div className="min-w-0 flex-1 pr-12">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
+                        Prénom & Nom
+                      </p>
+                      <p className="font-bold text-base leading-tight truncate">
+                        {cv.candidate_details?.prenom || ''}{' '}
+                        {cv.candidate_details?.nom || cv.nom_candidat}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${tone.bg} text-white shadow-md text-xs font-bold`}>
+                      <Sparkles className="h-3 w-3" />
+                      {cv.matching_score}% — {tone.label}
+                    </div>
+                    <div className={`px-2.5 py-1 rounded-full bg-white/80 backdrop-blur-sm border ${palette.border} text-[10px] font-semibold ${palette.text} uppercase tracking-wide`}>
+                      {openPoste}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                    <GlassDetail icon={Briefcase} label="Poste actuel" value={cv.candidate_details?.poste_actuel} accent={accent} />
+                    <GlassDetail icon={Building2} label="Entreprise actuelle" value={cv.candidate_details?.entreprise_actuelle} accent={accent} />
+                    <GlassDetail icon={Calendar} label="Début poste actuel" value={cv.candidate_details?.date_debut_poste} accent={accent} />
+                    <GlassDetail icon={Clock} label="Années d'expérience" value={cv.candidate_details?.annees_experience} accent={accent} />
+                    <GlassDetail icon={GraduationCap} label="Établissement formation" value={cv.candidate_details?.etablissement_formation} accent={accent} />
+                    <GlassDetail icon={Award} label="Formation" value={cv.candidate_details?.formation} accent={accent} />
+                    <GlassDetail icon={Mail} label="Adresse e-mail" value={cv.email} accent={accent} />
+                    <GlassDetail icon={Phone} label="Téléphone" value={cv.candidate_details?.telephone} accent={accent} />
+                  </div>
+
+                  {(cv.competences_cles || []).length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold mb-1.5">
+                        Compétences clés
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {cv.competences_cles.map((comp, i) => (
+                          <span
+                            key={i}
+                            className={`text-[11px] px-2.5 py-1 rounded-full bg-gradient-to-r ${accent} text-white font-medium shadow-sm`}
+                          >
+                            {comp}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {cv.synthese_ia && (
+                    <div className="p-3 rounded-xl bg-white/70 backdrop-blur-sm border border-white mb-3">
+                      <div className="flex items-start gap-2">
+                        <Sparkles className={`h-3.5 w-3.5 ${tone.text} flex-shrink-0 mt-0.5`} />
+                        <p className="text-xs italic leading-relaxed text-foreground/80">{cv.synthese_ia}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 pt-3 border-t border-white/60">
+                    {cv.cv_file_path && (
+                      <Button variant="outline" size="sm" className="h-7 text-xs bg-white/80 backdrop-blur-sm" onClick={() => handleViewCV(cv.cv_file_path)}>
+                        <Eye className="h-3 w-3 mr-1" /> Voir CV
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs ml-auto text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDeleteCard(cv.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -637,53 +788,50 @@ export function CvsRetenusForm() {
             const topScore = candidates[0]?.matching_score || 0;
             const tone = getScoreTone(topScore);
             const top = candidates[0];
-            const accent = accentFor(poste);
+            const palette = paletteFor(poste);
+            const accent = palette.grad;
             return (
-              <Card
+              <button
                 key={poste}
-                className="group relative overflow-hidden cursor-pointer hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-border/60"
+                type="button"
                 onClick={() => setOpenPoste(poste)}
+                className={`group relative overflow-hidden text-left rounded-2xl border ${palette.border} ${palette.soft} cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1`}
               >
-                {/* Decorative accent bar */}
                 <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${accent}`} />
-                {/* Decorative blob */}
-                <div className={`absolute -top-16 -right-16 w-40 h-40 rounded-full bg-gradient-to-br ${accent} opacity-10 blur-2xl group-hover:opacity-20 transition-opacity`} />
+                <div className={`absolute -top-16 -right-16 w-40 h-40 rounded-full bg-gradient-to-br ${accent} opacity-40 blur-2xl group-hover:opacity-60 transition-opacity`} />
 
-                <CardHeader className="pb-2 pt-5">
+                <div className="relative p-5 space-y-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+                      <p className={`text-[11px] uppercase tracking-wider ${palette.text} font-semibold mb-1`}>
                         Poste
                       </p>
-                      <h3 className="font-bold text-base truncate" title={poste}>{poste}</h3>
+                      <h3 className="font-bold text-base truncate text-foreground" title={poste}>{poste}</h3>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1" />
+                    <ChevronRight className={`h-5 w-5 ${palette.text} opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1`} />
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Stats row */}
+
                   <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded-lg bg-muted/50 p-2 text-center">
-                      <Users className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-1" />
-                      <p className="text-base font-bold">{candidates.length}</p>
+                    <div className="rounded-xl bg-white/70 backdrop-blur-sm p-2 text-center border border-white">
+                      <Users className={`h-3.5 w-3.5 mx-auto ${palette.text} mb-1`} />
+                      <p className="text-base font-bold text-foreground">{candidates.length}</p>
                       <p className="text-[10px] text-muted-foreground uppercase">CVs</p>
                     </div>
-                    <div className={`rounded-lg ${tone.soft} p-2 text-center`}>
+                    <div className="rounded-xl bg-white/70 backdrop-blur-sm p-2 text-center border border-white">
                       <Trophy className={`h-3.5 w-3.5 mx-auto ${tone.text} mb-1`} />
                       <p className={`text-base font-bold ${tone.text}`}>{topScore}%</p>
                       <p className="text-[10px] text-muted-foreground uppercase">Top</p>
                     </div>
-                    <div className="rounded-lg bg-muted/50 p-2 text-center">
-                      <TrendingUp className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-1" />
-                      <p className="text-base font-bold">{avgScore}%</p>
+                    <div className="rounded-xl bg-white/70 backdrop-blur-sm p-2 text-center border border-white">
+                      <TrendingUp className={`h-3.5 w-3.5 mx-auto ${palette.text} mb-1`} />
+                      <p className="text-base font-bold text-foreground">{avgScore}%</p>
                       <p className="text-[10px] text-muted-foreground uppercase">Moy.</p>
                     </div>
                   </div>
 
-                  {/* Top candidate preview */}
                   {top && (
-                    <div className="flex items-center gap-3 p-2.5 rounded-lg border border-border/60 bg-card">
-                      <div className={`flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br ${accent} flex items-center justify-center text-white text-xs font-bold shadow-sm`}>
+                    <div className="flex items-center gap-3 p-2.5 rounded-xl border border-white bg-white/80 backdrop-blur-sm">
+                      <div className={`flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br ${accent} flex items-center justify-center text-white text-xs font-bold shadow-sm ring-2 ring-white`}>
                         {getInitials(top.candidate_details?.prenom, top.candidate_details?.nom, top.nom_candidat)}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -693,15 +841,15 @@ export function CvsRetenusForm() {
                             Meilleur candidat
                           </p>
                         </div>
-                        <p className="text-sm font-semibold truncate">
+                        <p className="text-sm font-semibold truncate text-foreground">
                           {top.candidate_details?.prenom || ''}{' '}
                           {top.candidate_details?.nom || top.nom_candidat}
                         </p>
                       </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </button>
             );
           })}
         </div>
