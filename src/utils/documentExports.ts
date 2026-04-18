@@ -45,12 +45,12 @@ function signatureImageType(url?: string | null): 'png' | 'jpg' {
   return /\.jpe?g(\?|$)/i.test(url) ? 'jpg' : 'png';
 }
 
-function cell(text: string | Paragraph[], opts: { bold?: boolean; shade?: string; width?: number; align?: any; colSpan?: number; italic?: boolean } = {}) {
+function cell(text: string | Paragraph[], opts: { bold?: boolean; shade?: string; width?: number; align?: any; colSpan?: number; italic?: boolean; color?: string } = {}) {
   const children = Array.isArray(text)
     ? text
     : [new Paragraph({
         alignment: opts.align,
-        children: [new TextRun({ text, bold: opts.bold, italics: opts.italic, font: 'Calibri', size: 20 })],
+        children: [new TextRun({ text, bold: opts.bold, italics: opts.italic, color: opts.color, font: 'Calibri', size: 20 })],
       })];
   return new TableCell({
     children,
@@ -103,14 +103,15 @@ async function buildSignatureParagraphs(signer: SignerInfo, alignment: any = Ali
 // ─────────────────────── Fiche de Poste (DOCX) ───────────────────────
 
 export async function exportFichePosteDocx(data: FichePosteData, signer: SignerInfo) {
-  const HEADER_FILL = 'D9E2F3';
+  const HEADER_FILL = 'B9DCCB';
+  const TITLE_COLOR = '044C2A';
   const fullW = 9000;
 
   const infoTable = new Table({
     width: { size: fullW, type: WidthType.DXA },
     columnWidths: [2200, 2300, 2200, 2300],
     rows: [
-      new TableRow({ children: [cell('1. Informations générales', { bold: true, shade: HEADER_FILL, colSpan: 4, italic: true })] }),
+      new TableRow({ children: [cell('1. Informations générales', { bold: true, shade: HEADER_FILL, colSpan: 4, italic: true, color: TITLE_COLOR })] }),
       new TableRow({ children: [
         cell('Poste :'),
         cell(data.poste || '-', { bold: true }),
@@ -149,12 +150,12 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
       width: { size: fullW, type: WidthType.DXA },
       columnWidths: [3000, 6000],
       rows: [
-        new TableRow({ children: [cell(title, { bold: true, shade: HEADER_FILL, colSpan: 2, italic: true })] }),
+        new TableRow({ children: [cell(title, { bold: true, shade: HEADER_FILL, colSpan: 2, italic: true, color: TITLE_COLOR })] }),
         new TableRow({
           tableHeader: true,
           children: [
-            cell(catHeader, { bold: true, shade: HEADER_FILL, align: AlignmentType.CENTER }),
-            cell(detailsHeader, { bold: true, shade: HEADER_FILL, align: AlignmentType.CENTER }),
+            cell(catHeader, { bold: true, shade: HEADER_FILL, align: AlignmentType.CENTER, color: TITLE_COLOR }),
+            cell(detailsHeader, { bold: true, shade: HEADER_FILL, align: AlignmentType.CENTER, color: TITLE_COLOR }),
           ],
         }),
         ...(filtered.length > 0
@@ -180,7 +181,7 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
     width: { size: fullW, type: WidthType.DXA },
     columnWidths: [fullW],
     rows: [
-      new TableRow({ children: [cell('2. Mission', { bold: true, shade: HEADER_FILL })] }),
+      new TableRow({ children: [cell('2. Mission', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR })] }),
       new TableRow({ children: [cell(data.mission || '-')] }),
     ],
   });
@@ -192,7 +193,7 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
     sections: [{
       properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 } } },
       children: [
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Description de Poste', bold: true, size: 36, font: 'Calibri' })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Description de Poste', bold: true, size: 36, font: 'Calibri', color: TITLE_COLOR })] }),
         new Paragraph({ children: [new TextRun({ text: '' })] }),
         infoTable,
         new Paragraph({ children: [new TextRun({ text: '' })] }),
