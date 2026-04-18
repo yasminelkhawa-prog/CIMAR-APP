@@ -82,19 +82,6 @@ export function EvaluationsList({ evaluations, jobRoles, onDelete, onSelect }: P
                 variant="ghost"
                 size="icon"
                 className="shrink-0"
-                title="Export PDF"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const role = jobRoles.find(r => r.id === ev.jobRoleConfigId);
-                  generateEvaluationPdf(ev, role, lang, profile?.signature_url ?? null);
-                }}
-              >
-                <Download className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0"
                 title="Export Word"
                 onClick={(e) => {
                   e.stopPropagation();
