@@ -44,7 +44,7 @@ export const cvAnalysisRunner = {
     targetPositions: string[];
     onComplete?: () => void;
     onError?: (msg: string) => void;
-    onSuccess?: (count: number) => void;
+    onSuccess?: (count: number, total: number, failed: number) => void;
   }) {
     if (state.isAnalyzing) return;
     setState({
@@ -75,7 +75,10 @@ export const cvAnalysisRunner = {
       else if (!resp.ok) params.onError?.("Erreur lors de l'analyse IA");
       else {
         const data = await resp.json();
-        params.onSuccess?.(data.results?.length || 0);
+        const count = data.results?.length || 0;
+        const total = data.total || params.cvTexts.length;
+        const failedCount = (data.failed?.length) ?? (total - count);
+        params.onSuccess?.(count, total, failedCount);
       }
     } catch (e) {
       console.error('Analysis error:', e);
