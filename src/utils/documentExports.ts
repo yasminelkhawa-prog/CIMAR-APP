@@ -150,12 +150,12 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
       width: { size: fullW, type: WidthType.DXA },
       columnWidths: [3000, 6000],
       rows: [
-        new TableRow({ children: [cell(title, { bold: true, shade: HEADER_FILL, colSpan: 2, italic: true })] }),
+        new TableRow({ children: [cell(title, { bold: true, shade: HEADER_FILL, colSpan: 2, italic: true, color: TITLE_COLOR })] }),
         new TableRow({
           tableHeader: true,
           children: [
-            cell(catHeader, { bold: true, shade: HEADER_FILL, align: AlignmentType.CENTER }),
-            cell(detailsHeader, { bold: true, shade: HEADER_FILL, align: AlignmentType.CENTER }),
+            cell(catHeader, { bold: true, shade: HEADER_FILL, align: AlignmentType.CENTER, color: TITLE_COLOR }),
+            cell(detailsHeader, { bold: true, shade: HEADER_FILL, align: AlignmentType.CENTER, color: TITLE_COLOR }),
           ],
         }),
         ...(filtered.length > 0
