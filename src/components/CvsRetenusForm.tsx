@@ -469,6 +469,7 @@ export function CvsRetenusForm() {
       cvTexts,
       sessionId,
       targetPositions: positions,
+      jobDescriptions: buildJobDescriptionsPayload(positions),
       onError: (msg) => toast.error(msg),
       onSuccess: (count, total, failed) => {
         if (failed > 0) {
