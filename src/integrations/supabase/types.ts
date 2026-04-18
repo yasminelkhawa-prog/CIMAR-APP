@@ -164,45 +164,57 @@ export type Database = {
         Row: {
           candidate_details: Json
           competences_cles: Json
+          completed_at: string | null
           created_at: string
           cv_file_path: string | null
           cv_raw_text: string | null
           email: string | null
+          error_message: string | null
           id: string
           matching_score: number
           nom_candidat: string
           poste_assigne: string
           session_id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["cv_analysis_status"]
           synthese_ia: string
           updated_at: string
         }
         Insert: {
           candidate_details?: Json
           competences_cles?: Json
+          completed_at?: string | null
           created_at?: string
           cv_file_path?: string | null
           cv_raw_text?: string | null
           email?: string | null
+          error_message?: string | null
           id?: string
           matching_score?: number
           nom_candidat?: string
           poste_assigne?: string
           session_id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["cv_analysis_status"]
           synthese_ia?: string
           updated_at?: string
         }
         Update: {
           candidate_details?: Json
           competences_cles?: Json
+          completed_at?: string | null
           created_at?: string
           cv_file_path?: string | null
           cv_raw_text?: string | null
           email?: string | null
+          error_message?: string | null
           id?: string
           matching_score?: number
           nom_candidat?: string
           poste_assigne?: string
           session_id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["cv_analysis_status"]
           synthese_ia?: string
           updated_at?: string
         }
@@ -498,6 +510,7 @@ export type Database = {
         | "task"
         | "reminder"
         | "other"
+      cv_analysis_status: "pending" | "processing" | "completed" | "failed"
       signature_doc_type:
         | "evaluation"
         | "fiche_embauche"
@@ -641,6 +654,7 @@ export const Constants = {
         "reminder",
         "other",
       ],
+      cv_analysis_status: ["pending", "processing", "completed", "failed"],
       signature_doc_type: [
         "evaluation",
         "fiche_embauche",
