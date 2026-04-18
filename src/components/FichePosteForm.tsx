@@ -8,9 +8,11 @@ import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { FichePosteData, DEFAULT_FICHE_POSTE } from '@/types/fichePoste';
-import { Plus, Trash2, Save, Pencil, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Save, Pencil, ArrowLeft, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
+import { useAuth } from '@/hooks/useAuth';
+import { exportFichePosteDocx } from '@/utils/documentExports';
 
 interface ListItem {
   id: string;
@@ -20,6 +22,7 @@ interface ListItem {
 
 export function FichePosteForm() {
   const { t } = useLanguage();
+  const { profile } = useAuth();
   const [items, setItems] = useState<ListItem[]>([]);
   const [selected, setSelected] = useState<ListItem | null>(null);
   const [editMode, setEditMode] = useState(false);
@@ -27,6 +30,20 @@ export function FichePosteForm() {
   const [formData, setFormData] = useState<FichePosteData>(DEFAULT_FICHE_POSTE);
 
   useEffect(() => { loadItems(); }, []);
+
+  const handleDownload = async () => {
+    try {
+      await exportFichePosteDocx(formData, {
+        fullName: profile?.full_name,
+        title: profile?.title,
+        signatureUrl: profile?.signature_url,
+      });
+      toast.success('Document téléchargé');
+    } catch (e) {
+      console.error(e);
+      toast.error('Erreur lors du téléchargement');
+    }
+  };
 
   const loadItems = async () => {
     const { data } = await supabase.from('fiches_poste').select('*').order('created_at', { ascending: false });
@@ -111,11 +128,16 @@ export function FichePosteForm() {
         <Button variant="ghost" size="sm" onClick={() => { setShowNew(false); setSelected(null); }}>
           <ArrowLeft className="h-4 w-4 mr-1" /> {t('backToList')}
         </Button>
-        {readOnly && (
-          <Button onClick={() => setEditMode(true)} size="sm" variant="outline">
-            <Pencil className="h-4 w-4 mr-1" /> {t('modify')}
+        <div className="flex gap-2">
+          <Button onClick={handleDownload} size="sm" variant="outline">
+            <Download className="h-4 w-4 mr-1" /> Télécharger
           </Button>
-        )}
+          {readOnly && (
+            <Button onClick={() => setEditMode(true)} size="sm" variant="outline">
+              <Pencil className="h-4 w-4 mr-1" /> {t('modify')}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>

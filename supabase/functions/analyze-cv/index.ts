@@ -55,11 +55,11 @@ Pour chaque CV, tu dois:
 
 Tu dois répondre UNIQUEMENT avec le JSON demandé, sans aucun texte autour.`;
 
-    const results = [];
+    const results: any[] = [];
 
-    for (const cv of cvTexts) {
+    // Analyze a single CV (returns inserted record or null)
+    const analyzeOne = async (cv: { text: string; filePath: string }) => {
       const { text, filePath } = cv;
-
       const userPrompt = `Analyse ce CV et classe-le pour l'un des postes suivants: ${positionsList}.
 
 Retourne UNIQUEMENT un JSON avec ce format exact:
@@ -97,7 +97,7 @@ ${text}`;
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
+            model: "google/gemini-2.5-flash",
             messages: [
               { role: "system", content: SYSTEM_PROMPT },
               { role: "user", content: userPrompt },
@@ -105,35 +105,17 @@ ${text}`;
           }),
         });
 
-        if (response.status === 429) {
-          return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later.", partial_results: results }), {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        if (response.status === 402) {
-          return new Response(JSON.stringify({ error: "Payment required, please add funds." }), {
-            status: 402,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-
         if (!response.ok) {
-          console.error("AI error for CV:", filePath, await response.text());
-          continue;
+          console.error("AI error for CV:", filePath, response.status);
+          return null;
         }
 
         const data = await response.json();
         const content = data.choices?.[0]?.message?.content || "";
-
         const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          console.error("No JSON found in AI response for:", filePath);
-          continue;
-        }
+        if (!jsonMatch) return null;
 
         const parsed = JSON.parse(jsonMatch[0]);
-
         const record = {
           session_id: sessionId,
           nom_candidat: parsed.nom_candidat || "Inconnu",
@@ -150,14 +132,21 @@ ${text}`;
         const { data: inserted, error } = await supabase.from("cv_analyses").insert(record).select().single();
         if (error) {
           console.error("DB insert error:", error);
-        } else {
-          results.push(inserted);
+          return null;
         }
-
-        await new Promise(r => setTimeout(r, 500));
+        return inserted;
       } catch (e) {
         console.error("Error analyzing CV:", filePath, e);
+        return null;
       }
+    };
+
+    // Process in parallel batches to avoid hitting rate limits while staying fast
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < cvTexts.length; i += BATCH_SIZE) {
+      const batch = cvTexts.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(batch.map(analyzeOne));
+      batchResults.forEach(r => { if (r) results.push(r); });
     }
 
     return new Response(JSON.stringify({ results, sessionId }), {
