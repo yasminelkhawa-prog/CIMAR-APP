@@ -153,11 +153,19 @@ export function FicheEmbaucheForm() {
         <Button variant="ghost" size="sm" onClick={() => { setShowNew(false); setSelected(null); setEditMode(false); }}>
           <ArrowLeft className="h-4 w-4 mr-1" /> {t('backToList')}
         </Button>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-start">
           <Button onClick={handleDownload} size="sm" variant="outline">
             <Download className="h-4 w-4 mr-1" /> Télécharger
           </Button>
-          {readOnly && (
+          {selected && (
+            <RequestSignatureDialog docType="fiche_embauche" docId={selected.id} docTitle={formData.nomPrenom || formData.titrePoste || "Fiche d'embauche"} />
+          )}
+          {locked && (
+            <Badge variant="secondary" className="gap-1 self-center">
+              <Lock className="h-3 w-3" /> Verrouillé
+            </Badge>
+          )}
+          {readOnly && !locked && (
             <Button onClick={() => setEditMode(true)} size="sm" variant="outline">
               <Pencil className="h-4 w-4 mr-1" /> {t('modify')}
             </Button>
