@@ -499,22 +499,28 @@ export function CvsRetenusForm() {
           <CardContent className="py-4">
             <div className="flex items-center gap-3">
               <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-              <div className="flex-1">
-                <p className="text-sm font-medium mb-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium mb-1 truncate">
                   {isExtracting
                     ? `Extraction de texte (${extractProgress.current}/${extractProgress.total})${extractProgress.name ? ` — ${extractProgress.name}` : ''}`
-                    : runnerState.message || `Analyse IA en cours (${runnerState.current}/${runnerState.total})`}
+                    : `Analyse IA ${runnerState.current}/${runnerState.total}${runnerState.currentName ? ` — ${runnerState.currentName}` : ''}`}
                 </p>
                 <Progress
-                  value={isExtracting
-                    ? (extractProgress.current / Math.max(extractProgress.total, 1)) * 100
-                    : 100}
-                  className={!isExtracting ? 'animate-pulse' : ''}
+                  value={
+                    isExtracting
+                      ? (extractProgress.current / Math.max(extractProgress.total, 1)) * 100
+                      : (runnerState.current / Math.max(runnerState.total, 1)) * 100
+                  }
                 />
                 {!isExtracting && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    L'analyse continue en arrière-plan — vous pouvez naviguer librement.
-                  </p>
+                  <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                    <span>L'analyse continue en arrière-plan — vous pouvez naviguer librement.</span>
+                    {runnerState.failed.length > 0 && (
+                      <span className="text-amber-600 font-medium">
+                        {runnerState.failed.length} échec(s) jusqu'ici
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
