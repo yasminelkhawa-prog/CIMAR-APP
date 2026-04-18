@@ -870,14 +870,35 @@ export function CvsRetenusForm() {
   );
 }
 
-function DetailRow({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+function GlassDetail({
+  icon: Icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: any;
+  label: string;
+  value?: string;
+  accent: string;
+}) {
+  const hasValue = !!(value && value.trim());
   return (
-    <div className="flex items-start gap-1.5 min-w-0">
-      <Icon className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
-      <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{label}</p>
-        <p className="text-xs font-medium truncate" title={value}>{value}</p>
+    <div className="flex items-start gap-2 p-2 rounded-lg bg-white/50 dark:bg-white/5 backdrop-blur-sm border border-white/40 dark:border-white/10 min-w-0">
+      <div className={`flex-shrink-0 w-6 h-6 rounded-md bg-gradient-to-br ${accent} flex items-center justify-center shadow-sm`}>
+        <Icon className="h-3 w-3 text-white" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
+          {label}
+        </p>
+        <p
+          className={`text-xs font-medium truncate ${hasValue ? 'text-foreground' : 'text-muted-foreground/60 italic'}`}
+          title={hasValue ? value : 'Non renseigné'}
+        >
+          {hasValue ? value : '—'}
+        </p>
       </div>
     </div>
   );
 }
+
