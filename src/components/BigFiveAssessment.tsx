@@ -173,13 +173,16 @@ export function BigFiveAssessment() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-2">
-          <Brain className="h-5 w-5" /> Évaluation Big Five (OCEAN)
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[hsl(265_80%_55%)] text-primary-foreground shadow-lg shadow-primary/30">
+            <Brain className="h-5 w-5" />
+          </span>
+          <span className="gradient-text-primary">Évaluation Big Five (OCEAN)</span>
         </h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowConfig(!showConfig)}>
+          <Button variant="outline" size="sm" onClick={() => setShowConfig(!showConfig)} className="backdrop-blur-sm bg-card/60">
             <Settings2 className="h-4 w-4 mr-1" /> Questions
           </Button>
-          <Button onClick={() => setShowNew(true)} size="sm">
+          <Button onClick={() => setShowNew(true)} size="sm" className="bg-gradient-to-r from-primary to-[hsl(265_80%_55%)] shadow-md shadow-primary/30">
             <Plus className="h-4 w-4 mr-1" /> Nouveau Test
           </Button>
         </div>
