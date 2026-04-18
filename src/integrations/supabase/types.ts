@@ -354,6 +354,48 @@ export type Database = {
         }
         Relationships: []
       }
+      signature_requests: {
+        Row: {
+          created_at: string
+          doc_id: string
+          doc_title: string
+          doc_type: Database["public"]["Enums"]["signature_doc_type"]
+          id: string
+          message: string | null
+          recipient_id: string
+          requester_id: string
+          responded_at: string | null
+          signature_url: string | null
+          status: Database["public"]["Enums"]["signature_request_status"]
+        }
+        Insert: {
+          created_at?: string
+          doc_id: string
+          doc_title?: string
+          doc_type: Database["public"]["Enums"]["signature_doc_type"]
+          id?: string
+          message?: string | null
+          recipient_id: string
+          requester_id: string
+          responded_at?: string | null
+          signature_url?: string | null
+          status?: Database["public"]["Enums"]["signature_request_status"]
+        }
+        Update: {
+          created_at?: string
+          doc_id?: string
+          doc_title?: string
+          doc_type?: Database["public"]["Enums"]["signature_doc_type"]
+          id?: string
+          message?: string | null
+          recipient_id?: string
+          requester_id?: string
+          responded_at?: string | null
+          signature_url?: string | null
+          status?: Database["public"]["Enums"]["signature_request_status"]
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -392,6 +434,12 @@ export type Database = {
     Enums: {
       app_role: "admin" | "user"
       assessment_status: "pending" | "completed" | "analyzed"
+      signature_doc_type:
+        | "evaluation"
+        | "fiche_embauche"
+        | "fiche_poste"
+        | "plan_integration"
+      signature_request_status: "pending" | "accepted" | "declined"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -521,6 +569,13 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "user"],
       assessment_status: ["pending", "completed", "analyzed"],
+      signature_doc_type: [
+        "evaluation",
+        "fiche_embauche",
+        "fiche_poste",
+        "plan_integration",
+      ],
+      signature_request_status: ["pending", "accepted", "declined"],
     },
   },
 } as const
