@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { FichePosteData, DEFAULT_FICHE_POSTE } from '@/types/fichePoste';
+import { FichePosteData, DEFAULT_FICHE_POSTE, CategorizedItem } from '@/types/fichePoste';
 import { Plus, Trash2, Save, Pencil, ArrowLeft, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
@@ -108,18 +108,24 @@ export function FichePosteForm() {
     );
   }
 
-  const updateList = (key: 'rolesResponsabilites' | 'competences' | 'profil', index: number, value: string) => {
+  const updateCatItem = (key: 'rolesResponsabilites' | 'competences' | 'profil', index: number, field: 'category' | 'details', value: string) => {
     const arr = [...formData[key]];
-    arr[index] = value;
+    arr[index] = { ...arr[index], [field]: value };
     update({ [key]: arr });
   };
 
-  const addToList = (key: 'rolesResponsabilites' | 'competences' | 'profil') => {
-    update({ [key]: [...formData[key], ''] });
+  const addCatItem = (key: 'rolesResponsabilites' | 'competences' | 'profil') => {
+    update({ [key]: [...formData[key], { category: '', details: '' }] });
   };
 
-  const removeFromList = (key: 'rolesResponsabilites' | 'competences' | 'profil', index: number) => {
+  const removeCatItem = (key: 'rolesResponsabilites' | 'competences' | 'profil', index: number) => {
     update({ [key]: formData[key].filter((_, i) => i !== index) });
+  };
+
+  const sectionLabels: Record<'rolesResponsabilites' | 'competences' | 'profil', { title: string; catLabel: string; detailsLabel: string }> = {
+    rolesResponsabilites: { title: 'Rôles et responsabilités', catLabel: 'Catégorie', detailsLabel: 'Responsabilités détaillées' },
+    competences: { title: 'Compétences', catLabel: 'Type de compétence', detailsLabel: 'Détails' },
+    profil: { title: 'Profil du poste', catLabel: 'Critère', detailsLabel: 'Exigence' },
   };
 
   return (
@@ -157,38 +163,59 @@ export function FichePosteForm() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-lg">2. {t('mission')}</CardTitle></CardHeader>
+        <CardHeader className="pb-3"><CardTitle className="text-lg">2. Mission</CardTitle></CardHeader>
         <CardContent>
           <Textarea value={formData.mission} onChange={e => update({ mission: e.target.value })} rows={4} disabled={!!readOnly} />
         </CardContent>
       </Card>
 
-      {(['rolesResponsabilites', 'competences', 'profil'] as const).map((key, idx) => (
-        <Card key={key}>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">{idx + 3}. {t(key)}</CardTitle>
-              {!readOnly && (
-                <Button variant="outline" size="sm" onClick={() => addToList(key)}>
-                  <Plus className="h-4 w-4 mr-1" /> {t('add')}
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {formData[key].map((item, i) => (
-              <div key={i} className="flex gap-2">
-                <Input value={item} onChange={e => updateList(key, i, e.target.value)} disabled={!!readOnly} />
-                {!readOnly && formData[key].length > 1 && (
-                  <Button variant="ghost" size="icon" onClick={() => removeFromList(key, i)}>
-                    <Trash2 className="h-4 w-4" />
+      {(['rolesResponsabilites', 'competences', 'profil'] as const).map((key, idx) => {
+        const labels = sectionLabels[key];
+        return (
+          <Card key={key}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">{idx + 3}. {labels.title}</CardTitle>
+                {!readOnly && (
+                  <Button variant="outline" size="sm" onClick={() => addCatItem(key)}>
+                    <Plus className="h-4 w-4 mr-1" /> {t('add')}
                   </Button>
                 )}
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      ))}
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {formData[key].map((item, i) => (
+                <div key={i} className="grid grid-cols-12 gap-2 items-start border rounded-md p-3">
+                  <div className="col-span-4">
+                    <Label className="text-xs">{labels.catLabel}</Label>
+                    <Input
+                      value={item.category}
+                      onChange={e => updateCatItem(key, i, 'category', e.target.value)}
+                      disabled={!!readOnly}
+                    />
+                  </div>
+                  <div className="col-span-7">
+                    <Label className="text-xs">{labels.detailsLabel}</Label>
+                    <Textarea
+                      value={item.details}
+                      onChange={e => updateCatItem(key, i, 'details', e.target.value)}
+                      disabled={!!readOnly}
+                      rows={3}
+                    />
+                  </div>
+                  <div className="col-span-1 flex items-end justify-end h-full">
+                    {!readOnly && formData[key].length > 1 && (
+                      <Button variant="ghost" size="icon" onClick={() => removeCatItem(key, i)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })}
 
       {!readOnly && (
         <div className="flex justify-end">

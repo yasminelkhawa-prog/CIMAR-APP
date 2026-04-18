@@ -138,22 +138,43 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
     ],
   });
 
-  const sectionTable = (title: string, items: string[]) =>
-    new Table({
+  const categorizedTable = (
+    title: string,
+    catHeader: string,
+    detailsHeader: string,
+    items: { category: string; details: string }[],
+  ) => {
+    const filtered = items.filter(i => (i.category || '').trim() || (i.details || '').trim());
+    return new Table({
       width: { size: fullW, type: WidthType.DXA },
-      columnWidths: [fullW],
+      columnWidths: [3000, 6000],
       rows: [
-        new TableRow({ children: [cell(title, { bold: true, shade: HEADER_FILL })] }),
-        new TableRow({ children: [cell(
-          items.filter(Boolean).length > 0
-            ? items.filter(Boolean).map(it => new Paragraph({
-                bullet: { level: 0 },
-                children: [new TextRun({ text: it, font: 'Calibri', size: 20 })],
-              }))
-            : '-'
-        )] }),
+        new TableRow({ children: [cell(title, { bold: true, shade: HEADER_FILL, colSpan: 2, italic: true })] }),
+        new TableRow({
+          tableHeader: true,
+          children: [
+            cell(catHeader, { bold: true, shade: HEADER_FILL, align: AlignmentType.CENTER }),
+            cell(detailsHeader, { bold: true, shade: HEADER_FILL, align: AlignmentType.CENTER }),
+          ],
+        }),
+        ...(filtered.length > 0
+          ? filtered.map(it => new TableRow({
+              children: [
+                cell(it.category || '-', { bold: true }),
+                cell(
+                  it.details
+                    ? it.details.split(/\r?\n/).filter(l => l.trim()).map(line => new Paragraph({
+                        bullet: { level: 0 },
+                        children: [new TextRun({ text: line.replace(/^[-•]\s*/, ''), font: 'Calibri', size: 20 })],
+                      }))
+                    : '-'
+                ),
+              ],
+            }))
+          : [new TableRow({ children: [cell('-', { colSpan: 2 })] })]),
       ],
     });
+  };
 
   const missionTable = new Table({
     width: { size: fullW, type: WidthType.DXA },
@@ -177,11 +198,11 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
         new Paragraph({ children: [new TextRun({ text: '' })] }),
         missionTable,
         new Paragraph({ children: [new TextRun({ text: '' })] }),
-        sectionTable('3. Rôles et responsabilités', data.rolesResponsabilites),
+        categorizedTable('3. Rôles et responsabilités', 'Catégorie', 'Responsabilités détaillées', data.rolesResponsabilites),
         new Paragraph({ children: [new TextRun({ text: '' })] }),
-        sectionTable('4. Compétences', data.competences),
+        categorizedTable('4. Compétences', 'Type de compétence', 'Détails', data.competences),
         new Paragraph({ children: [new TextRun({ text: '' })] }),
-        sectionTable('5. Profil du poste', data.profil),
+        categorizedTable('5. Profil du poste', 'Critère', 'Exigence', data.profil),
         new Paragraph({ children: [new TextRun({ text: '' })] }),
         ...signaturePara,
       ],
