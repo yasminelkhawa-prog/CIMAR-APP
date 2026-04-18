@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { exportFicheEmbaucheXlsx } from '@/utils/documentExports';
+import { FormAssistant } from '@/components/FormAssistant';
 
 interface ListItem {
   id: string;
@@ -477,6 +478,28 @@ export function FicheEmbaucheForm() {
           </Button>
         </div>
       )}
+
+      <FormAssistant
+        formType="fiche_embauche"
+        currentData={formData}
+        disabled={!!readOnly}
+        onApply={(s) => {
+          setFormData(prev => {
+            const next: FicheEmbaucheData = { ...prev };
+            const stringKeys: (keyof FicheEmbaucheData)[] = ['titrePoste','directionDepartement','rattachementHierarchique','motifRecrutement','nomPrenom','statut','typeContrat','dureePeriodeEssai','dureePreavis','entreeEnvisagee'];
+            stringKeys.forEach(k => {
+              const v = s[k as string];
+              if (typeof v === 'string' && v.trim()) (next as any)[k] = v;
+            });
+            const numKeys: (keyof FicheEmbaucheData)[] = ['salaireBase','primeLogement','primeSite','indTransport','primeRepresentation','tauxCIMR','nbPersonnesCharge','mbo'];
+            numKeys.forEach(k => {
+              const v = s[k as string];
+              if (typeof v === 'number' && !isNaN(v)) (next as any)[k] = v;
+            });
+            return next;
+          });
+        }}
+      />
     </div>
   );
 }
