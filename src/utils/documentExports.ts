@@ -45,12 +45,12 @@ function signatureImageType(url?: string | null): 'png' | 'jpg' {
   return /\.jpe?g(\?|$)/i.test(url) ? 'jpg' : 'png';
 }
 
-function cell(text: string | Paragraph[], opts: { bold?: boolean; shade?: string; width?: number; align?: any; colSpan?: number; italic?: boolean } = {}) {
+function cell(text: string | Paragraph[], opts: { bold?: boolean; shade?: string; width?: number; align?: any; colSpan?: number; italic?: boolean; color?: string } = {}) {
   const children = Array.isArray(text)
     ? text
     : [new Paragraph({
         alignment: opts.align,
-        children: [new TextRun({ text, bold: opts.bold, italics: opts.italic, font: 'Calibri', size: 20 })],
+        children: [new TextRun({ text, bold: opts.bold, italics: opts.italic, color: opts.color, font: 'Calibri', size: 20 })],
       })];
   return new TableCell({
     children,
