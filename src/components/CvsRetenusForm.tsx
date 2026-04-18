@@ -44,6 +44,7 @@ interface CvAnalysis {
   competences_cles: string[];
   synthese_ia: string;
   cv_file_path: string;
+  cv_raw_text?: string;
   created_at: string;
   candidate_details: CandidateDetails;
 }
