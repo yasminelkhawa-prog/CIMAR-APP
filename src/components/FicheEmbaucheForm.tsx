@@ -107,7 +107,8 @@ export function FicheEmbaucheForm() {
     toast.success(t('deleted'));
   };
 
-  const readOnly = selected && !editMode;
+  const { locked } = useDocumentLock('fiche_embauche', selected?.id ?? null);
+  const readOnly = (selected && !editMode) || locked;
 
   // List view
   if (!showNew && !selected) {
