@@ -1075,3 +1075,198 @@ function GlassDetail({
   );
 }
 
+type PalettePiece = {
+  icon: string;
+  iconText: string;
+  chip: string;
+  text: string;
+  border: string;
+  accent: string;
+};
+
+interface CandidateReportDrawerProps {
+  candidate: CvAnalysis | null;
+  cvUrl: string | null;
+  palette: PalettePiece;
+  onClose: () => void;
+  onView: () => void;
+  onDownload: () => void;
+}
+
+function CandidateReportDrawer({
+  candidate,
+  cvUrl,
+  palette,
+  onClose,
+  onView,
+  onDownload,
+}: CandidateReportDrawerProps) {
+  if (!candidate) return null;
+
+  const tone = getScoreTone(candidate.matching_score);
+  const fullName =
+    [candidate.candidate_details?.prenom, candidate.candidate_details?.nom]
+      .filter(Boolean)
+      .join(' ') || candidate.nom_candidat;
+
+  // Lightweight strengths / weaknesses heuristic from existing data.
+  const strengths: string[] = [];
+  const weaknesses: string[] = [];
+  const exp = parseInt(candidate.candidate_details?.annees_experience || '0', 10);
+  if (Number.isFinite(exp) && exp >= 3) strengths.push(`${exp} an(s) d'expérience pertinente`);
+  if (candidate.matching_score >= 75) strengths.push('Profil très aligné avec le poste');
+  else if (candidate.matching_score >= 50) strengths.push('Profil partiellement aligné');
+  if ((candidate.competences_cles || []).length >= 2)
+    strengths.push(`Compétences clés: ${candidate.competences_cles.slice(0, 3).join(', ')}`);
+  if (candidate.candidate_details?.formation)
+    strengths.push(`Formation: ${candidate.candidate_details.formation}`);
+
+  if (!candidate.email) weaknesses.push('Adresse e-mail manquante');
+  if (!candidate.candidate_details?.telephone) weaknesses.push('Numéro de téléphone manquant');
+  if (!candidate.candidate_details?.poste_actuel) weaknesses.push('Poste actuel non renseigné');
+  if (Number.isFinite(exp) && exp < 1) weaknesses.push("Expérience professionnelle limitée");
+  if (candidate.matching_score < 50) weaknesses.push('Faible correspondance avec le poste cible');
+  if (candidate.synthese_ia) weaknesses.push(candidate.synthese_ia);
+
+  return (
+    <Sheet open={!!candidate} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0 bg-white">
+        <div className={`h-1.5 ${palette.accent}`} />
+        <SheetHeader className="px-6 pt-6 pb-4 border-b border-slate-100">
+          <div className="flex items-start gap-4">
+            <div className={`flex-shrink-0 w-14 h-14 rounded-2xl ${palette.icon} flex items-center justify-center ${palette.iconText} text-base font-bold shadow-sm ring-2 ring-white`}>
+              {getInitials(candidate.candidate_details?.prenom, candidate.candidate_details?.nom, candidate.nom_candidat)}
+            </div>
+            <div className="min-w-0 flex-1 text-left">
+              <SheetTitle className="text-lg font-bold leading-tight truncate" title={fullName}>
+                {fullName}
+              </SheetTitle>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full ${tone.soft} ${tone.text} border ${tone.border} text-xs font-bold`}>
+                  <Sparkles className="h-3 w-3" />
+                  {candidate.matching_score}% — {tone.label}
+                </span>
+                {candidate.poste_assigne && (
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full ${palette.chip} border ${palette.border} text-[11px] font-semibold ${palette.text}`}>
+                    {candidate.poste_assigne}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </SheetHeader>
+
+        <div className="px-6 py-5 space-y-5">
+          <section>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+              Critères du candidat
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <GlassDetail icon={Briefcase} label="Poste" value={candidate.poste_assigne} palette={palette} />
+              <GlassDetail icon={UserIcon} label="Prénom & Nom" value={fullName} palette={palette} />
+              <GlassDetail icon={GraduationCap} label="Établissement formation" value={candidate.candidate_details?.etablissement_formation} palette={palette} />
+              <GlassDetail icon={Award} label="Formation" value={candidate.candidate_details?.formation} palette={palette} />
+              <GlassDetail icon={Briefcase} label="Poste actuel" value={candidate.candidate_details?.poste_actuel} palette={palette} />
+              <GlassDetail icon={Building2} label="Entreprise actuelle" value={candidate.candidate_details?.entreprise_actuelle} palette={palette} />
+              <GlassDetail icon={Calendar} label="Début poste actuel" value={candidate.candidate_details?.date_debut_poste} palette={palette} />
+              <GlassDetail icon={Clock} label="Années d'expérience" value={candidate.candidate_details?.annees_experience} palette={palette} />
+              <GlassDetail icon={Mail} label="Adresse e-mail" value={candidate.email} palette={palette} />
+              <GlassDetail icon={Phone} label="Téléphone" value={candidate.candidate_details?.telephone} palette={palette} />
+            </div>
+          </section>
+
+          {(candidate.competences_cles || []).length > 0 && (
+            <section>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+                Compétences clés
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {candidate.competences_cles.map((comp, i) => (
+                  <span
+                    key={i}
+                    className={`text-[11px] px-2.5 py-1 rounded-full ${palette.chip} ${palette.text} border ${palette.border} font-medium`}
+                  >
+                    {comp}
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {candidate.synthese_ia && (
+            <section className={`p-3 rounded-xl ${palette.chip} border ${palette.border}`}>
+              <div className="flex items-start gap-2">
+                <Sparkles className={`h-4 w-4 ${palette.text} flex-shrink-0 mt-0.5`} />
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+                    Synthèse IA
+                  </p>
+                  <p className="text-xs italic leading-relaxed text-foreground/80">{candidate.synthese_ia}</p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/60">
+              <p className="text-[10px] uppercase tracking-wider text-emerald-700 font-semibold mb-2">
+                Points forts
+              </p>
+              {strengths.length === 0 ? (
+                <p className="text-xs italic text-muted-foreground">Aucun point fort détecté.</p>
+              ) : (
+                <ul className="space-y-1 text-xs text-foreground/85 list-disc pl-4">
+                  {strengths.map((s, i) => <li key={i}>{s}</li>)}
+                </ul>
+              )}
+            </div>
+            <div className="p-3 rounded-xl border border-rose-200 bg-rose-50/60">
+              <p className="text-[10px] uppercase tracking-wider text-rose-700 font-semibold mb-2">
+                Points à clarifier
+              </p>
+              {weaknesses.length === 0 ? (
+                <p className="text-xs italic text-muted-foreground">Aucun écart majeur identifié.</p>
+              ) : (
+                <ul className="space-y-1 text-xs text-foreground/85 list-disc pl-4">
+                  {weaknesses.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          {candidate.cv_file_path && (
+            <section>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  Aperçu du CV
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onView}>
+                    <Eye className="h-3 w-3 mr-1" /> Ouvrir
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onDownload}>
+                    <Download className="h-3 w-3 mr-1" /> Télécharger
+                  </Button>
+                </div>
+              </div>
+              <div className={`rounded-xl border ${palette.border} overflow-hidden bg-slate-50`} style={{ height: 480 }}>
+                {cvUrl ? (
+                  <iframe
+                    src={cvUrl}
+                    title={`CV de ${fullName}`}
+                    className="w-full h-full"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                    Chargement de l'aperçu…
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
