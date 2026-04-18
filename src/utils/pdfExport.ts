@@ -411,10 +411,36 @@ export async function generateEvaluationPdf(
   doc.setFontSize(10);
   doc.text(fr ? 'NON FAVORABLE' : 'NOT FAVORABLE', rightDecX - 8, y + 7.5);
 
-  // ── SIGNATURE in footer of last page ──
+  // ── SIGNATURE BLOCK in footer of last page ──
   const totalPages = doc.getNumberOfPages();
   doc.setPage(totalPages);
-  const footerY = 270;
+
+  // Position: bottom-right, big & official-looking
+  const blockW = 80;
+  const blockH = 42;
+  const blockX = pageWidth - margin - blockW;
+  const blockY = 245;
+
+  // Outer frame
+  doc.setDrawColor(...BORDER_GREEN);
+  doc.setLineWidth(0.5);
+  doc.rect(blockX, blockY, blockW, blockH);
+
+  // Header strip
+  doc.setFillColor(...GREEN);
+  doc.rect(blockX, blockY, blockW, 6, 'F');
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text(fr ? 'SIGNATURE DU RECRUTEUR' : 'RECRUITER SIGNATURE', blockX + blockW / 2, blockY + 4.2, { align: 'center' });
+
+  // Date line above signature image
+  doc.setTextColor(...BLACK);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${fr ? 'Date' : 'Date'} : ${evaluation.date || ''}`, blockX + 2, blockY + 10);
+
+  // Signature image
   if (signatureUrl) {
     try {
       const img = new Image();
@@ -430,15 +456,25 @@ export async function generateEvaluationPdf(
       const ctx = canvas.getContext('2d')!;
       ctx.drawImage(img, 0, 0);
       const dataUrl = canvas.toDataURL('image/png');
-      doc.addImage(dataUrl, 'PNG', pageWidth - margin - 50, footerY - 15, 45, 15);
+      // Embed signature larger and centered in the box
+      const sigW = 60;
+      const sigH = 20;
+      doc.addImage(dataUrl, 'PNG', blockX + (blockW - sigW) / 2, blockY + 12, sigW, sigH);
     } catch {
-      // Signature load failed, skip
+      // Signature load failed
     }
   }
-  doc.setTextColor(...GRAY);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'italic');
-  doc.text(evaluation.interviewerName || '', pageWidth - margin, footerY + 2, { align: 'right' });
+
+  // Signature line
+  doc.setDrawColor(...BLACK);
+  doc.setLineWidth(0.3);
+  doc.line(blockX + 4, blockY + blockH - 8, blockX + blockW - 4, blockY + blockH - 8);
+
+  // Interviewer name under the line
+  doc.setTextColor(...BLACK);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text(evaluation.interviewerName || '', blockX + blockW / 2, blockY + blockH - 3, { align: 'center' });
 
   // Save
   doc.save(`evaluation-${evaluation.candidateName.replace(/\s+/g, '-')}-${evaluation.date}.pdf`);
