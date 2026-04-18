@@ -50,6 +50,7 @@ const initialState: RunnerState = {
   succeeded: 0,
   sessionId: null,
   targetPositions: [],
+  jobDescriptions: [],
 };
 
 let state: RunnerState = { ...initialState };
