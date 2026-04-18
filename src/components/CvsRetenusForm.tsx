@@ -416,33 +416,86 @@ export function CvsRetenusForm() {
     setAnalyses(prev => prev.filter(a => a.id !== id));
   };
 
+  const downloadStoredCvAsFile = async (filePath: string) => {
+    const { data, error } = await supabase.storage.from('cv-uploads').download(filePath);
+    if (error) throw error;
+    const fileName = filePath.split('/').pop() || 'cv.pdf';
+    return new File([data], fileName, { type: data.type || 'application/pdf' });
+  };
+
   /** Re-run extraction + scoring on already-stored CVs (no re-upload). */
   const reanalyzeExisting = async (cvs: CvAnalysis[], label: string) => {
     if (targetPositions.length === 0) {
       toast.error('Ajoutez au moins un poste cible avant de relancer.');
       return;
     }
-    const usable = cvs.filter(c => (c.cv_raw_text && c.cv_raw_text.trim().length > 20));
-    if (usable.length === 0) {
-      toast.error("Aucun texte de CV stocké pour relancer l'analyse.");
+
+    const oldIds: string[] = [];
+    const payload: { text: string; filePath: string }[] = [];
+    const skipped: string[] = [];
+
+    setIsExtracting(true);
+    setExtractProgress({ current: 0, total: cvs.length, name: '' });
+
+    try {
+      for (let index = 0; index < cvs.length; index += 1) {
+        const cv = cvs[index];
+        const fileName = cv.cv_file_path?.split('/').pop() || cv.nom_candidat || `cv-${index + 1}`;
+        setExtractProgress({ current: index + 1, total: cvs.length, name: fileName });
+        cvAnalysisRunner.setExtractionProgress(index + 1, cvs.length, fileName);
+
+        let extractedText = '';
+        if (cv.cv_file_path) {
+          try {
+            const storedFile = await downloadStoredCvAsFile(cv.cv_file_path);
+            extractedText = await withTimeout(
+              extractReadableCvText(storedFile),
+              FILE_PROCESS_TIMEOUT_MS,
+              `relecture ${storedFile.name}`,
+            );
+          } catch (error) {
+            console.warn('Stored CV re-extraction failed:', cv.cv_file_path, error);
+          }
+        }
+
+        const cleanedExtractedText = normalizeText(extractedText);
+        const fallbackText = normalizeText(cv.cv_raw_text || '');
+        const bestText = cleanedExtractedText.length >= READABLE_TEXT_MIN_LENGTH
+          ? cleanedExtractedText
+          : fallbackText;
+
+        if (bestText.length < READABLE_TEXT_MIN_LENGTH) {
+          skipped.push(fileName);
+          continue;
+        }
+
+        oldIds.push(cv.id);
+        payload.push({
+          text: bestText,
+          filePath: cv.cv_file_path || '',
+        });
+      }
+    } finally {
+      setIsExtracting(false);
+    }
+
+    if (payload.length === 0) {
+      toast.error("Impossible de relire les CV stockés pour relancer l'analyse.");
+      cvAnalysisRunner.reset();
       return;
     }
-    if (usable.length < cvs.length) {
-      toast.warning(`${cvs.length - usable.length} CV ignoré(s) — texte manquant en base.`);
+
+    if (skipped.length > 0) {
+      toast.warning(`${skipped.length} CV ignoré(s) — lecture impossible depuis le stockage.`);
     }
-    const oldIds = usable.map(c => c.id);
-    const payload = usable.map(c => ({
-      text: c.cv_raw_text || '',
-      filePath: c.cv_file_path || '',
-    }));
-    toast.info(`Relance de ${usable.length} CV — ${label}`);
+
+    toast.info(`Relance de ${payload.length} CV — ${label}`);
     cvAnalysisRunner.run({
       cvTexts: payload,
       sessionId: crypto.randomUUID(),
       targetPositions,
       onError: (msg) => toast.error(msg),
       onSuccess: async (count, total, failed) => {
-        // Remove old analyses now that new ones have been inserted
         if (oldIds.length > 0) {
           await supabase.from('cv_analyses').delete().in('id', oldIds);
         }
@@ -800,6 +853,15 @@ export function CvsRetenusForm() {
             );
           })}
         </div>
+
+        <CandidateReportDrawer
+          candidate={openCandidate}
+          cvUrl={candidateCvUrl}
+          palette={openCandidate ? paletteFor(openCandidate.poste_assigne || 'Autre') : palette}
+          onClose={() => setOpenCandidate(null)}
+          onView={() => openCandidate && handleViewCV(openCandidate.cv_file_path)}
+          onDownload={() => openCandidate && handleDownloadCV(openCandidate)}
+        />
       </div>
     );
   }
