@@ -22,7 +22,6 @@ STRICT RULES — read carefully:
 Return EXACTLY this structure:
 {"candidate_name":"","first_name":"","last_name":"","email":"","phone":"","education_institution":"","education_field":"","current_position":"","current_company":"","current_position_start_date":"","years_of_experience":0,"top_3_skills":[],"matching_score_estimate":0,"best_matching_position":"","red_flags_or_gaps":"","2_quick_interview_questions":["",""]}`;
 const AI_TIMEOUT_MS = 30_000;
-const AI_MAX_TOKENS = 800;
 const AI_MODEL = "google/gemini-2.5-flash";
 const CV_TEXT_LIMIT = 8000;
 
@@ -263,6 +262,20 @@ function scorePositionWithJobDescription(position: string, rawText: string, jobD
   return Math.round(positionScore * 0.45 + descriptionScore * 0.55);
 }
 
+function scoreCurrentRoleAlignment(rawText: string, assignedPosition: string): number {
+  const inferredCurrentRole = inferCurrentPosition(rawText, "");
+  if (!inferredCurrentRole) return 0;
+  return scorePositionAgainstText(assignedPosition, inferredCurrentRole);
+}
+
+function hasStrongDescriptionSignal(rawText: string, assignedPosition: string, jobDescriptions: Map<string, string>): boolean {
+  const description = jobDescriptions.get(assignedPosition);
+  if (!description) return false;
+  const descriptionWeights = buildJobDescriptionWeights(description);
+  const weightedScore = scoreTokensAgainstText(Array.from(descriptionWeights.keys()), rawText, descriptionWeights);
+  return weightedScore >= 55;
+}
+
 function pickBestPositionByHeuristic(
   targetPositions: string[],
   rawText: string,
@@ -284,12 +297,21 @@ function normalizeMatchingScore(
 ): number {
   const aiScore = normalizeScore(rawScore);
   const heuristicScore = scorePositionWithJobDescription(assignedPosition, rawText, jobDescriptions.get(assignedPosition));
-  if (heuristicScore >= 80 && aiScore < 45) return heuristicScore;
-  if (heuristicScore >= 60 && aiScore < 30) return heuristicScore;
-  if (heuristicScore >= 45 && aiScore < 20) return heuristicScore;
-  if (heuristicScore === 0 && aiScore > 90) return 70;
-  if (heuristicScore > 0 && aiScore < 25) return Math.max(25, heuristicScore);
-  return Math.max(aiScore, heuristicScore);
+  const roleAlignment = scoreCurrentRoleAlignment(rawText, assignedPosition);
+  const strongDescriptionSignal = hasStrongDescriptionSignal(rawText, assignedPosition, jobDescriptions);
+  const baseScore = Math.max(heuristicScore, roleAlignment > 0 ? Math.round(roleAlignment * 0.7 + heuristicScore * 0.3) : heuristicScore);
+
+  if (baseScore <= 10 && aiScore >= 85) return 24;
+  if (baseScore < 25 && aiScore >= 70) return Math.max(baseScore, 28);
+  if (!strongDescriptionSignal && baseScore < 40 && aiScore > 80) return Math.max(baseScore, 42);
+  if (baseScore >= 80 && aiScore < 45) return baseScore;
+  if (baseScore >= 60 && aiScore < 30) return baseScore;
+  if (baseScore >= 45 && aiScore < 20) return baseScore;
+  if (baseScore === 0 && aiScore > 90) return 18;
+  if (baseScore > 0 && aiScore < 25) return Math.max(25, baseScore);
+
+  const blended = Math.round(aiScore * 0.45 + baseScore * 0.55);
+  return Math.max(0, Math.min(100, blended));
 }
 
 function buildLowScoreComment(score: number, rawText: string, assignedPosition: string, aiComment: string): string {
