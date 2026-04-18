@@ -145,13 +145,14 @@ const TOOLS: Record<string, any[]> = {
               items: {
                 type: "object",
                 properties: {
+                  activityType: { type: "string", enum: ["planning", "formation"], description: "planning = visite/réunion ; formation = session de formation" },
                   date: { type: "string", description: "YYYY-MM-DD" },
                   horaire: { type: "string", description: "ex: 09h00-10h30" },
                   direction: { type: "string" },
                   responsable: { type: "string" },
                   objectifs: { type: "string" },
                 },
-                required: ["direction", "responsable", "objectifs"],
+                required: ["activityType", "direction", "responsable", "objectifs"],
                 additionalProperties: false,
               },
             },
