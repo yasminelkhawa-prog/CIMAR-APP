@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { FicheEmbaucheData, DEFAULT_FICHE_EMBAUCHE, calculateSalary, DEFAULT_SITES } from '@/types/ficheEmbauche';
-import { Plus, Trash2, Save, Pencil, ArrowLeft, Download, FileText } from 'lucide-react';
+import { Plus, Trash2, Save, Pencil, ArrowLeft, Download, FileText, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,6 +17,7 @@ import { exportFicheEmbaucheXlsx } from '@/utils/documentExports';
 import { FormAssistant } from '@/components/FormAssistant';
 import { RequestSignatureDialog } from '@/components/RequestSignatureDialog';
 import { fetchAcceptedSignatures } from '@/hooks/useSignatureRequests';
+import { useDocumentLock } from '@/hooks/useDocumentLock';
 
 interface ListItem {
   id: string;
