@@ -323,12 +323,15 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
     ],
   });
 
-  // Split entries: planning (non-formation) vs formations rows.
-  // Heuristic: entries flagged with direction containing keywords like Sécurité, Formation,
-  // Workday, Recrutement go to formations; otherwise stay in planning.
+  // Split entries by explicit activityType field. Backward-compat: legacy entries
+  // without an activityType fall back to keyword detection.
   const formationKeywords = /(formation|workday|sécurit|securit|recrutement|développement rh|developpement rh)/i;
-  const planningEntries = data.entries.filter(e => !formationKeywords.test(`${e.direction} ${e.objectifs}`));
-  const formationEntries = data.entries.filter(e => formationKeywords.test(`${e.direction} ${e.objectifs}`));
+  const isFormation = (e: typeof data.entries[number]) => {
+    if (e.activityType) return e.activityType === 'formation';
+    return formationKeywords.test(`${e.direction} ${e.objectifs}`);
+  };
+  const planningEntries = data.entries.filter(e => !isFormation(e));
+  const formationEntries = data.entries.filter(e => isFormation(e));
 
   const planningTable = new Table({
     width: { size: fullW, type: WidthType.DXA },
