@@ -917,18 +917,18 @@ function GlassDetail({
   icon: Icon,
   label,
   value,
-  accent,
+  palette,
 }: {
   icon: any;
   label: string;
   value?: string;
-  accent: string;
+  palette: { icon: string; iconText: string; border: string };
 }) {
   const hasValue = !!(value && value.trim());
   return (
-    <div className="flex items-start gap-2 p-2 rounded-lg bg-white/50 dark:bg-white/5 backdrop-blur-sm border border-white/40 dark:border-white/10 min-w-0">
-      <div className={`flex-shrink-0 w-6 h-6 rounded-md bg-gradient-to-br ${accent} flex items-center justify-center shadow-sm`}>
-        <Icon className="h-3 w-3 text-white" />
+    <div className={`flex items-start gap-2 p-2 rounded-lg bg-white border ${palette.border} min-w-0`}>
+      <div className={`flex-shrink-0 w-6 h-6 rounded-md ${palette.icon} flex items-center justify-center`}>
+        <Icon className={`h-3 w-3 ${palette.iconText}`} />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
