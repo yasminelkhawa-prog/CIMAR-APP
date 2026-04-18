@@ -254,7 +254,7 @@ export function BigFiveAssessment() {
                   {a.status === 'completed' && (
                     <Button size="sm" variant="default" onClick={e => { e.stopPropagation(); analyzeWithAI(a); }}
                       disabled={analyzing === a.id}
-                      className="bg-gradient-to-r from-primary to-[hsl(265_80%_55%)] shadow-md shadow-primary/30">
+                      className="gradient-primary text-primary-foreground shadow-md shadow-primary/30 lift-on-hover">
                       {analyzing === a.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Brain className="h-3 w-3 mr-1" />}
                       Analyser
                     </Button>
