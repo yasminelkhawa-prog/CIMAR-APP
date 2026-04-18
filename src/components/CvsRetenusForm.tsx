@@ -559,6 +559,20 @@ export function CvsRetenusForm() {
                   </div>
                 )}
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => {
+                  cvAnalysisRunner.reset();
+                  setIsExtracting(false);
+                  setExtractProgress({ current: 0, total: 0, name: '' });
+                  toast.info('Analyse annulée');
+                }}
+                title="Annuler l'analyse en cours"
+              >
+                <X className="h-4 w-4 mr-1" /> Annuler
+              </Button>
             </div>
           </CardContent>
         </Card>
