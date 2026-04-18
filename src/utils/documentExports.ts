@@ -702,6 +702,30 @@ export async function exportFicheEmbaucheXlsx(data: FicheEmbaucheData, signer: S
     }
   }
 
+  // Append extra signatures on a new sheet so we don't disturb the template layout
+  if (extraSignatures.length > 0) {
+    const extraWs = wb.addWorksheet('Visas');
+    extraWs.getCell('A1').value = 'Visas et signatures complémentaires';
+    extraWs.getCell('A1').font = { bold: true, size: 14 };
+    let row = 3;
+    for (const s of extraSignatures) {
+      extraWs.getCell(`A${row}`).value = s.fullName;
+      extraWs.getCell(`A${row}`).font = { bold: true };
+      if (s.title) extraWs.getCell(`B${row}`).value = s.title;
+      if (s.signedAt) extraWs.getCell(`C${row}`).value = `Signé le ${new Date(s.signedAt).toLocaleDateString('fr-FR')}`;
+      try {
+        const r = await fetch(s.signatureUrl);
+        if (r.ok) {
+          const b = await r.arrayBuffer();
+          const ext = /\.jpe?g(\?|$)/i.test(s.signatureUrl) ? 'jpeg' : 'png';
+          const id = wb.addImage({ buffer: b as any, extension: ext });
+          extraWs.addImage(id, { tl: { col: 3, row: row - 1 } as any, ext: { width: 160, height: 60 } } as any);
+        }
+      } catch { /* ignore */ }
+      row += 5;
+    }
+  }
+
   const buf = await wb.xlsx.writeBuffer();
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   saveAs(blob, `Fiche_embauche_${(data.nomPrenom || data.titrePoste || 'document').replace(/\s+/g, '_')}.xlsx`);
