@@ -135,8 +135,7 @@ Respond in ${lang === 'fr' ? 'French' : 'English'}. Be concise and actionable.`;
       <Button
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 right-6 h-14 w-14 rounded-full z-50 ai-launcher-glow
-          bg-gradient-to-br from-primary to-[hsl(265_80%_55%)] text-primary-foreground
-          hover:scale-105 transition-transform"
+          gradient-primary text-primary-foreground hover:scale-105 transition-transform"
         size="icon"
       >
         <MessageSquare className="h-6 w-6" />

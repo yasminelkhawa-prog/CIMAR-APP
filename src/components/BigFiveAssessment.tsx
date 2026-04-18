@@ -173,16 +173,16 @@ export function BigFiveAssessment() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-2">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[hsl(265_80%_55%)] text-primary-foreground shadow-lg shadow-primary/30">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl gradient-primary text-primary-foreground shadow-lg shadow-primary/30">
             <Brain className="h-5 w-5" />
           </span>
           <span className="gradient-text-primary">Évaluation Big Five (OCEAN)</span>
         </h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowConfig(!showConfig)} className="backdrop-blur-sm bg-card/60">
+          <Button variant="outline" size="sm" onClick={() => setShowConfig(!showConfig)} className="backdrop-blur-sm bg-card/60 lift-on-hover">
             <Settings2 className="h-4 w-4 mr-1" /> Questions
           </Button>
-          <Button onClick={() => setShowNew(true)} size="sm" className="bg-gradient-to-r from-primary to-[hsl(265_80%_55%)] shadow-md shadow-primary/30">
+          <Button onClick={() => setShowNew(true)} size="sm" className="gradient-primary text-primary-foreground shadow-md shadow-primary/30 lift-on-hover">
             <Plus className="h-4 w-4 mr-1" /> Nouveau Test
           </Button>
         </div>
@@ -236,7 +236,7 @@ export function BigFiveAssessment() {
               onClick={() => a.status !== 'pending' ? setSelectedAssessment(a) : null}>
               <CardContent className="py-3 px-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-[hsl(265_80%_55%/0.15)]">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-[hsl(var(--primary-glow)/0.18)]">
                     <Brain className="h-4 w-4 text-primary" />
                   </span>
                   <div>
@@ -254,7 +254,7 @@ export function BigFiveAssessment() {
                   {a.status === 'completed' && (
                     <Button size="sm" variant="default" onClick={e => { e.stopPropagation(); analyzeWithAI(a); }}
                       disabled={analyzing === a.id}
-                      className="bg-gradient-to-r from-primary to-[hsl(265_80%_55%)] shadow-md shadow-primary/30">
+                      className="gradient-primary text-primary-foreground shadow-md shadow-primary/30 lift-on-hover">
                       {analyzing === a.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Brain className="h-3 w-3 mr-1" />}
                       Analyser
                     </Button>

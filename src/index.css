@@ -6,85 +6,89 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 220 25% 10%;
+    /* CIMAR brand — deep cement green family */
+    --background: 150 30% 97%;
+    --foreground: 155 35% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 25% 10%;
+    --card-foreground: 155 35% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 10%;
+    --popover-foreground: 155 35% 12%;
 
-    --primary: 215 80% 48%;
+    --primary: 152 60% 24%;            /* deep CIMAR green */
     --primary-foreground: 0 0% 100%;
+    --primary-glow: 150 65% 38%;       /* lighter green for gradients */
 
-    --secondary: 210 25% 93%;
-    --secondary-foreground: 220 25% 20%;
+    --secondary: 150 25% 94%;
+    --secondary-foreground: 155 35% 18%;
 
-    --muted: 210 20% 96%;
-    --muted-foreground: 215 15% 47%;
+    --muted: 150 20% 96%;
+    --muted-foreground: 155 12% 42%;
 
-    --accent: 210 25% 93%;
-    --accent-foreground: 220 25% 15%;
+    --accent: 145 55% 90%;
+    --accent-foreground: 152 60% 22%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 142 71% 45%;
+    --success: 142 71% 38%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 214 20% 90%;
-    --input: 214 20% 90%;
-    --ring: 215 80% 48%;
+    --border: 150 20% 88%;
+    --input: 150 20% 88%;
+    --ring: 152 60% 30%;
 
-    --radius: 0.625rem;
+    --radius: 1rem;
 
-    --sidebar-background: 220 25% 12%;
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 215 80% 55%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 20% 18%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 220 20% 20%;
-    --sidebar-ring: 215 80% 55%;
+    /* Floating dark sidebar */
+    --sidebar-background: 158 40% 10%;
+    --sidebar-foreground: 150 15% 88%;
+    --sidebar-primary: 150 70% 45%;
+    --sidebar-primary-foreground: 158 40% 10%;
+    --sidebar-accent: 158 35% 16%;
+    --sidebar-accent-foreground: 150 15% 95%;
+    --sidebar-border: 158 30% 18%;
+    --sidebar-ring: 150 70% 45%;
 
     --score-insufficient: 0 72% 51%;
     --score-passable: 38 92% 50%;
-    --score-good: 142 50% 50%;
-    --score-excellent: 215 80% 48%;
+    --score-good: 142 50% 45%;
+    --score-excellent: 152 60% 30%;
   }
 
   .dark {
-    --background: 220 25% 8%;
-    --foreground: 210 20% 95%;
-    --card: 220 25% 12%;
-    --card-foreground: 210 20% 95%;
-    --popover: 220 25% 12%;
-    --popover-foreground: 210 20% 95%;
-    --primary: 215 80% 55%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 20% 18%;
-    --secondary-foreground: 210 20% 90%;
-    --muted: 220 20% 15%;
-    --muted-foreground: 215 15% 55%;
-    --accent: 220 20% 18%;
-    --accent-foreground: 210 20% 90%;
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 210 20% 95%;
-    --border: 220 20% 20%;
-    --input: 220 20% 20%;
-    --ring: 215 80% 55%;
-    --sidebar-background: 220 25% 6%;
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 215 80% 55%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 20% 12%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 220 20% 15%;
-    --sidebar-ring: 215 80% 55%;
+    --background: 158 35% 7%;
+    --foreground: 150 15% 92%;
+    --card: 158 30% 11%;
+    --card-foreground: 150 15% 92%;
+    --popover: 158 30% 11%;
+    --popover-foreground: 150 15% 92%;
+    --primary: 150 65% 45%;
+    --primary-foreground: 158 40% 8%;
+    --primary-glow: 145 70% 55%;
+    --secondary: 158 25% 16%;
+    --secondary-foreground: 150 15% 90%;
+    --muted: 158 25% 14%;
+    --muted-foreground: 150 12% 60%;
+    --accent: 158 30% 18%;
+    --accent-foreground: 150 15% 92%;
+    --destructive: 0 62% 40%;
+    --destructive-foreground: 150 15% 95%;
+    --border: 158 25% 18%;
+    --input: 158 25% 18%;
+    --ring: 150 65% 45%;
+    --sidebar-background: 158 40% 8%;
+    --sidebar-foreground: 150 15% 90%;
+    --sidebar-primary: 150 70% 50%;
+    --sidebar-primary-foreground: 158 40% 8%;
+    --sidebar-accent: 158 35% 14%;
+    --sidebar-accent-foreground: 150 15% 95%;
+    --sidebar-border: 158 30% 15%;
+    --sidebar-ring: 150 70% 50%;
   }
 }
 
@@ -112,45 +116,81 @@
     @apply bg-[hsl(var(--score-excellent))] text-[hsl(var(--score-excellent))];
   }
 
-  /* ─── Glassmorphism utilities ─── */
+  /* ─── Glassmorphism + flow utilities (CIMAR green) ─── */
   .glass-card {
-    @apply bg-card/70 backdrop-blur-xl border border-white/40 dark:border-white/10
-      shadow-[0_8px_32px_-8px_hsl(var(--primary)/0.18)]
-      transition-all duration-300;
+    @apply bg-card/80 backdrop-blur-xl border border-white/50 dark:border-white/10
+      shadow-[0_8px_32px_-12px_hsl(var(--primary)/0.18)]
+      transition-all duration-300 ease-out;
+    border-radius: var(--radius);
   }
   .glass-card-hover {
-    @apply hover:shadow-[0_16px_40px_-12px_hsl(var(--primary)/0.28)] hover:-translate-y-0.5
-      hover:border-primary/30;
+    @apply hover:shadow-[0_20px_48px_-12px_hsl(var(--primary)/0.32)]
+      hover:-translate-y-1 hover:border-primary/30;
+  }
+  .lift-on-hover {
+    @apply transition-all duration-300 ease-out
+      hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-12px_hsl(var(--primary)/0.35)];
   }
   .glass-header {
-    @apply bg-card/60 backdrop-blur-xl border-b border-white/30 dark:border-white/5
-      shadow-[0_2px_20px_-8px_hsl(var(--primary)/0.15)];
+    @apply bg-card/70 backdrop-blur-2xl border-b border-white/40 dark:border-white/5
+      shadow-[0_2px_24px_-12px_hsl(var(--primary)/0.18)];
   }
-  .glass-sidebar {
+
+  /* Floating dark sidebar shell — Donezo / PinenMFB style */
+  .floating-sidebar {
     background: linear-gradient(180deg,
       hsl(var(--sidebar-background)) 0%,
-      hsl(var(--sidebar-background) / 0.92) 100%);
-    backdrop-filter: blur(12px);
+      hsl(158 45% 8%) 100%);
+    border-radius: 1.5rem;
+    box-shadow:
+      0 24px 60px -20px hsl(158 50% 5% / 0.45),
+      0 0 0 1px hsl(var(--sidebar-border) / 0.5);
   }
+  .floating-sidebar-light {
+    background: hsl(0 0% 100% / 0.85);
+    backdrop-filter: blur(24px);
+    border-radius: 1.5rem;
+    box-shadow:
+      0 24px 60px -20px hsl(var(--primary) / 0.18),
+      0 0 0 1px hsl(var(--border) / 0.6);
+  }
+
   .gradient-bg {
     background:
-      radial-gradient(ellipse 80% 60% at 10% -10%, hsl(var(--primary) / 0.10), transparent 60%),
-      radial-gradient(ellipse 70% 50% at 100% 0%, hsl(215 90% 60% / 0.08), transparent 55%),
-      radial-gradient(ellipse 60% 50% at 50% 110%, hsl(265 80% 60% / 0.07), transparent 60%),
+      radial-gradient(ellipse 70% 55% at 12% -10%, hsl(var(--primary) / 0.10), transparent 60%),
+      radial-gradient(ellipse 60% 45% at 100% 5%, hsl(var(--primary-glow) / 0.10), transparent 55%),
+      radial-gradient(ellipse 60% 50% at 50% 110%, hsl(150 50% 60% / 0.08), transparent 60%),
       hsl(var(--background));
   }
   .gradient-text-primary {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-[hsl(265_80%_55%)];
+    @apply bg-clip-text text-transparent
+      bg-gradient-to-r from-primary via-[hsl(var(--primary-glow))] to-primary;
+  }
+  .gradient-primary {
+    background: linear-gradient(135deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--primary-glow)) 100%);
   }
   .ring-glow-primary {
     box-shadow:
-      0 0 0 1px hsl(var(--primary) / 0.3),
-      0 0 24px -4px hsl(var(--primary) / 0.45),
-      0 8px 32px -8px hsl(var(--primary) / 0.4);
+      0 0 0 1px hsl(var(--primary) / 0.25),
+      0 0 32px -6px hsl(var(--primary-glow) / 0.45),
+      0 12px 36px -10px hsl(var(--primary) / 0.4);
   }
+
+  /* Subtle dotted decoration for stat cards (Donezo / PinenMFB hero cards) */
+  .dotted-bg {
+    background-image: radial-gradient(hsl(var(--primary) / 0.08) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+  .dotted-bg-on-primary {
+    background-image: radial-gradient(hsl(0 0% 100% / 0.10) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+
   @keyframes aiPulseRing {
     0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.45), 0 8px 24px -8px hsl(var(--primary) / 0.5); }
-    50%      { box-shadow: 0 0 0 8px hsl(var(--primary) / 0), 0 8px 24px -8px hsl(var(--primary) / 0.5); }
+    50%      { box-shadow: 0 0 0 10px hsl(var(--primary) / 0), 0 8px 24px -8px hsl(var(--primary) / 0.5); }
   }
   .ai-launcher-glow {
     animation: aiPulseRing 2.4s ease-in-out infinite;

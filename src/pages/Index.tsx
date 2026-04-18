@@ -23,7 +23,7 @@ import { EvaluationForm } from '@/types/evaluation';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import logoImg from '@/assets/logo-cimar.png';
+
 
 export default function Index() {
   const store = useEvaluationStore();
@@ -139,12 +139,11 @@ export default function Index() {
         <AppSidebar activeSection={activeSection} onSectionChange={s => { setActiveSection(s); setShowNewEval(false); setViewingEvaluation(null); setEditMode(false); }} />
 
         <div className="flex-1 flex flex-col">
-          <header className="glass-header sticky top-0 z-10">
-            <div className="px-4 py-3 flex items-center justify-between">
+          <header className="glass-header sticky top-0 z-10 mx-3 mt-3 rounded-2xl">
+            <div className="px-4 py-2.5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <SidebarTrigger />
-                <img src={logoImg} alt="Ciments du Maroc" className="h-8 object-contain drop-shadow-sm" />
-                <div className="border-l border-border/60 pl-3 hidden md:block">
+                <div className="hidden md:block">
                   <h1 className="text-sm font-bold tracking-tight gradient-text-primary">{t('appTitle')}</h1>
                   <p className="text-[10px] text-muted-foreground">{t('appSubtitle')}</p>
                 </div>
