@@ -111,4 +111,48 @@
   .score-badge-4 {
     @apply bg-[hsl(var(--score-excellent))] text-[hsl(var(--score-excellent))];
   }
+
+  /* ─── Glassmorphism utilities ─── */
+  .glass-card {
+    @apply bg-card/70 backdrop-blur-xl border border-white/40 dark:border-white/10
+      shadow-[0_8px_32px_-8px_hsl(var(--primary)/0.18)]
+      transition-all duration-300;
+  }
+  .glass-card-hover {
+    @apply hover:shadow-[0_16px_40px_-12px_hsl(var(--primary)/0.28)] hover:-translate-y-0.5
+      hover:border-primary/30;
+  }
+  .glass-header {
+    @apply bg-card/60 backdrop-blur-xl border-b border-white/30 dark:border-white/5
+      shadow-[0_2px_20px_-8px_hsl(var(--primary)/0.15)];
+  }
+  .glass-sidebar {
+    background: linear-gradient(180deg,
+      hsl(var(--sidebar-background)) 0%,
+      hsl(var(--sidebar-background) / 0.92) 100%);
+    backdrop-filter: blur(12px);
+  }
+  .gradient-bg {
+    background:
+      radial-gradient(ellipse 80% 60% at 10% -10%, hsl(var(--primary) / 0.10), transparent 60%),
+      radial-gradient(ellipse 70% 50% at 100% 0%, hsl(215 90% 60% / 0.08), transparent 55%),
+      radial-gradient(ellipse 60% 50% at 50% 110%, hsl(265 80% 60% / 0.07), transparent 60%),
+      hsl(var(--background));
+  }
+  .gradient-text-primary {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-[hsl(265_80%_55%)];
+  }
+  .ring-glow-primary {
+    box-shadow:
+      0 0 0 1px hsl(var(--primary) / 0.3),
+      0 0 24px -4px hsl(var(--primary) / 0.45),
+      0 8px 32px -8px hsl(var(--primary) / 0.4);
+  }
+  @keyframes aiPulseRing {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.45), 0 8px 24px -8px hsl(var(--primary) / 0.5); }
+    50%      { box-shadow: 0 0 0 8px hsl(var(--primary) / 0), 0 8px 24px -8px hsl(var(--primary) / 0.5); }
+  }
+  .ai-launcher-glow {
+    animation: aiPulseRing 2.4s ease-in-out infinite;
+  }
 }

@@ -135,17 +135,17 @@ export default function Index() {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className="min-h-screen flex w-full gradient-bg">
         <AppSidebar activeSection={activeSection} onSectionChange={s => { setActiveSection(s); setShowNewEval(false); setViewingEvaluation(null); setEditMode(false); }} />
 
         <div className="flex-1 flex flex-col">
-          <header className="border-b bg-card sticky top-0 z-10">
+          <header className="glass-header sticky top-0 z-10">
             <div className="px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <SidebarTrigger />
-                <img src={logoImg} alt="Ciments du Maroc" className="h-8 object-contain" />
-                <div className="border-l border-border pl-3 hidden md:block">
-                  <h1 className="text-sm font-bold tracking-tight">{t('appTitle')}</h1>
+                <img src={logoImg} alt="Ciments du Maroc" className="h-8 object-contain drop-shadow-sm" />
+                <div className="border-l border-border/60 pl-3 hidden md:block">
+                  <h1 className="text-sm font-bold tracking-tight gradient-text-primary">{t('appTitle')}</h1>
                   <p className="text-[10px] text-muted-foreground">{t('appSubtitle')}</p>
                 </div>
               </div>
@@ -166,7 +166,9 @@ export default function Index() {
         </div>
       </div>
 
-      <ChatBot jobRoles={store.jobRoles} evaluations={store.evaluations} />
+      {!['fiche-embauche', 'fiche-poste', 'plan-integration', 'cvs-retenus'].includes(activeSection) && (
+        <ChatBot jobRoles={store.jobRoles} evaluations={store.evaluations} />
+      )}
     </SidebarProvider>
   );
 }

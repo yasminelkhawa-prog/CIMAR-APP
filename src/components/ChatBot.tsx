@@ -134,7 +134,9 @@ Respond in ${lang === 'fr' ? 'French' : 'English'}. Be concise and actionable.`;
     return (
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full z-50 ai-launcher-glow
+          bg-gradient-to-br from-primary to-[hsl(265_80%_55%)] text-primary-foreground
+          hover:scale-105 transition-transform"
         size="icon"
       >
         <MessageSquare className="h-6 w-6" />
@@ -143,7 +145,7 @@ Respond in ${lang === 'fr' ? 'French' : 'English'}. Be concise and actionable.`;
   }
 
   return (
-    <Card className="fixed bottom-6 right-6 w-96 h-[500px] shadow-2xl z-50 flex flex-col">
+    <Card className="fixed bottom-6 right-6 w-96 h-[500px] z-50 flex flex-col glass-card ring-glow-primary">
       <CardHeader className="pb-2 flex flex-row items-center justify-between shrink-0">
         <CardTitle className="text-sm flex items-center gap-2">
           <Bot className="h-4 w-4 text-primary" />
