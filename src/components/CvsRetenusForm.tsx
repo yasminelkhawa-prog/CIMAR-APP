@@ -448,17 +448,24 @@ export function CvsRetenusForm() {
     grouped[key].sort((a, b) => b.matching_score - a.matching_score);
   });
 
-  const posteAccents: Record<string, string> = {
-    DAF: 'from-blue-500 to-blue-600',
-    RH: 'from-purple-500 to-purple-600',
-    'Marketing/Digital': 'from-pink-500 to-pink-600',
-    IT: 'from-cyan-500 to-cyan-600',
-    Finance: 'from-emerald-500 to-emerald-600',
-    Juridique: 'from-amber-500 to-amber-600',
-    Commercial: 'from-orange-500 to-orange-600',
-    Audit: 'from-indigo-500 to-indigo-600',
+  // Soft pastel palette — minimalist & beautiful
+  const pastelPalette = [
+    { grad: 'from-rose-200 to-pink-200', soft: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
+    { grad: 'from-sky-200 to-blue-200', soft: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200' },
+    { grad: 'from-violet-200 to-purple-200', soft: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
+    { grad: 'from-emerald-200 to-teal-200', soft: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+    { grad: 'from-amber-200 to-orange-200', soft: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+    { grad: 'from-fuchsia-200 to-pink-200', soft: 'bg-fuchsia-50', text: 'text-fuchsia-700', border: 'border-fuchsia-200' },
+    { grad: 'from-lime-200 to-green-200', soft: 'bg-lime-50', text: 'text-lime-700', border: 'border-lime-200' },
+    { grad: 'from-cyan-200 to-sky-200', soft: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' },
+    { grad: 'from-indigo-200 to-violet-200', soft: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
+  ];
+  const paletteFor = (poste: string) => {
+    let hash = 0;
+    for (let i = 0; i < poste.length; i++) hash = (hash * 31 + poste.charCodeAt(i)) & 0xffffffff;
+    return pastelPalette[Math.abs(hash) % pastelPalette.length];
   };
-  const accentFor = (poste: string) => posteAccents[poste] || 'from-slate-500 to-slate-600';
+  const accentFor = (poste: string) => paletteFor(poste).grad;
 
   const showRunningBar = isExtracting || runnerState.isAnalyzing;
 
