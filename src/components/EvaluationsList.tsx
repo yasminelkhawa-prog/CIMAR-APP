@@ -5,6 +5,7 @@ import { EvaluationForm, JobRoleConfig } from '@/types/evaluation';
 import { Trash2, FileText, CheckCircle2, XCircle, Download } from 'lucide-react';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { generateEvaluationPdf } from '@/utils/pdfExport';
+import { useAuth } from '@/hooks/useAuth';
 
 
 interface Props {
@@ -16,7 +17,7 @@ interface Props {
 
 export function EvaluationsList({ evaluations, jobRoles, onDelete, onSelect }: Props) {
   const { t, lang } = useLanguage();
-  
+  const { profile } = useAuth();
 
   if (evaluations.length === 0) {
     return (
@@ -78,7 +79,7 @@ export function EvaluationsList({ evaluations, jobRoles, onDelete, onSelect }: P
               </div>
               <Button variant="ghost" size="icon" className="shrink-0" onClick={() => {
                 const role = jobRoles.find(r => r.id === ev.jobRoleConfigId);
-                generateEvaluationPdf(ev, role, lang, null);
+                generateEvaluationPdf(ev, role, lang, profile?.signature_url ?? null);
               }}>
                 <Download className="h-4 w-4" />
               </Button>

@@ -411,19 +411,8 @@ export async function generateEvaluationPdf(
   doc.setFontSize(10);
   doc.text(fr ? 'NON FAVORABLE' : 'NOT FAVORABLE', rightDecX - 8, y + 7.5);
 
-  // ── WATERMARK on all pages ──
-  const totalPages = doc.getNumberOfPages();
-  for (let p = 1; p <= totalPages; p++) {
-    doc.setPage(p);
-    doc.setTextColor(200, 200, 200);
-    doc.setFontSize(40);
-    doc.setFont('helvetica', 'bold');
-    doc.text('CONFIDENTIEL', pageWidth / 2, 150, { align: 'center', angle: 45 });
-    doc.setFontSize(12);
-    doc.text('Ciments du Maroc', pageWidth / 2, 165, { align: 'center', angle: 45 });
-  }
-
   // ── SIGNATURE in footer of last page ──
+  const totalPages = doc.getNumberOfPages();
   doc.setPage(totalPages);
   const footerY = 270;
   if (signatureUrl) {
@@ -450,7 +439,6 @@ export async function generateEvaluationPdf(
   doc.setFontSize(7);
   doc.setFont('helvetica', 'italic');
   doc.text(evaluation.interviewerName || '', pageWidth - margin, footerY + 2, { align: 'right' });
-  doc.text(fr ? 'Document confidentiel — Ciments du Maroc' : 'Confidential — Ciments du Maroc', pageWidth / 2, footerY + 2, { align: 'center' });
 
   // Save
   doc.save(`evaluation-${evaluation.candidateName.replace(/\s+/g, '-')}-${evaluation.date}.pdf`);
