@@ -103,7 +103,8 @@ async function buildSignatureParagraphs(signer: SignerInfo, alignment: any = Ali
 // ─────────────────────── Fiche de Poste (DOCX) ───────────────────────
 
 export async function exportFichePosteDocx(data: FichePosteData, signer: SignerInfo) {
-  const HEADER_FILL = 'D9E2F3';
+  const HEADER_FILL = 'B9DCCB';
+  const TITLE_COLOR = '044C2A';
   const fullW = 9000;
 
   const infoTable = new Table({
