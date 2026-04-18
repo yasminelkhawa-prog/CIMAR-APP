@@ -545,6 +545,12 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
         appreciationTable,
         new Paragraph({ children: [new TextRun({ text: '' })] }),
         avisTable,
+        ...(extraSignatures.length > 0
+          ? [
+              new Paragraph({ children: [new TextRun({ text: '' })] }),
+              (await buildExtraSignaturesTable(extraSignatures, fullW, HEADER_FILL, '044C2A'))!,
+            ]
+          : []),
       ],
     }],
   });
@@ -560,7 +566,7 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
  * {placeholder} tokens with form values, and embeds the user's signature image.
  * Preserves merged cells, formulas, fonts, column widths, and borders exactly.
  */
-export async function exportFicheEmbaucheXlsx(data: FicheEmbaucheData, signer: SignerInfo) {
+export async function exportFicheEmbaucheXlsx(data: FicheEmbaucheData, signer: SignerInfo, extraSignatures: ExtraSignature[] = []) {
   const salary = calculateSalary(data);
   const fmt = (n: number | undefined) => Number.isFinite(n) ? Number((n as number).toFixed(2)) : 0;
   const today = new Date().toLocaleDateString('fr-FR');
