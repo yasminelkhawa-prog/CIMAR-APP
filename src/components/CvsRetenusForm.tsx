@@ -508,7 +508,6 @@ export function CvsRetenusForm() {
     for (let i = 0; i < poste.length; i++) hash = (hash * 31 + poste.charCodeAt(i)) & 0xffffffff;
     return pastelPalette[Math.abs(hash) % pastelPalette.length];
   };
-  const accentFor = (poste: string) => paletteFor(poste).grad;
 
   const showRunningBar = isExtracting || runnerState.isAnalyzing;
 
