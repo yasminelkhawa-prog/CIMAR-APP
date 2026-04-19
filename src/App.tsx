@@ -9,6 +9,7 @@ import Index from "./pages/Index.tsx";
 import AssessmentPage from "./pages/AssessmentPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Auth from "./pages/Auth.tsx";
+import ResetPassword from "./pages/ResetPassword.tsx";
 import PendingApproval from "./pages/PendingApproval.tsx";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
           <AuthProvider>
             <Routes>
               <Route path="/assessment/:token" element={<AssessmentPage />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route
                 path="/"
                 element={
