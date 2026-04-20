@@ -25,6 +25,38 @@ interface ListItem {
   created_at: string;
 }
 
+const normalizeCategorizedItems = (value: unknown, fallback: CategorizedItem[] = []): CategorizedItem[] => {
+  if (!Array.isArray(value)) return fallback.map((item) => ({ ...item }));
+
+  return value
+    .filter((item): item is Partial<CategorizedItem> => !!item && typeof item === 'object')
+    .map((item) => ({
+      category: typeof item.category === 'string' ? item.category : '',
+      details: typeof item.details === 'string' ? item.details : '',
+    }));
+};
+
+const normalizeFichePosteData = (value: unknown): FichePosteData => {
+  const source = value && typeof value === 'object' ? (value as Partial<FichePosteData>) : {};
+
+  return {
+    ...DEFAULT_FICHE_POSTE,
+    ...source,
+    poste: typeof source.poste === 'string' ? source.poste : DEFAULT_FICHE_POSTE.poste,
+    date: typeof source.date === 'string' ? source.date : DEFAULT_FICHE_POSTE.date,
+    rattachementHierarchique: typeof source.rattachementHierarchique === 'string' ? source.rattachementHierarchique : DEFAULT_FICHE_POSTE.rattachementHierarchique,
+    rattachementFonctionnel: typeof source.rattachementFonctionnel === 'string' ? source.rattachementFonctionnel : DEFAULT_FICHE_POSTE.rattachementFonctionnel,
+    supervise: typeof source.supervise === 'string' ? source.supervise : DEFAULT_FICHE_POSTE.supervise,
+    nombreSubordonnees: typeof source.nombreSubordonnees === 'string' ? source.nombreSubordonnees : DEFAULT_FICHE_POSTE.nombreSubordonnees,
+    perimetre: typeof source.perimetre === 'string' ? source.perimetre : DEFAULT_FICHE_POSTE.perimetre,
+    niveauHierarchique: typeof source.niveauHierarchique === 'string' ? source.niveauHierarchique : DEFAULT_FICHE_POSTE.niveauHierarchique,
+    mission: typeof source.mission === 'string' ? source.mission : DEFAULT_FICHE_POSTE.mission,
+    rolesResponsabilites: normalizeCategorizedItems(source.rolesResponsabilites, DEFAULT_FICHE_POSTE.rolesResponsabilites),
+    competences: normalizeCategorizedItems(source.competences, DEFAULT_FICHE_POSTE.competences),
+    profil: normalizeCategorizedItems(source.profil, DEFAULT_FICHE_POSTE.profil),
+  };
+};
+
 export function FichePosteForm() {
   const { t } = useLanguage();
   const { profile } = useAuth();
@@ -57,7 +89,13 @@ export function FichePosteForm() {
 
   const loadItems = async () => {
     const { data } = await supabase.from('fiches_poste').select('*').order('created_at', { ascending: false });
-    if (data) setItems(data.map(d => ({ id: d.id, data: d.data as unknown as FichePosteData, created_at: d.created_at })));
+    if (data) {
+      setItems(data.map(d => ({
+        id: d.id,
+        data: normalizeFichePosteData(d.data),
+        created_at: d.created_at,
+      })));
+    }
   };
 
   const update = useCallback((partial: Partial<FichePosteData>) => {
@@ -98,7 +136,7 @@ export function FichePosteForm() {
         ) : (
           <div className="grid gap-3">
             {items.map(item => (
-              <Card key={item.id} className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => { setSelected(item); setFormData(item.data); setEditMode(false); }}>
+              <Card key={item.id} className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => { setSelected(item); setFormData(normalizeFichePosteData(item.data)); setEditMode(false); }}>
                 <CardContent className="py-4 flex items-center justify-between">
                   <div>
                     <p className="font-medium">{item.data.poste || t('unknownRole')}</p>
