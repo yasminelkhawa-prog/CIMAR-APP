@@ -25,6 +25,38 @@ interface ListItem {
   created_at: string;
 }
 
+const normalizeCategorizedItems = (value: unknown, fallback: CategorizedItem[] = []): CategorizedItem[] => {
+  if (!Array.isArray(value)) return fallback.map((item) => ({ ...item }));
+
+  return value
+    .filter((item): item is Partial<CategorizedItem> => !!item && typeof item === 'object')
+    .map((item) => ({
+      category: typeof item.category === 'string' ? item.category : '',
+      details: typeof item.details === 'string' ? item.details : '',
+    }));
+};
+
+const normalizeFichePosteData = (value: unknown): FichePosteData => {
+  const source = value && typeof value === 'object' ? (value as Partial<FichePosteData>) : {};
+
+  return {
+    ...DEFAULT_FICHE_POSTE,
+    ...source,
+    poste: typeof source.poste === 'string' ? source.poste : DEFAULT_FICHE_POSTE.poste,
+    date: typeof source.date === 'string' ? source.date : DEFAULT_FICHE_POSTE.date,
+    rattachementHierarchique: typeof source.rattachementHierarchique === 'string' ? source.rattachementHierarchique : DEFAULT_FICHE_POSTE.rattachementHierarchique,
+    rattachementFonctionnel: typeof source.rattachementFonctionnel === 'string' ? source.rattachementFonctionnel : DEFAULT_FICHE_POSTE.rattachementFonctionnel,
+    supervise: typeof source.supervise === 'string' ? source.supervise : DEFAULT_FICHE_POSTE.supervise,
+    nombreSubordonnees: typeof source.nombreSubordonnees === 'string' ? source.nombreSubordonnees : DEFAULT_FICHE_POSTE.nombreSubordonnees,
+    perimetre: typeof source.perimetre === 'string' ? source.perimetre : DEFAULT_FICHE_POSTE.perimetre,
+    niveauHierarchique: typeof source.niveauHierarchique === 'string' ? source.niveauHierarchique : DEFAULT_FICHE_POSTE.niveauHierarchique,
+    mission: typeof source.mission === 'string' ? source.mission : DEFAULT_FICHE_POSTE.mission,
+    rolesResponsabilites: normalizeCategorizedItems(source.rolesResponsabilites, DEFAULT_FICHE_POSTE.rolesResponsabilites),
+    competences: normalizeCategorizedItems(source.competences, DEFAULT_FICHE_POSTE.competences),
+    profil: normalizeCategorizedItems(source.profil, DEFAULT_FICHE_POSTE.profil),
+  };
+};
+
 export function FichePosteForm() {
   const { t } = useLanguage();
   const { profile } = useAuth();
