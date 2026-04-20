@@ -136,7 +136,7 @@ export function FichePosteForm() {
         ) : (
           <div className="grid gap-3">
             {items.map(item => (
-              <Card key={item.id} className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => { setSelected(item); setFormData(item.data); setEditMode(false); }}>
+              <Card key={item.id} className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => { setSelected(item); setFormData(normalizeFichePosteData(item.data)); setEditMode(false); }}>
                 <CardContent className="py-4 flex items-center justify-between">
                   <div>
                     <p className="font-medium">{item.data.poste || t('unknownRole')}</p>
