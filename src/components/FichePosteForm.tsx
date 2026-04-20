@@ -89,7 +89,13 @@ export function FichePosteForm() {
 
   const loadItems = async () => {
     const { data } = await supabase.from('fiches_poste').select('*').order('created_at', { ascending: false });
-    if (data) setItems(data.map(d => ({ id: d.id, data: d.data as unknown as FichePosteData, created_at: d.created_at })));
+    if (data) {
+      setItems(data.map(d => ({
+        id: d.id,
+        data: normalizeFichePosteData(d.data),
+        created_at: d.created_at,
+      })));
+    }
   };
 
   const update = useCallback((partial: Partial<FichePosteData>) => {
