@@ -29,15 +29,24 @@ export function useEvaluationStore() {
           scaleMax: r.scale_max,
         })));
       } else {
-        // Seed default roles
+        // Seed default roles (let DB generate UUIDs)
+        const inserted: JobRoleConfig[] = [];
         for (const role of DEFAULT_JOB_ROLES) {
-          await supabase.from('job_role_configs').insert({
-            id: role.id,
+          const { data: ins } = await supabase.from('job_role_configs').insert({
             name: role.name,
             categories: role.categories as unknown as Json,
             scale_max: role.scaleMax,
-          });
+          }).select().single();
+          if (ins) {
+            inserted.push({
+              id: ins.id,
+              name: ins.name,
+              categories: ins.categories as unknown as CriteriaCategory[],
+              scaleMax: ins.scale_max,
+            });
+          }
         }
+        if (inserted.length > 0) setJobRoles(inserted);
       }
 
       if (evalsRes.data) {
@@ -63,13 +72,15 @@ export function useEvaluationStore() {
   }, []);
 
   const addJobRole = useCallback(async (role: JobRoleConfig) => {
-    setJobRoles(prev => [...prev, role]);
-    await supabase.from('job_role_configs').insert({
-      id: role.id,
+    const { data: ins } = await supabase.from('job_role_configs').insert({
       name: role.name,
       categories: role.categories as unknown as Json,
       scale_max: role.scaleMax,
-    });
+    }).select().single();
+    const finalRole: JobRoleConfig = ins
+      ? { id: ins.id, name: ins.name, categories: ins.categories as unknown as CriteriaCategory[], scaleMax: ins.scale_max }
+      : role;
+    setJobRoles(prev => [...prev, finalRole]);
   }, []);
 
   const updateJobRole = useCallback(async (id: string, updates: Partial<JobRoleConfig>) => {
