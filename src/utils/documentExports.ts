@@ -158,8 +158,9 @@ async function buildExtraSignaturesTable(extras: ExtraSignature[], fullW: number
 // ─────────────────────── Fiche de Poste (DOCX) ───────────────────────
 
 export async function exportFichePosteDocx(data: FichePosteData, signer: SignerInfo, extraSignatures: ExtraSignature[] = []) {
-  const HEADER_FILL = 'B9DCCB';
-  const TITLE_COLOR = '044C2A';
+  const HEADER_FILL = '044C2A';
+  const TITLE_COLOR = 'FFFFFF';
+  const STANDALONE_TITLE_COLOR = '044C2A';
   const fullW = 9000;
 
   const infoTable = new Table({
@@ -263,7 +264,7 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
       properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 } } },
       children: [
         logoPara,
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Description de Poste', bold: true, size: 36, font: 'Calibri', color: TITLE_COLOR })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Description de Poste', bold: true, size: 36, font: 'Calibri', color: STANDALONE_TITLE_COLOR })] }),
         new Paragraph({ children: [new TextRun({ text: '' })] }),
         infoTable,
         new Paragraph({ children: [new TextRun({ text: '' })] }),
@@ -288,8 +289,9 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
 // ─────────────────────── Plan d'Intégration (DOCX) ───────────────────────
 
 export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signer: SignerInfo, extraSignatures: ExtraSignature[] = []) {
-  const HEADER_FILL = 'B9DCCB';   // Unified CIMAR green (matches Fiche de Poste)
-  const TITLE_COLOR = '044C2A';
+  const HEADER_FILL = '044C2A';   // Unified CIMAR dark green
+  const TITLE_COLOR = 'FFFFFF';   // White text on dark green fills
+  const STANDALONE_TITLE_COLOR = '044C2A'; // Dark green for titles on white
   // Landscape A4: long edge = 16838, with 720 DXA margins (0.5in) → content = 15398
   const fullW = 15398;
   const colWidths = [1900, 3300, 2700, 3700, 1900, 1898]; // sums to 15398
@@ -338,14 +340,14 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
   const buildHeaderRow = () => new TableRow({
     tableHeader: true,
     children: [
-      tCell('Date', { bold: true, shade: HEADER_FILL, width: colWidths[0], align: AlignmentType.CENTER }),
-      tCell('Direction /Département /Service', { bold: true, shade: HEADER_FILL, width: colWidths[1], align: AlignmentType.CENTER }),
-      tCell('Responsable', { bold: true, shade: HEADER_FILL, width: colWidths[2], align: AlignmentType.CENTER }),
-      tCell('Objectifs', { bold: true, shade: HEADER_FILL, width: colWidths[3], align: AlignmentType.CENTER }),
-      tCell('Visa Responsable du service', { bold: true, shade: HEADER_FILL, width: colWidths[4], align: AlignmentType.CENTER }),
+      tCell('Date', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[0], align: AlignmentType.CENTER }),
+      tCell('Direction /Département /Service', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[1], align: AlignmentType.CENTER }),
+      tCell('Responsable', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[2], align: AlignmentType.CENTER }),
+      tCell('Objectifs', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[3], align: AlignmentType.CENTER }),
+      tCell('Visa Responsable du service', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[4], align: AlignmentType.CENTER }),
       tCell([
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Visa', bold: true, font: 'Calibri', size: 20 })] }),
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Nouvelle recrue', bold: true, font: 'Calibri', size: 20 })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Visa', bold: true, font: 'Calibri', size: 20, color: TITLE_COLOR })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Nouvelle recrue', bold: true, font: 'Calibri', size: 20, color: TITLE_COLOR })] }),
       ], { shade: HEADER_FILL, width: colWidths[5] }),
     ],
   });
@@ -493,7 +495,7 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
           margins: { top: 100, bottom: 100, left: 200, right: 200 },
           children: [new Paragraph({
             alignment: AlignmentType.CENTER,
-            children: [new TextRun({ text: "PLAN D'INTEGRATION", bold: true, font: 'Calibri', size: 36, color: TITLE_COLOR })],
+            children: [new TextRun({ text: "PLAN D'INTEGRATION", bold: true, font: 'Calibri', size: 36, color: STANDALONE_TITLE_COLOR })],
           })],
         })],
       }),
@@ -539,7 +541,7 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
         planningTable,
         new Paragraph({
           spacing: { before: 360, after: 120 },
-          children: [new TextRun({ text: 'Formations :', bold: true, size: 32, font: 'Calibri', color: TITLE_COLOR })],
+          children: [new TextRun({ text: 'Formations :', bold: true, size: 32, font: 'Calibri', color: STANDALONE_TITLE_COLOR })],
         }),
         formationsTable,
         new Paragraph({ children: [new TextRun({ text: '' })] }),
