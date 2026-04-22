@@ -25,6 +25,51 @@ interface ListItem {
   created_at: string;
 }
 
+const normalizeArray = <T,>(value: unknown, mapper: (item: Partial<T>) => T): T[] => {
+  if (!Array.isArray(value)) return [];
+  return value.filter((i): i is Partial<T> => !!i && typeof i === 'object').map(mapper);
+};
+
+const normalizeFicheEmbaucheData = (value: unknown): FicheEmbaucheData => {
+  const source = value && typeof value === 'object' ? (value as Partial<FicheEmbaucheData>) : {};
+
+  const interviewPanel = normalizeArray(source.interviewPanel, (p: any) => ({
+    name: typeof p.name === 'string' ? p.name : '',
+    avis: typeof p.avis === 'string' ? p.avis : 'Avis favorable',
+  }));
+
+  const sites = Array.isArray(source.sites) && source.sites.length > 0
+    ? source.sites
+        .filter((s: any) => s && typeof s === 'object')
+        .map((s: any) => ({
+          name: typeof s.name === 'string' ? s.name : '',
+          distance: typeof s.distance === 'number' ? s.distance : 0,
+          unit: typeof s.unit === 'string' ? s.unit : 'kms',
+          selected: !!s.selected,
+        }))
+    : DEFAULT_SITES.map(s => ({ ...s }));
+
+  const comparatifInterne = normalizeArray(source.comparatifInterne, (c: any) => ({
+    nom: typeof c.nom === 'string' ? c.nom : '',
+    poste: typeof c.poste === 'string' ? c.poste : '',
+    site: typeof c.site === 'string' ? c.site : '',
+    salaireBrut: typeof c.salaireBrut === 'number' ? c.salaireBrut : 0,
+    primeLogement: typeof c.primeLogement === 'number' ? c.primeLogement : 0,
+    primeSite: typeof c.primeSite === 'number' ? c.primeSite : 0,
+    primeRepresentation: typeof c.primeRepresentation === 'number' ? c.primeRepresentation : 0,
+    ancienneteCimar: typeof c.ancienneteCimar === 'string' ? c.ancienneteCimar : '',
+    experienceAvant: typeof c.experienceAvant === 'string' ? c.experienceAvant : '',
+  }));
+
+  return {
+    ...DEFAULT_FICHE_EMBAUCHE,
+    ...source,
+    interviewPanel: interviewPanel.length > 0 ? interviewPanel : [{ name: '', avis: 'Avis favorable' }],
+    sites,
+    comparatifInterne,
+  };
+};
+
 export function FicheEmbaucheForm() {
   const { t } = useLanguage();
   const { profile } = useAuth();
