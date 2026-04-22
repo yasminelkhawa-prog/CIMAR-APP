@@ -288,7 +288,8 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
 // ─────────────────────── Plan d'Intégration (DOCX) ───────────────────────
 
 export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signer: SignerInfo, extraSignatures: ExtraSignature[] = []) {
-  const HEADER_FILL = 'B5D8E5';   // Light teal/blue (matches template)
+  const HEADER_FILL = 'B9DCCB';   // Unified CIMAR green (matches Fiche de Poste)
+  const TITLE_COLOR = '044C2A';
   // Landscape A4: long edge = 16838, with 720 DXA margins (0.5in) → content = 15398
   const fullW = 15398;
   const colWidths = [1900, 3300, 2700, 3700, 1900, 1898]; // sums to 15398
@@ -548,7 +549,7 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
         ...(extraSignatures.length > 0
           ? [
               new Paragraph({ children: [new TextRun({ text: '' })] }),
-              (await buildExtraSignaturesTable(extraSignatures, fullW, HEADER_FILL, '044C2A'))!,
+              (await buildExtraSignaturesTable(extraSignatures, fullW, HEADER_FILL, TITLE_COLOR))!,
             ]
           : []),
       ],
