@@ -120,7 +120,7 @@ export function FicheEmbaucheForm() {
 
   const loadItems = async () => {
     const { data } = await supabase.from('fiches_embauche').select('*').order('created_at', { ascending: false });
-    if (data) setItems(data.map(d => ({ id: d.id, data: d.data as unknown as FicheEmbaucheData, created_at: d.created_at })));
+    if (data) setItems(data.map(d => ({ id: d.id, data: normalizeFicheEmbaucheData(d.data), created_at: d.created_at })));
   };
 
   const salary = useMemo(() => calculateSalary(formData), [formData]);
@@ -170,7 +170,7 @@ export function FicheEmbaucheForm() {
         ) : (
           <div className="grid gap-3">
             {items.map(item => (
-              <Card key={item.id} className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => { setSelected(item); setFormData(item.data); setEditMode(false); }}>
+              <Card key={item.id} className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => { setSelected(item); setFormData(normalizeFicheEmbaucheData(item.data)); setEditMode(false); }}>
                 <CardContent className="py-4 flex items-center justify-between">
                   <div>
                     <p className="font-medium">{item.data.nomPrenom || t('unknownCandidate')}</p>
