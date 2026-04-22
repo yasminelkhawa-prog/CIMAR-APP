@@ -495,7 +495,7 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
           margins: { top: 100, bottom: 100, left: 200, right: 200 },
           children: [new Paragraph({
             alignment: AlignmentType.CENTER,
-            children: [new TextRun({ text: "PLAN D'INTEGRATION", bold: true, font: 'Calibri', size: 36, color: TITLE_COLOR })],
+            children: [new TextRun({ text: "PLAN D'INTEGRATION", bold: true, font: 'Calibri', size: 36, color: STANDALONE_TITLE_COLOR })],
           })],
         })],
       }),
@@ -541,7 +541,7 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
         planningTable,
         new Paragraph({
           spacing: { before: 360, after: 120 },
-          children: [new TextRun({ text: 'Formations :', bold: true, size: 32, font: 'Calibri', color: TITLE_COLOR })],
+          children: [new TextRun({ text: 'Formations :', bold: true, size: 32, font: 'Calibri', color: STANDALONE_TITLE_COLOR })],
         }),
         formationsTable,
         new Paragraph({ children: [new TextRun({ text: '' })] }),
