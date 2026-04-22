@@ -340,14 +340,14 @@ export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signe
   const buildHeaderRow = () => new TableRow({
     tableHeader: true,
     children: [
-      tCell('Date', { bold: true, shade: HEADER_FILL, width: colWidths[0], align: AlignmentType.CENTER }),
-      tCell('Direction /Département /Service', { bold: true, shade: HEADER_FILL, width: colWidths[1], align: AlignmentType.CENTER }),
-      tCell('Responsable', { bold: true, shade: HEADER_FILL, width: colWidths[2], align: AlignmentType.CENTER }),
-      tCell('Objectifs', { bold: true, shade: HEADER_FILL, width: colWidths[3], align: AlignmentType.CENTER }),
-      tCell('Visa Responsable du service', { bold: true, shade: HEADER_FILL, width: colWidths[4], align: AlignmentType.CENTER }),
+      tCell('Date', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[0], align: AlignmentType.CENTER }),
+      tCell('Direction /Département /Service', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[1], align: AlignmentType.CENTER }),
+      tCell('Responsable', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[2], align: AlignmentType.CENTER }),
+      tCell('Objectifs', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[3], align: AlignmentType.CENTER }),
+      tCell('Visa Responsable du service', { bold: true, shade: HEADER_FILL, color: TITLE_COLOR, width: colWidths[4], align: AlignmentType.CENTER }),
       tCell([
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Visa', bold: true, font: 'Calibri', size: 20 })] }),
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Nouvelle recrue', bold: true, font: 'Calibri', size: 20 })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Visa', bold: true, font: 'Calibri', size: 20, color: TITLE_COLOR })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Nouvelle recrue', bold: true, font: 'Calibri', size: 20, color: TITLE_COLOR })] }),
       ], { shade: HEADER_FILL, width: colWidths[5] }),
     ],
   });
