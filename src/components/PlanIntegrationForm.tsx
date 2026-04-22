@@ -27,6 +27,40 @@ interface ListItem {
   created_at: string;
 }
 
+const normalizeEntries = (value: unknown): IntegrationEntry[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((e): e is Partial<IntegrationEntry> => !!e && typeof e === 'object')
+    .map((e) => ({
+      id: typeof e.id === 'string' && e.id ? e.id : crypto.randomUUID(),
+      activityType: e.activityType === 'formation' ? 'formation' : 'planning',
+      date: typeof e.date === 'string' ? e.date : '',
+      horaire: typeof e.horaire === 'string' ? e.horaire : '',
+      direction: typeof e.direction === 'string' ? e.direction : '',
+      responsable: typeof e.responsable === 'string' ? e.responsable : '',
+      objectifs: typeof e.objectifs === 'string' ? e.objectifs : '',
+      visaResponsable: typeof e.visaResponsable === 'string' ? e.visaResponsable : '',
+      visaRecrue: typeof e.visaRecrue === 'string' ? e.visaRecrue : '',
+    }));
+};
+
+const normalizePlanIntegrationData = (value: unknown): PlanIntegrationData => {
+  const source = value && typeof value === 'object' ? (value as Partial<PlanIntegrationData>) : {};
+  const entries = normalizeEntries(source.entries);
+  return {
+    ...DEFAULT_PLAN_INTEGRATION,
+    ...source,
+    nomPrenom: typeof source.nomPrenom === 'string' ? source.nomPrenom : '',
+    dateEmbauche: typeof source.dateEmbauche === 'string' ? source.dateEmbauche : DEFAULT_PLAN_INTEGRATION.dateEmbauche,
+    posteOccuper: typeof source.posteOccuper === 'string' ? source.posteOccuper : '',
+    type: source.type === 'reaffectation' ? 'reaffectation' : 'nouvelle_recrue',
+    entries: entries.length > 0 ? entries : DEFAULT_PLAN_INTEGRATION.entries.map(e => ({ ...e, id: crypto.randomUUID() })),
+    formations: typeof source.formations === 'string' ? source.formations : '',
+    avisHierarchie: typeof source.avisHierarchie === 'string' ? source.avisHierarchie : '',
+    appreciation: typeof source.appreciation === 'string' ? source.appreciation : '',
+  };
+};
+
 export function PlanIntegrationForm() {
   const { t } = useLanguage();
   const { profile } = useAuth();
@@ -71,7 +105,7 @@ export function PlanIntegrationForm() {
 
   const loadItems = async () => {
     const { data } = await supabase.from('plans_integration').select('*').order('created_at', { ascending: false });
-    if (data) setItems(data.map(d => ({ id: d.id, data: d.data as unknown as PlanIntegrationData, created_at: d.created_at })));
+    if (data) setItems(data.map(d => ({ id: d.id, data: normalizePlanIntegrationData(d.data), created_at: d.created_at })));
   };
 
   const update = useCallback((partial: Partial<PlanIntegrationData>) => {
@@ -120,7 +154,7 @@ export function PlanIntegrationForm() {
         ) : (
           <div className="grid gap-3">
             {items.map(item => (
-              <Card key={item.id} className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => { setSelected(item); setFormData(item.data); setEditMode(false); }}>
+              <Card key={item.id} className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => { setSelected(item); setFormData(normalizePlanIntegrationData(item.data)); setEditMode(false); }}>
                 <CardContent className="py-4 flex items-center justify-between">
                   <div>
                     <p className="font-medium">{item.data.nomPrenom || t('unknownCandidate')}</p>
