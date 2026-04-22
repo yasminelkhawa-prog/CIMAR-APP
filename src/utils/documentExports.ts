@@ -158,8 +158,9 @@ async function buildExtraSignaturesTable(extras: ExtraSignature[], fullW: number
 // ─────────────────────── Fiche de Poste (DOCX) ───────────────────────
 
 export async function exportFichePosteDocx(data: FichePosteData, signer: SignerInfo, extraSignatures: ExtraSignature[] = []) {
-  const HEADER_FILL = 'B9DCCB';
-  const TITLE_COLOR = '044C2A';
+  const HEADER_FILL = '044C2A';
+  const TITLE_COLOR = 'FFFFFF';
+  const STANDALONE_TITLE_COLOR = '044C2A';
   const fullW = 9000;
 
   const infoTable = new Table({
@@ -263,7 +264,7 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
       properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 } } },
       children: [
         logoPara,
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Description de Poste', bold: true, size: 36, font: 'Calibri', color: TITLE_COLOR })] }),
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Description de Poste', bold: true, size: 36, font: 'Calibri', color: STANDALONE_TITLE_COLOR })] }),
         new Paragraph({ children: [new TextRun({ text: '' })] }),
         infoTable,
         new Paragraph({ children: [new TextRun({ text: '' })] }),
@@ -288,8 +289,9 @@ export async function exportFichePosteDocx(data: FichePosteData, signer: SignerI
 // ─────────────────────── Plan d'Intégration (DOCX) ───────────────────────
 
 export async function exportPlanIntegrationDocx(data: PlanIntegrationData, signer: SignerInfo, extraSignatures: ExtraSignature[] = []) {
-  const HEADER_FILL = 'B9DCCB';   // Unified CIMAR green (matches Fiche de Poste)
-  const TITLE_COLOR = '044C2A';
+  const HEADER_FILL = '044C2A';   // Unified CIMAR dark green
+  const TITLE_COLOR = 'FFFFFF';   // White text on dark green fills
+  const STANDALONE_TITLE_COLOR = '044C2A'; // Dark green for titles on white
   // Landscape A4: long edge = 16838, with 720 DXA margins (0.5in) → content = 15398
   const fullW = 15398;
   const colWidths = [1900, 3300, 2700, 3700, 1900, 1898]; // sums to 15398
