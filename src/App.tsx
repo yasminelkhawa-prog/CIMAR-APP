@@ -24,7 +24,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
   if (!user) return <Auth />;
-  if (!isApproved && !isAdmin) return <PendingApproval />;
+  // Approval wall disabled — all authenticated users get straight in.
   return <>{children}</>;
 }
 
