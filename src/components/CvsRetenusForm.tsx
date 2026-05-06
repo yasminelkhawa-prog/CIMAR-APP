@@ -1235,6 +1235,15 @@ export function CvsRetenusForm() {
               <><Upload className="h-4 w-4 mr-1" /> {t('uploadCVs')}</>
             )}
           </Button>
+          <Button
+            onClick={() => excelInputRef.current?.click()}
+            disabled={showRunningBar || targetPositions.length === 0}
+            size="sm"
+            variant="outline"
+            title="Importer un rapport Excel de candidatures (LinkedIn, ATS...)"
+          >
+            <FileText className="h-4 w-4 mr-1" /> Importer Excel
+          </Button>
           <input
             ref={fileInputRef}
             type="file"
@@ -1246,6 +1255,17 @@ export function CvsRetenusForm() {
               const forcedPositions = uploadTargetsRef.current ?? undefined;
               uploadTargetsRef.current = null;
               if (files) handleUploadAndAnalyze(files, forcedPositions);
+              e.currentTarget.value = '';
+            }}
+          />
+          <input
+            ref={excelInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) handleApplicantsExcelImport(file);
               e.currentTarget.value = '';
             }}
           />
