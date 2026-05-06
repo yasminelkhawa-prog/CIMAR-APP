@@ -1246,6 +1246,38 @@ export function CvsRetenusForm() {
         </CardContent>
       </Card>
 
+      <Dialog open={!!pasteDialogPos} onOpenChange={(o) => { if (!o) { setPasteDialogPos(null); setPasteText(''); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Description du poste — {pasteDialogPos}</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder="Collez ici la description du poste..."
+            className="min-h-[300px] font-mono text-sm"
+          />
+          <p className="text-xs text-muted-foreground">{pasteText.trim().length} caractères</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setPasteDialogPos(null); setPasteText(''); }}>Annuler</Button>
+            <Button
+              onClick={() => {
+                const cleaned = pasteText.trim();
+                if (cleaned.length < 30) { toast.error('Description trop courte (min. 30 caractères)'); return; }
+                if (pasteDialogPos) {
+                  setJobDescriptions(prev => ({ ...prev, [pasteDialogPos]: cleaned }));
+                  toast.success(`Description enregistrée pour « ${pasteDialogPos} »`);
+                }
+                setPasteDialogPos(null);
+                setPasteText('');
+              }}
+            >
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {showRunningBar && (
         <Card className="border-primary/40 bg-primary/5">
           <CardContent className="py-4">
