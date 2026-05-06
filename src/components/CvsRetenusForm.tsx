@@ -1192,11 +1192,22 @@ export function CvsRetenusForm() {
                       variant="outline"
                       size="sm"
                       className="h-7 px-2 gap-1 text-xs"
+                      onClick={() => { setPasteText(jobDescriptions[pos] || ''); setPasteDialogPos(pos); }}
+                      title="Coller la description du poste"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      {hasJd ? 'Modifier' : 'Coller'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 gap-1 text-xs"
                       onClick={() => openJobDescriptionPicker(pos)}
                       title="Importer la description du poste (PDF, DOCX, TXT, image)"
                     >
                       <FileUp className="h-3.5 w-3.5" />
-                      {hasJd ? 'Remplacer' : 'Description'}
+                      Importer
                     </Button>
                     {hasJd && (
                       <button
