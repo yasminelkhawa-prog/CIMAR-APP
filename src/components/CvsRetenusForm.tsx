@@ -131,6 +131,7 @@ export function CvsRetenusForm() {
   });
   const [newPosition, setNewPosition] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
   const jdInputRef = useRef<HTMLInputElement>(null);
   const jdTargetPositionRef = useRef<string | null>(null);
   const uploadTargetsRef = useRef<string[] | null>(null);
