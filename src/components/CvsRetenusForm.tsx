@@ -1145,7 +1145,7 @@ export function CvsRetenusForm() {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">{t('targetPositionsTitle')}</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Astuce : ajoutez optionnellement une description de poste (PDF, DOCX, TXT) pour améliorer le score de matching. L'analyse fonctionne aussi sans description.
+            Astuce : ajoutez optionnellement une description de poste (collez le texte ou importez PDF, DOCX, TXT) pour améliorer le score de matching. L'analyse fonctionne aussi sans description.
           </p>
         </CardHeader>
         <CardContent>
