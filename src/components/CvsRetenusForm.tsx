@@ -131,6 +131,7 @@ export function CvsRetenusForm() {
   });
   const [newPosition, setNewPosition] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
   const jdInputRef = useRef<HTMLInputElement>(null);
   const jdTargetPositionRef = useRef<string | null>(null);
   const uploadTargetsRef = useRef<string[] | null>(null);
@@ -380,6 +381,117 @@ export function CvsRetenusForm() {
   const openUploadPicker = (positions?: string[]) => {
     uploadTargetsRef.current = positions?.length ? positions : null;
     fileInputRef.current?.click();
+  };
+
+  const handleApplicantsExcelImport = async (file: File, forcedTargetPositions?: string[]) => {
+    const positions = forcedTargetPositions?.length ? forcedTargetPositions : targetPositions;
+    if (positions.length === 0) {
+      toast.error(t('addPositionsFirst'));
+      return;
+    }
+    if (cvAnalysisRunner.isRunning()) {
+      toast.error('Une analyse est déjà en cours');
+      return;
+    }
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      // Find the sheet that looks like applicant rows (has Prénom/Nom or First name)
+      let rows: any[] = [];
+      for (const name of wb.SheetNames) {
+        const aoa = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[name], { header: 1, defval: '' });
+        // detect header row: first row containing Prénom/Nom or First/Last name
+        const headerIdx = aoa.findIndex(r => Array.isArray(r) && r.some(c => /pr[ée]nom|first ?name/i.test(String(c))) && r.some(c => /^nom$|last ?name/i.test(String(c))));
+        if (headerIdx === -1) continue;
+        const headers = aoa[headerIdx].map(h => String(h || '').trim());
+        const dataRows = aoa.slice(headerIdx + 1).filter(r => Array.isArray(r) && r.some(c => String(c || '').trim() !== ''));
+        rows = dataRows.map(r => {
+          const o: Record<string, string> = {};
+          headers.forEach((h, i) => { o[h] = String(r[i] ?? '').trim(); });
+          return o;
+        });
+        if (rows.length > 0) break;
+      }
+      if (rows.length === 0) {
+        toast.error('Aucune candidature détectée dans ce fichier Excel');
+        return;
+      }
+
+      const pick = (o: Record<string, string>, regexes: RegExp[]) => {
+        for (const k of Object.keys(o)) {
+          if (regexes.some(rx => rx.test(k))) {
+            const v = o[k];
+            if (v && v !== 'N/A') return v;
+          }
+        }
+        return '';
+      };
+
+      const sessionId = crypto.randomUUID();
+      const cvTexts: { text: string; filePath: string }[] = [];
+      for (const row of rows) {
+        const prenom = pick(row, [/^pr[ée]nom$/i, /first ?name/i]);
+        const nom = pick(row, [/^nom$/i, /last ?name|family ?name/i]);
+        const email = pick(row, [/e[- ]?mail|courriel/i]);
+        const phone = pick(row, [/t[ée]l[ée]phone|phone/i]);
+        const region = pick(row, [/r[ée]gion|location|adresse/i]);
+        const titre = pick(row, [/^titre$|headline|title/i]);
+        const posteActuel = pick(row, [/poste actuel|current (job|position|title)/i]);
+        const entreprise = pick(row, [/entreprise actuelle|current company|employer/i]);
+        const dateDebut = pick(row, [/date de d[ée]but.*poste|start date/i]);
+        const diplome = pick(row, [/dipl[ôo]me|degree/i]);
+        const ecole = pick(row, [/[ée]tablissement|school|university|formation/i]);
+        const url = pick(row, [/url du profil|linkedin/i]);
+        const intitule = pick(row, [/intitul[ée] du poste|job title/i]);
+        const candidatureDate = pick(row, [/date de candidature|application date/i]);
+
+        const fullName = `${prenom} ${nom}`.trim() || `Candidat ${cvTexts.length + 1}`;
+        const text = [
+          `Nom: ${fullName}`,
+          email && `Email: ${email}`,
+          phone && `Téléphone: ${phone}`,
+          region && `Région / Localisation: ${region}`,
+          titre && `Titre / Headline: ${titre}`,
+          posteActuel && `Poste actuel: ${posteActuel}`,
+          entreprise && `Entreprise actuelle: ${entreprise}`,
+          dateDebut && `Date de début du poste actuel: ${dateDebut}`,
+          diplome && `Diplôme: ${diplome}`,
+          ecole && `Établissement de formation: ${ecole}`,
+          url && `Profil LinkedIn: ${url}`,
+          intitule && `Postulé à: ${intitule}`,
+          candidatureDate && `Date de candidature: ${candidatureDate}`,
+        ].filter(Boolean).join('\n');
+
+        const safeName = fullName.replace(/[^a-zA-Z0-9-_]/g, '_').slice(0, 60) || 'candidat';
+        const filePath = `${sessionId}/${crypto.randomUUID()}/${safeName}.txt`;
+        // Upload as a small txt blob so existing CV preview/storage flow keeps working
+        try {
+          const blob = new Blob([text], { type: 'text/plain' });
+          await supabase.storage.from('cv-uploads').upload(filePath, blob);
+        } catch (e) {
+          console.warn('Storage upload failed for excel row', e);
+        }
+        cvTexts.push({ text, filePath });
+      }
+
+      toast.info(`Analyse IA de ${cvTexts.length} candidatures importées depuis Excel...`);
+
+      cvAnalysisRunner.run({
+        cvTexts,
+        sessionId,
+        targetPositions: positions,
+        jobDescriptions: buildJobDescriptionsPayload(positions),
+        onError: (msg) => toast.error(msg),
+        onSuccess: (count, total, failed) => {
+          if (failed > 0) toast.warning(`${count}/${total} candidatures analysées. ${failed} échec(s).`);
+          else toast.success(`${count} candidatures analysées avec succès !`);
+          loadAnalyses();
+        },
+      });
+    } catch (e) {
+      console.error('Excel import failed', e);
+      toast.error('Impossible de lire ce fichier Excel');
+    }
   };
 
   const handleUploadAndAnalyze = async (files: FileList, forcedTargetPositions?: string[]) => {
@@ -1123,6 +1235,15 @@ export function CvsRetenusForm() {
               <><Upload className="h-4 w-4 mr-1" /> {t('uploadCVs')}</>
             )}
           </Button>
+          <Button
+            onClick={() => excelInputRef.current?.click()}
+            disabled={showRunningBar || targetPositions.length === 0}
+            size="sm"
+            variant="outline"
+            title="Importer un rapport Excel de candidatures (LinkedIn, ATS...)"
+          >
+            <FileText className="h-4 w-4 mr-1" /> Importer Excel
+          </Button>
           <input
             ref={fileInputRef}
             type="file"
@@ -1134,6 +1255,17 @@ export function CvsRetenusForm() {
               const forcedPositions = uploadTargetsRef.current ?? undefined;
               uploadTargetsRef.current = null;
               if (files) handleUploadAndAnalyze(files, forcedPositions);
+              e.currentTarget.value = '';
+            }}
+          />
+          <input
+            ref={excelInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) handleApplicantsExcelImport(file);
               e.currentTarget.value = '';
             }}
           />
