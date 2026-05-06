@@ -137,6 +137,8 @@ export function CvsRetenusForm() {
   const [openPoste, setOpenPoste] = useState<string | null>(null);
   const [openCandidate, setOpenCandidate] = useState<CvAnalysis | null>(null);
   const [candidateCvUrl, setCandidateCvUrl] = useState<string | null>(null);
+  const [pasteDialogPos, setPasteDialogPos] = useState<string | null>(null);
+  const [pasteText, setPasteText] = useState('');
 
   // Resolve a signed URL whenever a candidate is opened, for inline PDF preview.
   useEffect(() => {
