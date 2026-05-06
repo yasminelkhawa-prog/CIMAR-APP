@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -135,6 +137,8 @@ export function CvsRetenusForm() {
   const [openPoste, setOpenPoste] = useState<string | null>(null);
   const [openCandidate, setOpenCandidate] = useState<CvAnalysis | null>(null);
   const [candidateCvUrl, setCandidateCvUrl] = useState<string | null>(null);
+  const [pasteDialogPos, setPasteDialogPos] = useState<string | null>(null);
+  const [pasteText, setPasteText] = useState('');
 
   // Resolve a signed URL whenever a candidate is opened, for inline PDF preview.
   useEffect(() => {
@@ -1141,7 +1145,7 @@ export function CvsRetenusForm() {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">{t('targetPositionsTitle')}</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Astuce : ajoutez optionnellement une description de poste (PDF, DOCX, TXT) pour améliorer le score de matching. L'analyse fonctionne aussi sans description.
+            Astuce : ajoutez optionnellement une description de poste (collez le texte ou importez PDF, DOCX, TXT) pour améliorer le score de matching. L'analyse fonctionne aussi sans description.
           </p>
         </CardHeader>
         <CardContent>
@@ -1188,11 +1192,22 @@ export function CvsRetenusForm() {
                       variant="outline"
                       size="sm"
                       className="h-7 px-2 gap-1 text-xs"
+                      onClick={() => { setPasteText(jobDescriptions[pos] || ''); setPasteDialogPos(pos); }}
+                      title="Coller la description du poste"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      {hasJd ? 'Modifier' : 'Coller'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 gap-1 text-xs"
                       onClick={() => openJobDescriptionPicker(pos)}
                       title="Importer la description du poste (PDF, DOCX, TXT, image)"
                     >
                       <FileUp className="h-3.5 w-3.5" />
-                      {hasJd ? 'Remplacer' : 'Description'}
+                      Importer
                     </Button>
                     {hasJd && (
                       <button
@@ -1230,6 +1245,38 @@ export function CvsRetenusForm() {
           />
         </CardContent>
       </Card>
+
+      <Dialog open={!!pasteDialogPos} onOpenChange={(o) => { if (!o) { setPasteDialogPos(null); setPasteText(''); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Description du poste — {pasteDialogPos}</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder="Collez ici la description du poste..."
+            className="min-h-[300px] font-mono text-sm"
+          />
+          <p className="text-xs text-muted-foreground">{pasteText.trim().length} caractères</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setPasteDialogPos(null); setPasteText(''); }}>Annuler</Button>
+            <Button
+              onClick={() => {
+                const cleaned = pasteText.trim();
+                if (cleaned.length < 30) { toast.error('Description trop courte (min. 30 caractères)'); return; }
+                if (pasteDialogPos) {
+                  setJobDescriptions(prev => ({ ...prev, [pasteDialogPos]: cleaned }));
+                  toast.success(`Description enregistrée pour « ${pasteDialogPos} »`);
+                }
+                setPasteDialogPos(null);
+                setPasteText('');
+              }}
+            >
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {showRunningBar && (
         <Card className="border-primary/40 bg-primary/5">
