@@ -147,6 +147,39 @@ function compactWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Auto-correct common encoding artefacts and OCR coquilles in the incoming
+ * CV / candidate text BEFORE it reaches the AI or heuristics. Idempotent.
+ */
+function autoCorrectIncomingText(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  let text = raw
+    // Mojibake from latin1/utf8 round-trips
+    .replace(/Ã©/g, "é").replace(/Ã¨/g, "è").replace(/Ãª/g, "ê").replace(/Ã«/g, "ë")
+    .replace(/Ã /g, "à").replace(/Ã¢/g, "â").replace(/Ã®/g, "î").replace(/Ã¯/g, "ï")
+    .replace(/Ã´/g, "ô").replace(/Ã¶/g, "ö").replace(/Ã¹/g, "ù").replace(/Ã»/g, "û")
+    .replace(/Ã§/g, "ç").replace(/Å"/g, "œ").replace(/â€™/g, "'")
+    .replace(/â€œ|â€/g, '"').replace(/â€"|â€"/g, "-")
+    // Smart quotes / dashes / NBSP
+    .replace(/[\u2018\u2019\u201A\u2032]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u2033]/g, '"')
+    .replace(/[\u2013\u2014\u2212]/g, "-")
+    .replace(/\u00a0/g, " ")
+    // Drop control chars
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+
+  // Email coquilles: spaces around @ or .
+  text = text.replace(/([A-Za-z0-9._%+-]+)\s*@\s*([A-Za-z0-9.-]+)\s*\.\s*([A-Za-z]{2,})/g, "$1@$2.$3");
+  // OCR: "user0domain.com" → "user@domain.com"
+  text = text.replace(/([A-Za-z0-9._%+-]+)0([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, "$1@$2");
+  // Phone numbers: O→0, l/I→1 inside what looks like a phone
+  text = text.replace(/(\+?\d[\dOoIl|\s().-]{7,}\d)/g, (m) =>
+    m.replace(/[Oo]/g, "0").replace(/[Il|]/g, "1")
+  );
+  return text.replace(/\s+/g, " ").trim();
+}
+
+
 function normalizeForCompare(value: string): string {
   return value
     .normalize("NFD")
