@@ -359,7 +359,7 @@ export function CvsRetenusForm() {
     const isWord = name.endsWith('.docx') || name.endsWith('.doc');
     const isImage = file.type.startsWith('image/') ||
       /\.(jpe?g|png|webp|bmp|tiff?|heic)$/i.test(name);
-    if (isWord) return await extractTextFromWord(file);
+    if (isWord) return cleanupOcrText(await extractTextFromWord(file));
     if (isImage) {
       const ocrText = await withTimeout(extractTextFromImage(file), OCR_FILE_TIMEOUT_MS, `OCR ${file.name}`);
       return cleanupOcrText(ocrText);
@@ -367,7 +367,7 @@ export function CvsRetenusForm() {
     // Try direct text extraction first (fast path for digital PDFs)
     let directText = '';
     try { directText = await extractTextFromPdf(file); } catch (e) { console.warn('PDF text extract failed', file.name, e); }
-    if (directText.length >= DIRECT_TEXT_MIN_LENGTH) return directText;
+    if (directText.length >= DIRECT_TEXT_MIN_LENGTH) return cleanupOcrText(directText);
     // Scanned PDF → OCR with hard timeout
     let ocrText = '';
     try {
