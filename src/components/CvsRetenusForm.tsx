@@ -1306,11 +1306,19 @@ export function CvsRetenusForm() {
             ref={excelInputRef}
             type="file"
             accept=".xlsx,.xls,.csv"
+            multiple
             className="hidden"
-            onChange={e => {
-              const file = e.target.files?.[0];
-              if (file) handleApplicantsExcelImport(file);
+            onChange={async e => {
+              const files = Array.from(e.target.files || []);
               e.currentTarget.value = '';
+              if (!files.length) return;
+              for (const file of files) {
+                try {
+                  await handleApplicantsExcelImport(file);
+                } catch (err) {
+                  console.error('Excel import failed for', file.name, err);
+                }
+              }
             }}
           />
         </div>
