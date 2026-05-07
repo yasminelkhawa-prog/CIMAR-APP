@@ -370,7 +370,7 @@ async function callAi(cvText: string, targetPositions: string[], jobDescriptions
     });
   } catch (error) {
     if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-      throw new Error("AI request timed out after 15 seconds");
+      throw new Error(`AI request timed out after ${Math.round(AI_TIMEOUT_MS / 1000)}s`);
     }
     throw error;
   }
