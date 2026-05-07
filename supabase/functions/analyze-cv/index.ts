@@ -499,19 +499,68 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const results = [];
+    const results: any[] = [];
+    const failures: { filePath: string; reason: string }[] = [];
 
+    const MAX_ATTEMPTS = 3;
     for (const cv of cvTexts) {
-      const aiResult = await callAi(cv.text, targetPositions, jobDescriptionMap);
-      const record = mapAnalysisToRecord(aiResult, sessionId, cv.filePath || "", cv.text, targetPositions, jobDescriptionMap);
-      const { data, error } = await supabase.from("cv_analyses").insert(record).select().single();
-      if (error) {
-        throw new Error(`Database insert failed: ${error.message}`);
+      // Sanitize / auto-correct incoming text (encoding artefacts, NBSP, ligatures)
+      const cleanedText = autoCorrectIncomingText(cv.text);
+      let lastErr: unknown = null;
+      let inserted: any = null;
+
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          const aiResult = await callAi(cleanedText, targetPositions, jobDescriptionMap);
+          const record = mapAnalysisToRecord(aiResult, sessionId, cv.filePath || "", cleanedText, targetPositions, jobDescriptionMap);
+          const { data, error } = await supabase.from("cv_analyses").insert(record).select().single();
+          if (error) throw new Error(`DB insert failed: ${error.message}`);
+          inserted = data;
+          break;
+        } catch (e) {
+          lastErr = e;
+          const msg = e instanceof Error ? e.message : String(e);
+          console.warn(`[analyze-cv] attempt ${attempt}/${MAX_ATTEMPTS} failed for ${cv.filePath}: ${msg}`);
+          if (attempt < MAX_ATTEMPTS) {
+            await new Promise((r) => setTimeout(r, 500 * attempt));
+          }
+        }
       }
-      results.push(data);
+
+      if (inserted) {
+        results.push(inserted);
+      } else {
+        // Always insert a placeholder row so the UI can show + retry.
+        const reason = lastErr instanceof Error ? lastErr.message : "Unknown error";
+        const heuristicBest = pickBestPositionByHeuristic(targetPositions, cleanedText, jobDescriptionMap);
+        const detectedName = extractNameFromText(cleanedText) || "Inconnu";
+        const fallbackRecord = {
+          session_id: sessionId,
+          nom_candidat: detectedName,
+          email: extractEmail(cleanedText),
+          poste_assigne: heuristicBest.position || targetPositions[0] || "",
+          matching_score: Math.max(0, Math.min(100, heuristicBest.score)),
+          competences_cles: [],
+          synthese_ia: `Analyse IA indisponible (${reason.slice(0, 200)}). Score estimé par heuristique uniquement.`,
+          cv_file_path: cv.filePath || "",
+          cv_raw_text: cleanedText.slice(0, 5000),
+          candidate_details: { telephone: extractPhone(cleanedText) },
+          status: "failed",
+          started_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: reason.slice(0, 500),
+        };
+        const { data: fallbackInserted } = await supabase
+          .from("cv_analyses")
+          .insert(fallbackRecord)
+          .select()
+          .single();
+        if (fallbackInserted) results.push(fallbackInserted);
+        failures.push({ filePath: cv.filePath || "", reason });
+      }
     }
 
-    return jsonResponse({ results, sessionId, total: results.length, failed: [] });
+    return jsonResponse({ results, sessionId, total: results.length, failed: failures });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     const status = message.includes("timed out") ? 500 : 500;
