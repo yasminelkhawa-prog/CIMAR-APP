@@ -147,6 +147,39 @@ function compactWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+/**
+ * Auto-correct common encoding artefacts and OCR coquilles in the incoming
+ * CV / candidate text BEFORE it reaches the AI or heuristics. Idempotent.
+ */
+function autoCorrectIncomingText(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  let text = raw
+    // Mojibake from latin1/utf8 round-trips
+    .replace(/Ã©/g, "é").replace(/Ã¨/g, "è").replace(/Ãª/g, "ê").replace(/Ã«/g, "ë")
+    .replace(/Ã /g, "à").replace(/Ã¢/g, "â").replace(/Ã®/g, "î").replace(/Ã¯/g, "ï")
+    .replace(/Ã´/g, "ô").replace(/Ã¶/g, "ö").replace(/Ã¹/g, "ù").replace(/Ã»/g, "û")
+    .replace(/Ã§/g, "ç").replace(/Å"/g, "œ").replace(/â€™/g, "'")
+    .replace(/â€œ|â€/g, '"').replace(/â€"|â€"/g, "-")
+    // Smart quotes / dashes / NBSP
+    .replace(/[\u2018\u2019\u201A\u2032]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u2033]/g, '"')
+    .replace(/[\u2013\u2014\u2212]/g, "-")
+    .replace(/\u00a0/g, " ")
+    // Drop control chars
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+
+  // Email coquilles: spaces around @ or .
+  text = text.replace(/([A-Za-z0-9._%+-]+)\s*@\s*([A-Za-z0-9.-]+)\s*\.\s*([A-Za-z]{2,})/g, "$1@$2.$3");
+  // OCR: "user0domain.com" → "user@domain.com"
+  text = text.replace(/([A-Za-z0-9._%+-]+)0([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, "$1@$2");
+  // Phone numbers: O→0, l/I→1 inside what looks like a phone
+  text = text.replace(/(\+?\d[\dOoIl|\s().-]{7,}\d)/g, (m) =>
+    m.replace(/[Oo]/g, "0").replace(/[Il|]/g, "1")
+  );
+  return text.replace(/\s+/g, " ").trim();
+}
+
+
 function normalizeForCompare(value: string): string {
   return value
     .normalize("NFD")
@@ -370,7 +403,7 @@ async function callAi(cvText: string, targetPositions: string[], jobDescriptions
     });
   } catch (error) {
     if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-      throw new Error("AI request timed out after 15 seconds");
+      throw new Error(`AI request timed out after ${Math.round(AI_TIMEOUT_MS / 1000)}s`);
     }
     throw error;
   }
@@ -499,19 +532,68 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const results = [];
+    const results: any[] = [];
+    const failures: { filePath: string; reason: string }[] = [];
 
+    const MAX_ATTEMPTS = 3;
     for (const cv of cvTexts) {
-      const aiResult = await callAi(cv.text, targetPositions, jobDescriptionMap);
-      const record = mapAnalysisToRecord(aiResult, sessionId, cv.filePath || "", cv.text, targetPositions, jobDescriptionMap);
-      const { data, error } = await supabase.from("cv_analyses").insert(record).select().single();
-      if (error) {
-        throw new Error(`Database insert failed: ${error.message}`);
+      // Sanitize / auto-correct incoming text (encoding artefacts, NBSP, ligatures)
+      const cleanedText = autoCorrectIncomingText(cv.text);
+      let lastErr: unknown = null;
+      let inserted: any = null;
+
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          const aiResult = await callAi(cleanedText, targetPositions, jobDescriptionMap);
+          const record = mapAnalysisToRecord(aiResult, sessionId, cv.filePath || "", cleanedText, targetPositions, jobDescriptionMap);
+          const { data, error } = await supabase.from("cv_analyses").insert(record).select().single();
+          if (error) throw new Error(`DB insert failed: ${error.message}`);
+          inserted = data;
+          break;
+        } catch (e) {
+          lastErr = e;
+          const msg = e instanceof Error ? e.message : String(e);
+          console.warn(`[analyze-cv] attempt ${attempt}/${MAX_ATTEMPTS} failed for ${cv.filePath}: ${msg}`);
+          if (attempt < MAX_ATTEMPTS) {
+            await new Promise((r) => setTimeout(r, 500 * attempt));
+          }
+        }
       }
-      results.push(data);
+
+      if (inserted) {
+        results.push(inserted);
+      } else {
+        // Always insert a placeholder row so the UI can show + retry.
+        const reason = lastErr instanceof Error ? lastErr.message : "Unknown error";
+        const heuristicBest = pickBestPositionByHeuristic(targetPositions, cleanedText, jobDescriptionMap);
+        const detectedName = extractNameFromText(cleanedText) || "Inconnu";
+        const fallbackRecord = {
+          session_id: sessionId,
+          nom_candidat: detectedName,
+          email: extractEmail(cleanedText),
+          poste_assigne: heuristicBest.position || targetPositions[0] || "",
+          matching_score: Math.max(0, Math.min(100, heuristicBest.score)),
+          competences_cles: [],
+          synthese_ia: `Analyse IA indisponible (${reason.slice(0, 200)}). Score estimé par heuristique uniquement.`,
+          cv_file_path: cv.filePath || "",
+          cv_raw_text: cleanedText.slice(0, 5000),
+          candidate_details: { telephone: extractPhone(cleanedText) },
+          status: "failed",
+          started_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          error_message: reason.slice(0, 500),
+        };
+        const { data: fallbackInserted } = await supabase
+          .from("cv_analyses")
+          .insert(fallbackRecord)
+          .select()
+          .single();
+        if (fallbackInserted) results.push(fallbackInserted);
+        failures.push({ filePath: cv.filePath || "", reason });
+      }
     }
 
-    return jsonResponse({ results, sessionId, total: results.length, failed: [] });
+    return jsonResponse({ results, sessionId, total: results.length, failed: failures });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     const status = message.includes("timed out") ? 500 : 500;

@@ -359,7 +359,7 @@ export function CvsRetenusForm() {
     const isWord = name.endsWith('.docx') || name.endsWith('.doc');
     const isImage = file.type.startsWith('image/') ||
       /\.(jpe?g|png|webp|bmp|tiff?|heic)$/i.test(name);
-    if (isWord) return await extractTextFromWord(file);
+    if (isWord) return cleanupOcrText(await extractTextFromWord(file));
     if (isImage) {
       const ocrText = await withTimeout(extractTextFromImage(file), OCR_FILE_TIMEOUT_MS, `OCR ${file.name}`);
       return cleanupOcrText(ocrText);
@@ -367,7 +367,7 @@ export function CvsRetenusForm() {
     // Try direct text extraction first (fast path for digital PDFs)
     let directText = '';
     try { directText = await extractTextFromPdf(file); } catch (e) { console.warn('PDF text extract failed', file.name, e); }
-    if (directText.length >= DIRECT_TEXT_MIN_LENGTH) return directText;
+    if (directText.length >= DIRECT_TEXT_MIN_LENGTH) return cleanupOcrText(directText);
     // Scanned PDF → OCR with hard timeout
     let ocrText = '';
     try {
@@ -960,6 +960,47 @@ export function CvsRetenusForm() {
     toast.success(t('downloadReport'));
   };
 
+  /** One-click bulk export: every analyzed candidate in a single flat sheet, ranked. */
+  const handleBulkExportAll = async () => {
+    if (analyses.length === 0) {
+      toast.error('Aucun CV analysé à exporter');
+      return;
+    }
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'CIMAR HR';
+    wb.created = new Date();
+    const ws = wb.addWorksheet('Tous les candidats', { views: [{ showGridLines: false }] });
+    const headers = [
+      'Rang', 'Poste assigné', 'Prénom', 'Nom', 'Score (%)', 'Email', 'Téléphone',
+      'Région', 'Établissement', 'Formation', 'Poste actuel', 'Entreprise actuelle',
+      'Date début poste', 'Années expérience', 'Compétences clés', 'Synthèse IA',
+    ];
+    const widths = [6, 25, 15, 20, 10, 30, 15, 15, 25, 25, 25, 25, 12, 10, 40, 60];
+    const sorted = [...analyses].sort((a, b) => (b.matching_score || 0) - (a.matching_score || 0));
+    const rows = sorted.map((cv, i) => [
+      i + 1,
+      cv.poste_assigne || '',
+      cv.candidate_details?.prenom || (cv.nom_candidat || '').split(' ')[0] || '',
+      cv.candidate_details?.nom || (cv.nom_candidat || '').split(' ').slice(1).join(' ') || '',
+      cv.matching_score,
+      cv.email || '',
+      cv.candidate_details?.telephone || '',
+      cv.candidate_details?.region || '',
+      cv.candidate_details?.etablissement_formation || '',
+      cv.candidate_details?.formation || '',
+      cv.candidate_details?.poste_actuel || '',
+      cv.candidate_details?.entreprise_actuelle || '',
+      cv.candidate_details?.date_debut_poste || '',
+      cv.candidate_details?.annees_experience || '',
+      (cv.competences_cles || []).join(', '),
+      cv.synthese_ia || '',
+    ]);
+    styleSheet(ws, headers, rows, widths, 5, 1);
+    await writeStyledWorkbook(wb, `bulk_export_candidats_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success(`${analyses.length} candidats exportés`);
+  };
+
+
   const handleDownloadPosteReport = async (poste: string, candidates: CvAnalysis[]) => {
     const wb = new ExcelJS.Workbook();
     wb.creator = 'CIMAR HR';
@@ -1216,6 +1257,9 @@ export function CvsRetenusForm() {
           )}
           {analyses.length > 0 && (
             <>
+              <Button variant="default" size="sm" onClick={handleBulkExportAll} title="Exporter tous les candidats analysés en un seul clic">
+                <Download className="h-4 w-4 mr-1" /> Export Excel (tout)
+              </Button>
               <Button variant="outline" size="sm" onClick={handleDownloadReport}>
                 <Download className="h-4 w-4 mr-1" /> {t('downloadReport')}
               </Button>
