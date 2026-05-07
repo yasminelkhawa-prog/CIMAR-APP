@@ -960,6 +960,47 @@ export function CvsRetenusForm() {
     toast.success(t('downloadReport'));
   };
 
+  /** One-click bulk export: every analyzed candidate in a single flat sheet, ranked. */
+  const handleBulkExportAll = async () => {
+    if (analyses.length === 0) {
+      toast.error('Aucun CV analysé à exporter');
+      return;
+    }
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'CIMAR HR';
+    wb.created = new Date();
+    const ws = wb.addWorksheet('Tous les candidats', { views: [{ showGridLines: false }] });
+    const headers = [
+      'Rang', 'Poste assigné', 'Prénom', 'Nom', 'Score (%)', 'Email', 'Téléphone',
+      'Région', 'Établissement', 'Formation', 'Poste actuel', 'Entreprise actuelle',
+      'Date début poste', 'Années expérience', 'Compétences clés', 'Synthèse IA',
+    ];
+    const widths = [6, 25, 15, 20, 10, 30, 15, 15, 25, 25, 25, 25, 12, 10, 40, 60];
+    const sorted = [...analyses].sort((a, b) => (b.matching_score || 0) - (a.matching_score || 0));
+    const rows = sorted.map((cv, i) => [
+      i + 1,
+      cv.poste_assigne || '',
+      cv.candidate_details?.prenom || (cv.nom_candidat || '').split(' ')[0] || '',
+      cv.candidate_details?.nom || (cv.nom_candidat || '').split(' ').slice(1).join(' ') || '',
+      cv.matching_score,
+      cv.email || '',
+      cv.candidate_details?.telephone || '',
+      cv.candidate_details?.region || '',
+      cv.candidate_details?.etablissement_formation || '',
+      cv.candidate_details?.formation || '',
+      cv.candidate_details?.poste_actuel || '',
+      cv.candidate_details?.entreprise_actuelle || '',
+      cv.candidate_details?.date_debut_poste || '',
+      cv.candidate_details?.annees_experience || '',
+      (cv.competences_cles || []).join(', '),
+      cv.synthese_ia || '',
+    ]);
+    styleSheet(ws, headers, rows, widths, 5, 1);
+    await writeStyledWorkbook(wb, `bulk_export_candidats_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success(`${analyses.length} candidats exportés`);
+  };
+
+
   const handleDownloadPosteReport = async (poste: string, candidates: CvAnalysis[]) => {
     const wb = new ExcelJS.Workbook();
     wb.creator = 'CIMAR HR';
