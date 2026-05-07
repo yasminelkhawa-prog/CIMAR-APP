@@ -1257,6 +1257,9 @@ export function CvsRetenusForm() {
           )}
           {analyses.length > 0 && (
             <>
+              <Button variant="default" size="sm" onClick={handleBulkExportAll} title="Exporter tous les candidats analysés en un seul clic">
+                <Download className="h-4 w-4 mr-1" /> Export Excel (tout)
+              </Button>
               <Button variant="outline" size="sm" onClick={handleDownloadReport}>
                 <Download className="h-4 w-4 mr-1" /> {t('downloadReport')}
               </Button>
