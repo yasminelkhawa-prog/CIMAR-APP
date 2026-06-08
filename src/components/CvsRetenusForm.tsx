@@ -1262,8 +1262,9 @@ export function CvsRetenusForm() {
           )}
           <Button
             onClick={() => openUploadPicker()}
-            disabled={showRunningBar || targetPositions.length === 0}
+            disabled={showRunningBar}
             size="sm"
+            title={targetPositions.length === 0 ? 'Aucun poste défini — l\'IA dispatchera automatiquement chaque CV' : undefined}
           >
             {showRunningBar ? (
               <><RefreshCw className="h-4 w-4 mr-1 animate-spin" /> En cours...</>
@@ -1273,7 +1274,7 @@ export function CvsRetenusForm() {
           </Button>
           <Button
             onClick={() => excelInputRef.current?.click()}
-            disabled={showRunningBar || targetPositions.length === 0}
+            disabled={showRunningBar}
             size="sm"
             variant="outline"
             title="Importer un rapport Excel de candidatures (LinkedIn, ATS...)"
