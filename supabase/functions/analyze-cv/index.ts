@@ -575,13 +575,15 @@ serve(async (req) => {
       } else {
         // Always insert a placeholder row so the UI can show + retry.
         const reason = lastErr instanceof Error ? lastErr.message : "Unknown error";
-        const heuristicBest = pickBestPositionByHeuristic(targetPositions, cleanedText, jobDescriptionMap);
+        const heuristicBest = targetPositions.length > 0
+          ? pickBestPositionByHeuristic(targetPositions, cleanedText, jobDescriptionMap)
+          : { position: "Non classé", score: 0 };
         const detectedName = extractNameFromText(cleanedText) || "Inconnu";
         const fallbackRecord = {
           session_id: sessionId,
           nom_candidat: detectedName,
           email: extractEmail(cleanedText),
-          poste_assigne: heuristicBest.position || targetPositions[0] || "",
+          poste_assigne: heuristicBest.position || targetPositions[0] || "Non classé",
           matching_score: Math.max(0, Math.min(100, heuristicBest.score)),
           competences_cles: [],
           synthese_ia: `Analyse IA indisponible (${reason.slice(0, 200)}). Score estimé par heuristique uniquement.`,
