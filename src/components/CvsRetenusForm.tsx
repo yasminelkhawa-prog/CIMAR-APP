@@ -493,10 +493,6 @@ export function CvsRetenusForm() {
   const handleUploadAndAnalyze = async (files: FileList, forcedTargetPositions?: string[]) => {
     const positions = forcedTargetPositions?.length ? forcedTargetPositions : targetPositions;
     if (files.length === 0) return;
-    if (positions.length === 0) {
-      toast.error(t('addPositionsFirst'));
-      return;
-    }
     if (cvAnalysisRunner.isRunning()) {
       toast.error('Une analyse est déjà en cours');
       return;
