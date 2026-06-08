@@ -471,16 +471,21 @@ function mapAnalysisToRecord(
   const skills = normalizeStringArray(parsed.top_3_skills, 3);
   const quickQuestions = normalizeStringArray(parsed["2_quick_interview_questions"], 2);
   const aiAssigned = pickAssignedPosition(parsed, targetPositions);
-  const heuristicBest = pickBestPositionByHeuristic(targetPositions, rawText, jobDescriptions);
-  const aiAssignedHeuristic = scorePositionWithJobDescription(aiAssigned, rawText, jobDescriptions.get(aiAssigned));
-  const assignedPosition = (heuristicBest.score >= 72 && heuristicBest.score - aiAssignedHeuristic >= 20)
-    ? heuristicBest.position
-    : aiAssigned;
+  let assignedPosition = aiAssigned;
+  if (targetPositions.length > 0) {
+    const heuristicBest = pickBestPositionByHeuristic(targetPositions, rawText, jobDescriptions);
+    const aiAssignedHeuristic = scorePositionWithJobDescription(aiAssigned, rawText, jobDescriptions.get(aiAssigned));
+    assignedPosition = (heuristicBest.score >= 72 && heuristicBest.score - aiAssignedHeuristic >= 20)
+      ? heuristicBest.position
+      : aiAssigned;
+  }
   const now = new Date().toISOString();
   const normalizedCurrentPosition = inferCurrentPosition(rawText, pickStr(parsed.current_position, 200));
   const normalizedEmail = pickStr(parsed.email, 150) || extractEmail(rawText);
   const normalizedPhone = pickStr(parsed.phone, 50) || extractPhone(rawText);
-  const normalizedScore = normalizeMatchingScore(parsed.matching_score_estimate, assignedPosition, rawText, jobDescriptions);
+  const normalizedScore = targetPositions.length === 0
+    ? normalizeScore(parsed.matching_score_estimate)
+    : normalizeMatchingScore(parsed.matching_score_estimate, assignedPosition, rawText, jobDescriptions);
   const aiComment = pickStr(parsed.red_flags_or_gaps, 300);
   const finalComment = buildLowScoreComment(normalizedScore, rawText, assignedPosition, aiComment || validation.reason || "");
 
