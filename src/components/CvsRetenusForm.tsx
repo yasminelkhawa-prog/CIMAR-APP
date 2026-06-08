@@ -1322,7 +1322,7 @@ export function CvsRetenusForm() {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">{t('targetPositionsTitle')}</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Astuce : ajoutez optionnellement une description de poste (collez le texte ou importez PDF, DOCX, TXT) pour améliorer le score de matching. L'analyse fonctionne aussi sans description.
+            Optionnel : ajoutez un ou plusieurs postes cibles (avec description) pour scorer les CV contre. <strong>Si aucun poste n'est défini, l'IA dispatchera automatiquement chaque CV vers le métier le plus pertinent.</strong>
           </p>
         </CardHeader>
         <CardContent>
