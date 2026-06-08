@@ -45,7 +45,7 @@ const RequestSchema = z.object({
     filePath: z.string().optional().default(""),
   })).min(1),
   sessionId: z.string().uuid().optional(),
-  targetPositions: z.array(z.string().trim().min(1)).min(1),
+  targetPositions: z.array(z.string().trim().min(1)).optional().default([]),
   jobDescriptions: z.array(z.object({
     position: z.string().trim().min(1),
     description: z.string().trim().min(1),
