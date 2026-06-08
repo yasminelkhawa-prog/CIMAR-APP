@@ -438,11 +438,13 @@ function pickStr(value: unknown, max = 200): string {
 
 function pickAssignedPosition(parsed: Record<string, unknown>, targetPositions: string[]): string {
   const candidate = pickStr(parsed.best_matching_position);
+  if (targetPositions.length === 0) {
+    // Auto-dispatch: trust the AI's inferred title, fallback to current_position
+    return candidate || pickStr(parsed.current_position, 80) || "Non classé";
+  }
   if (!candidate) return targetPositions[0] || "";
-  // Exact match (case-insensitive)
   const exact = targetPositions.find((p) => p.toLowerCase() === candidate.toLowerCase());
   if (exact) return exact;
-  // Fuzzy: longest target position contained in candidate or vice-versa
   const fuzzy = targetPositions.find(
     (p) =>
       candidate.toLowerCase().includes(p.toLowerCase()) ||
