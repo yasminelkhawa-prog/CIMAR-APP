@@ -375,11 +375,14 @@ async function callAi(cvText: string, targetPositions: string[], jobDescriptions
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-  const positionsList = targetPositions.map((p, i) => {
-    const jd = jobDescriptions.get(p);
-    return `${i + 1}. ${p}${jd ? `\n   JOB DESCRIPTION: ${jd.slice(0, 1200)}` : ""}`;
-  }).join("\n");
-  const userPrompt = `AVAILABLE TARGET POSITIONS (pick exactly ONE, verbatim, for "best_matching_position"):\n${positionsList}\n\nCV TEXT:\n${cvText.slice(0, CV_TEXT_LIMIT)}`;
+  const autoDispatch = targetPositions.length === 0;
+  const positionsBlock = autoDispatch
+    ? `AUTO-DISPATCH MODE: No target positions were provided. You MUST infer the most relevant job title for this candidate FROM THE CV CONTENT (their current role, education, experience and skills). Return that inferred job title (2–6 words, in French if the CV is in French) as "best_matching_position". Set "matching_score_estimate" to reflect how strong/coherent the profile is for that inferred role.`
+    : `AVAILABLE TARGET POSITIONS (pick exactly ONE, verbatim, for "best_matching_position"):\n${targetPositions.map((p, i) => {
+        const jd = jobDescriptions.get(p);
+        return `${i + 1}. ${p}${jd ? `\n   JOB DESCRIPTION: ${jd.slice(0, 1200)}` : ""}`;
+      }).join("\n")}`;
+  const userPrompt = `${positionsBlock}\n\nCV TEXT:\n${cvText.slice(0, CV_TEXT_LIMIT)}`;
 
   let response: Response;
   try {
