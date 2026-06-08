@@ -385,10 +385,6 @@ export function CvsRetenusForm() {
 
   const handleApplicantsExcelImport = async (file: File, forcedTargetPositions?: string[]) => {
     const positions = forcedTargetPositions?.length ? forcedTargetPositions : targetPositions;
-    if (positions.length === 0) {
-      toast.error(t('addPositionsFirst'));
-      return;
-    }
     if (cvAnalysisRunner.isRunning()) {
       toast.error('Une analyse est déjà en cours');
       return;
