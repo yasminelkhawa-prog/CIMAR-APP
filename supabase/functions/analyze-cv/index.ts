@@ -45,7 +45,7 @@ const RequestSchema = z.object({
     filePath: z.string().optional().default(""),
   })).min(1),
   sessionId: z.string().uuid().optional(),
-  targetPositions: z.array(z.string().trim().min(1)).min(1),
+  targetPositions: z.array(z.string().trim().min(1)).optional().default([]),
   jobDescriptions: z.array(z.object({
     position: z.string().trim().min(1),
     description: z.string().trim().min(1),
@@ -375,11 +375,14 @@ async function callAi(cvText: string, targetPositions: string[], jobDescriptions
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-  const positionsList = targetPositions.map((p, i) => {
-    const jd = jobDescriptions.get(p);
-    return `${i + 1}. ${p}${jd ? `\n   JOB DESCRIPTION: ${jd.slice(0, 1200)}` : ""}`;
-  }).join("\n");
-  const userPrompt = `AVAILABLE TARGET POSITIONS (pick exactly ONE, verbatim, for "best_matching_position"):\n${positionsList}\n\nCV TEXT:\n${cvText.slice(0, CV_TEXT_LIMIT)}`;
+  const autoDispatch = targetPositions.length === 0;
+  const positionsBlock = autoDispatch
+    ? `AUTO-DISPATCH MODE: No target positions were provided. You MUST infer the most relevant job title for this candidate FROM THE CV CONTENT (their current role, education, experience and skills). Return that inferred job title (2–6 words, in French if the CV is in French) as "best_matching_position". Set "matching_score_estimate" to reflect how strong/coherent the profile is for that inferred role.`
+    : `AVAILABLE TARGET POSITIONS (pick exactly ONE, verbatim, for "best_matching_position"):\n${targetPositions.map((p, i) => {
+        const jd = jobDescriptions.get(p);
+        return `${i + 1}. ${p}${jd ? `\n   JOB DESCRIPTION: ${jd.slice(0, 1200)}` : ""}`;
+      }).join("\n")}`;
+  const userPrompt = `${positionsBlock}\n\nCV TEXT:\n${cvText.slice(0, CV_TEXT_LIMIT)}`;
 
   let response: Response;
   try {
@@ -435,11 +438,13 @@ function pickStr(value: unknown, max = 200): string {
 
 function pickAssignedPosition(parsed: Record<string, unknown>, targetPositions: string[]): string {
   const candidate = pickStr(parsed.best_matching_position);
+  if (targetPositions.length === 0) {
+    // Auto-dispatch: trust the AI's inferred title, fallback to current_position
+    return candidate || pickStr(parsed.current_position, 80) || "Non classé";
+  }
   if (!candidate) return targetPositions[0] || "";
-  // Exact match (case-insensitive)
   const exact = targetPositions.find((p) => p.toLowerCase() === candidate.toLowerCase());
   if (exact) return exact;
-  // Fuzzy: longest target position contained in candidate or vice-versa
   const fuzzy = targetPositions.find(
     (p) =>
       candidate.toLowerCase().includes(p.toLowerCase()) ||
@@ -466,16 +471,21 @@ function mapAnalysisToRecord(
   const skills = normalizeStringArray(parsed.top_3_skills, 3);
   const quickQuestions = normalizeStringArray(parsed["2_quick_interview_questions"], 2);
   const aiAssigned = pickAssignedPosition(parsed, targetPositions);
-  const heuristicBest = pickBestPositionByHeuristic(targetPositions, rawText, jobDescriptions);
-  const aiAssignedHeuristic = scorePositionWithJobDescription(aiAssigned, rawText, jobDescriptions.get(aiAssigned));
-  const assignedPosition = (heuristicBest.score >= 72 && heuristicBest.score - aiAssignedHeuristic >= 20)
-    ? heuristicBest.position
-    : aiAssigned;
+  let assignedPosition = aiAssigned;
+  if (targetPositions.length > 0) {
+    const heuristicBest = pickBestPositionByHeuristic(targetPositions, rawText, jobDescriptions);
+    const aiAssignedHeuristic = scorePositionWithJobDescription(aiAssigned, rawText, jobDescriptions.get(aiAssigned));
+    assignedPosition = (heuristicBest.score >= 72 && heuristicBest.score - aiAssignedHeuristic >= 20)
+      ? heuristicBest.position
+      : aiAssigned;
+  }
   const now = new Date().toISOString();
   const normalizedCurrentPosition = inferCurrentPosition(rawText, pickStr(parsed.current_position, 200));
   const normalizedEmail = pickStr(parsed.email, 150) || extractEmail(rawText);
   const normalizedPhone = pickStr(parsed.phone, 50) || extractPhone(rawText);
-  const normalizedScore = normalizeMatchingScore(parsed.matching_score_estimate, assignedPosition, rawText, jobDescriptions);
+  const normalizedScore = targetPositions.length === 0
+    ? normalizeScore(parsed.matching_score_estimate)
+    : normalizeMatchingScore(parsed.matching_score_estimate, assignedPosition, rawText, jobDescriptions);
   const aiComment = pickStr(parsed.red_flags_or_gaps, 300);
   const finalComment = buildLowScoreComment(normalizedScore, rawText, assignedPosition, aiComment || validation.reason || "");
 
@@ -565,13 +575,15 @@ serve(async (req) => {
       } else {
         // Always insert a placeholder row so the UI can show + retry.
         const reason = lastErr instanceof Error ? lastErr.message : "Unknown error";
-        const heuristicBest = pickBestPositionByHeuristic(targetPositions, cleanedText, jobDescriptionMap);
+        const heuristicBest = targetPositions.length > 0
+          ? pickBestPositionByHeuristic(targetPositions, cleanedText, jobDescriptionMap)
+          : { position: "Non classé", score: 0 };
         const detectedName = extractNameFromText(cleanedText) || "Inconnu";
         const fallbackRecord = {
           session_id: sessionId,
           nom_candidat: detectedName,
           email: extractEmail(cleanedText),
-          poste_assigne: heuristicBest.position || targetPositions[0] || "",
+          poste_assigne: heuristicBest.position || targetPositions[0] || "Non classé",
           matching_score: Math.max(0, Math.min(100, heuristicBest.score)),
           competences_cles: [],
           synthese_ia: `Analyse IA indisponible (${reason.slice(0, 200)}). Score estimé par heuristique uniquement.`,

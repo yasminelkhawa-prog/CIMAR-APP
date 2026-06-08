@@ -385,10 +385,6 @@ export function CvsRetenusForm() {
 
   const handleApplicantsExcelImport = async (file: File, forcedTargetPositions?: string[]) => {
     const positions = forcedTargetPositions?.length ? forcedTargetPositions : targetPositions;
-    if (positions.length === 0) {
-      toast.error(t('addPositionsFirst'));
-      return;
-    }
     if (cvAnalysisRunner.isRunning()) {
       toast.error('Une analyse est déjà en cours');
       return;
@@ -497,10 +493,6 @@ export function CvsRetenusForm() {
   const handleUploadAndAnalyze = async (files: FileList, forcedTargetPositions?: string[]) => {
     const positions = forcedTargetPositions?.length ? forcedTargetPositions : targetPositions;
     if (files.length === 0) return;
-    if (positions.length === 0) {
-      toast.error(t('addPositionsFirst'));
-      return;
-    }
     if (cvAnalysisRunner.isRunning()) {
       toast.error('Une analyse est déjà en cours');
       return;
@@ -1270,8 +1262,9 @@ export function CvsRetenusForm() {
           )}
           <Button
             onClick={() => openUploadPicker()}
-            disabled={showRunningBar || targetPositions.length === 0}
+            disabled={showRunningBar}
             size="sm"
+            title={targetPositions.length === 0 ? 'Aucun poste défini — l\'IA dispatchera automatiquement chaque CV' : undefined}
           >
             {showRunningBar ? (
               <><RefreshCw className="h-4 w-4 mr-1 animate-spin" /> En cours...</>
@@ -1281,7 +1274,7 @@ export function CvsRetenusForm() {
           </Button>
           <Button
             onClick={() => excelInputRef.current?.click()}
-            disabled={showRunningBar || targetPositions.length === 0}
+            disabled={showRunningBar}
             size="sm"
             variant="outline"
             title="Importer un rapport Excel de candidatures (LinkedIn, ATS...)"
@@ -1329,7 +1322,7 @@ export function CvsRetenusForm() {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">{t('targetPositionsTitle')}</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Astuce : ajoutez optionnellement une description de poste (collez le texte ou importez PDF, DOCX, TXT) pour améliorer le score de matching. L'analyse fonctionne aussi sans description.
+            Optionnel : ajoutez un ou plusieurs postes cibles (avec description) pour scorer les CV contre. <strong>Si aucun poste n'est défini, l'IA dispatchera automatiquement chaque CV vers le métier le plus pertinent.</strong>
           </p>
         </CardHeader>
         <CardContent>
