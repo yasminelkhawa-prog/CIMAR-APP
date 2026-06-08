@@ -15,16 +15,7 @@ import PendingApproval from "./pages/PendingApproval.tsx";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isApproved, isAdmin, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        Loading...
-      </div>
-    );
-  }
-  if (!user) return <Auth />;
-  // Approval wall disabled — all authenticated users get straight in.
+  // Auth disabled — open access.
   return <>{children}</>;
 }
 
