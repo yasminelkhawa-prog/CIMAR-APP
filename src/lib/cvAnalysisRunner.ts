@@ -116,6 +116,8 @@ async function analyzeOne(
   }
 }
 
+const CONCURRENCY = 5;
+
 async function processBatch(
   cvs: CvPayload[],
   sessionId: string,
@@ -127,30 +129,42 @@ async function processBatch(
 ): Promise<{ failed: FailedCv[]; succeeded: number }> {
   const failed: FailedCv[] = [];
   let succeeded = 0;
-  for (let i = 0; i < cvs.length; i++) {
-    const cv = cvs[i];
-    const name = prettyName(cv.filePath);
-    const display = startIndex + i + 1;
-    setState({
-      current: display,
-      currentName: name,
-      message: `${display}/${totalOverride} — ${name}${isRetryPass ? ' (retry)' : ''}`,
-    });
-    const res = await analyzeOne(cv, sessionId, targetPositions, jobDescriptions);
-    if (res.ok) {
-      succeeded += 1;
-      toast.success(`✓ ${name}`, {
-        description: `Analysé (${display}/${totalOverride})`,
-        duration: 2500,
+  let done = 0;
+  let cursor = 0;
+
+  const worker = async () => {
+    while (true) {
+      const i = cursor++;
+      if (i >= cvs.length) return;
+      const cv = cvs[i];
+      const name = prettyName(cv.filePath);
+      setState({
+        currentName: name,
+        message: `${done}/${totalOverride} — ${name}${isRetryPass ? ' (retry)' : ''}`,
       });
-    } else {
-      failed.push({ ...cv, reason: res.reason || 'Échec' });
-      toast.error(`✗ ${name}`, {
-        description: `Échec: ${res.reason || 'Erreur'} (${display}/${totalOverride})`,
-        duration: 3500,
-      });
+      const res = await analyzeOne(cv, sessionId, targetPositions, jobDescriptions);
+      done += 1;
+      const display = startIndex + done;
+      if (res.ok) {
+        succeeded += 1;
+        setState({ current: display, succeeded });
+        toast.success(`✓ ${name}`, {
+          description: `Analysé (${display}/${totalOverride})`,
+          duration: 2500,
+        });
+      } else {
+        failed.push({ ...cv, reason: res.reason || 'Échec' });
+        setState({ current: display, failed: [...failed] });
+        toast.error(`✗ ${name}`, {
+          description: `Échec: ${res.reason || 'Erreur'} (${display}/${totalOverride})`,
+          duration: 3500,
+        });
+      }
     }
-  }
+  };
+
+  const workers = Array.from({ length: Math.min(CONCURRENCY, cvs.length) }, () => worker());
+  await Promise.all(workers);
   return { failed, succeeded };
 }
 
