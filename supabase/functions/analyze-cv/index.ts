@@ -335,22 +335,20 @@ function normalizeMatchingScore(
   rawText: string,
   jobDescriptions: Map<string, string>
 ): number {
+  // Trust the AI evaluation primarily — it considers education quality,
+  // domain knowledge and universal role requirements. The keyword heuristic
+  // is only used as a soft floor when the AI gives an unreasonably low score
+  // despite strong keyword overlap with the JD.
   const aiScore = normalizeScore(rawScore);
   const heuristicScore = scorePositionWithJobDescription(assignedPosition, rawText, jobDescriptions.get(assignedPosition));
-  const roleAlignment = scoreCurrentRoleAlignment(rawText, assignedPosition);
-  const strongDescriptionSignal = hasStrongDescriptionSignal(rawText, assignedPosition, jobDescriptions);
-  const baseScore = Math.max(heuristicScore, roleAlignment > 0 ? Math.round(roleAlignment * 0.7 + heuristicScore * 0.3) : heuristicScore);
 
-  if (baseScore <= 10 && aiScore >= 85) return 24;
-  if (baseScore < 25 && aiScore >= 70) return Math.max(baseScore, 28);
-  if (!strongDescriptionSignal && baseScore < 40 && aiScore > 80) return Math.max(baseScore, 42);
-  if (baseScore >= 80 && aiScore < 45) return baseScore;
-  if (baseScore >= 60 && aiScore < 30) return baseScore;
-  if (baseScore >= 45 && aiScore < 20) return baseScore;
-  if (baseScore === 0 && aiScore > 90) return 18;
-  if (baseScore > 0 && aiScore < 25) return Math.max(25, baseScore);
+  // Soft floor: if keywords match very strongly but AI was harsh, lift it up a bit.
+  if (heuristicScore >= 80 && aiScore < heuristicScore - 25) {
+    return Math.max(0, Math.min(100, Math.round(aiScore * 0.4 + heuristicScore * 0.6)));
+  }
 
-  const blended = Math.round(aiScore * 0.45 + baseScore * 0.55);
+  // Otherwise: AI score is authoritative (90% AI / 10% heuristic for slight grounding).
+  const blended = Math.round(aiScore * 0.9 + heuristicScore * 0.1);
   return Math.max(0, Math.min(100, blended));
 }
 
